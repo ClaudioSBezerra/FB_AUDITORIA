@@ -94,6 +94,7 @@ O que importa para quem decide é a confiança: qualquer número tem origem rast
 - **Perfil** — papel do usuário: analista, Controller, **Gerente** ou diretoria.
 - **Lista de aviso** — grupo de e-mail que recebe o aviso de cada **Ajuste**.
 - **Ambiente** — marcador da **Empresa**: Teste (os dados podem ser apagados) ou Produção (nada pode ser apagado); a virada de Teste para Produção é de mão única.
+- **Bloqueio de usuário** — impede um usuário de entrar e de usar o sistema sem apagá-lo; é feito e desfeito por quem gere usuários, sempre com motivo.
 
 ## 4. Features
 
@@ -341,6 +342,16 @@ Usuários são criados apenas por administrador; o cadastro público é desativa
 - A rota pública de cadastro responde recusa quando o cadastro aberto está desligado (padrão).
 - A criação de usuário e a mudança de perfil gravam na **Trilha de auditoria**.
 
+#### FR-22: Bloquear e desbloquear usuário
+
+Quem gere usuários bloqueia e desbloqueia um usuário, sempre com motivo. O sistema não expira usuários por tempo: o acesso só termina por **Bloqueio de usuário**. Sem jornada própria: requisito de segurança.
+
+**Consequences (testable):**
+- Usuário bloqueado não consegue entrar nem renovar a sessão, e uma sessão aberta deixa de funcionar na requisição seguinte.
+- Bloquear e desbloquear exigem motivo e gravam na **Trilha de auditoria**.
+- Ninguém bloqueia a si mesmo, e o último administrador de plataforma ativo não pode ser bloqueado.
+- Nenhum usuário perde acesso por passagem de tempo: a expiração de teste por usuário deixa de existir.
+
 **Feature-specific NFRs:**
 - Contas de folha de pagamento são sensíveis: `[NOTE FOR PM]` definir se o **Gerente** vê o detalhe por conta ou só o total do seu **Departamento**.
 
@@ -371,6 +382,7 @@ O administrador de plataforma define o **Ambiente** da **Empresa**. Em Teste ele
 - Não cobre a gestão de verbas (conta-corrente por fornecedor e filial), nem comercial, fretes, produtividade ou diárias nesta release; as contas de verba aparecem no DRE como qualquer **Conta gerencial**.
 - Não oferece detalhe até o documento de origem enquanto a fonte for agregada por mês.
 - Não inclui exportação para PDF/Excel nesta release `[NON-GOAL for MVP]`.
+- Não há expiração de senha nem de acesso por tempo: o acesso termina por Bloqueio de usuário.
 
 ## 6. MVP Scope
 
@@ -385,16 +397,18 @@ O administrador de plataforma define o **Ambiente** da **Empresa**. Em Teste ele
 - Rateio de despesas centralizadas e dashboards de desvios.
 - Perfis (analista, Controller, Gerente, diretoria) e cadastro de usuários restrito.
 - Ambiente de Teste e Produção, com apagar em Teste e virada de mão única.
+- Bloqueio de usuário no lugar de expiração por tempo.
 
 ### 6.2 Out of Scope for MVP
 - Realizado por Conta gerencial direto do banco do cliente: depende de fonte ainda não confirmada; entra quando houver. `[NOTE FOR PM]`
 - Exportação para PDF e Excel.
 - Visão do colaborador (pertence às frentes de operação).
 - Limites de Desvio por Departamento.
+- Perfil de TI para administrar o ambiente da empresa (criar e bloquear usuários), previsto para depois.
 
 ### 6.3 Sequência de entrega
 
-- **Núcleo** (não depende de pergunta aberta): FR-1 a FR-3, FR-5 a FR-12, FR-16, FR-18 a FR-21. O FR-19 (cadastro fechado) sai antes de todos, porque o site já é público.
+- **Núcleo** (não depende de pergunta aberta): FR-1 a FR-3, FR-5 a FR-12, FR-16, FR-18 a FR-22. O FR-19 (cadastro fechado) sai antes de todos, porque o site já é público.
 - **Com padrão provisório até o cliente responder:** FR-4 (aviso à **Lista de aviso**), FR-13 (limite configurável, sem valor inicial) e FR-14 (envio só após o **Fechamento**).
 - **Só começa com a resposta do cliente:** FR-15 (**Rateio**), que depende das perguntas abertas 4 e 5.
 - **Depois do núcleo:** FR-17 (tendência, ponte e projeção).

@@ -1,6 +1,6 @@
 ---
 status: draft
-stepsCompleted: [1]
+stepsCompleted: [1, 2, 3]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-FB_AUDITORIA-2026-10-27/prd.md
   - _bmad-output/planning-artifacts/architecture/architecture-FB_AUDITORIA-2026-10-27/ARCHITECTURE-SPINE.md
@@ -37,6 +37,7 @@ FR-18: Controlar acesso por perfil e, para o Gerente, por Departamento, em toda 
 FR-19: Restringir o cadastro de usuários ao administrador; cadastro público desativado.
 FR-20: Carregar o dicionário de contas (conta, descrição, grupo, Departamento) por arquivo.
 FR-21: Marcar o Ambiente da Empresa como Teste ou Produção: em Teste o administrador apaga os dados de domínio (com a senha de novo); em Produção nada pode ser apagado; a virada é de mão única; e-mail só ao administrador em Teste; faixa visível de ambiente.
+FR-22: Bloquear e desbloquear usuário, com motivo; nenhum usuário expira por tempo; o acesso só termina por bloqueio.
 
 ### NonFunctional Requirements
 
@@ -74,6 +75,7 @@ Brownfield, sem starter template: a Fase 1 existe em produção; o trabalho é i
 - AR-14: `ALLOW_SELF_REGISTER=false` por padrão; `JC_EMPRESA_ID` e `JC_ORACLE_*` sem valores padrão no repositório (remover host padrão de compose, `.env.example` e `jc-probe`).
 - AR-15: backup do Postgres da Auditoria com restauração testada. Verificado no servidor: o cron diário `pg-backup-gdrive.sh` (23:00 UTC, `pg_dump -Fc`, `rclone` para o OneDrive, retenção de 56 dias, alerta por e-mail) tem lista fixa de stacks e usa `-U postgres`; a Auditoria não está na lista e seu usuário é outro. Trabalho: incluir a Auditoria no script (usuário lido de `POSTGRES_USER`), versionar uma cópia sem segredos no repositório, documentar e executar o teste de restauração; confirmar com o cliente o destino dos dados no OneDrive.
 - AR-17 (AD-18): `companies.ambiente` (padrão `teste`, trigger de mão única), função `limpar_dados_teste`, função `imutavel_salvo_em_teste` nos gatilhos de imutabilidade, senha de novo para apagar e virar, faixa de ambiente, e-mail em Teste só ao administrador.
+- AR-18 (AD-19): `users.bloqueado_em`, `bloqueado_por` e `motivo_bloqueio`; verificação no login, na renovação de sessão e no middleware; **remover** a verificação por `trial_ends_at` do login (`auth.go`) e do middleware (`auditoria_auth.go`), a extensão de teste do `PromoteUserHandler`, o prazo de 14 dias do `CreateUserHandler` e, no frontend, a coluna Trial de `AdminUsers.tsx` e o "Licença vence" do `AppRail.tsx`.
 - AR-16 (dívida, não bloqueia): `node:18-alpine`, tags fixas de `cloudflared` e `alpine`, `go mod tidy`; `DeleteUserHandler` versus o trigger de `audit_log`.
 
 ### UX Design Requirements
@@ -82,8 +84,851 @@ Não há documento de UX. As telas seguem os padrões de componentes e o `naviga
 
 ### FR Coverage Map
 
-{{requirements_coverage_map}}
+FR-1: Epic 2 - Importar o Realizado consolidado do banco do cliente
+FR-2: Epic 2 - Importar o Orçado por conta
+FR-3: Epic 2 - Carregar o Realizado por conta por arquivo (validação e provisório)
+FR-4: Epic 5 - Ajuste imutável com motivo, aviso e Justificativa
+FR-5: Epic 3 - Estrutura de Linhas do DRE
+FR-6: Epic 3 - Mapa de contas com Departamento
+FR-7: Epic 3 - DRE mensal e acumulado
+FR-8: Epic 3 - Comparação com Orçado e Ano anterior
+FR-9: Epic 1 - Fechar a Competência (sempre consolidado)
+FR-10: Epic 1 - Reabrir o Fechamento com motivo
+FR-11: Epic 1 - Bloquear escrita em Competência fechada
+FR-12: Epic 5 - Justificativa no escopo do Departamento
+FR-13: Epic 5 - Limite de Desvio
+FR-14: Epic 5 - E-mail do DRE por Departamento
+FR-15: Epic 7 - Rateio entre Filiais
+FR-16: Epic 6 - Ranking dos principais Desvios
+FR-17: Epic 6 - Tendência, ponte do resultado e projeção
+FR-18: Epic 4 - Acesso por perfil e por Departamento
+FR-19: Epic 4 - Cadastro público desativado (primeira história a sair)
+FR-20: Epic 2 - Dicionário de contas por arquivo
+FR-21: Epic 1 - Ambiente Teste ou Produção
+FR-22: Epic 4 - Bloqueio de usuário no lugar da expiração por tempo
 
 ## Epic List
 
-{{epics_list}}
+### Epic 1: Fechar o mês com segurança
+O Controller fecha o mês do grupo e o reabre com motivo, sabendo que ninguém altera números fechados; a equipe valida o sistema num ambiente de Teste que pode ser apagado e que vira Produção de forma irreversível.
+**FRs covered:** FR-9, FR-10, FR-11, FR-21
+**Notas:** abre com testes de caracterização do fechamento e da importação atuais (não há nenhum teste Go); migra os handlers para o pacote `dre` (AD-1, AD-2); guarda de período e fechamento ativo único (AD-8, AD-9, AD-17); marcador Teste/Produção, apagar com senha, faixa de ambiente e virada (AD-18); remove o host padrão do Oracle do repositório. Fechamento só consolidado.
+
+### Epic 2: Os dados do cliente entram sozinhos
+O analista importa o realizado consolidado e o orçado do banco do cliente com um clique, carrega por arquivo o que ainda não vem de lá, e confere que o resultado bate com a planilha atual.
+**FRs covered:** FR-1, FR-2, FR-3, FR-20
+**Notas:** "Importar agora" manual primeiro; agendador é opcional e a última história (AD-15); guardar a UF no lançamento (AD-3); orçado por conta (AD-5); dono da conta (AD-16); dicionário inicial derivado da planilha e validado com a área de negócio; história de paridade com a planilha e de Oracle × planilha.
+
+### Epic 3: DRE por departamento, com orçado e ano anterior
+Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
+**FRs covered:** FR-5, FR-6, FR-7, FR-8
+**Notas:** Mapa e estrutura iniciais derivados da planilha; paridade completa com o DRE da planilha; o perfil `gestor` não vê dado de departamento até o épico 4; o fim deste épico é a primeira demonstração ao cliente.
+
+### Epic 4: Acesso seguro por perfil e departamento
+Cada pessoa vê e faz só o que cabe ao seu papel, o Gerente enxerga apenas o seu departamento, e o cadastro público deixa de existir.
+**FRs covered:** FR-18, FR-19, FR-22
+**Notas:** a história do FR-19 sai antes de todas as outras (o site já é público); `perfis.go` e middleware por capacidade (AD-11); escopo que nega por padrão (AD-10); migração dos ids de área (AD-12).
+
+### Epic 5: Gerentes justificam ajustes e desvios
+O analista lança ajuste com motivo, os gerentes são avisados e justificam, e cada gerente recebe por e-mail o DRE do seu departamento.
+**FRs covered:** FR-4, FR-12, FR-13, FR-14
+**Notas:** outbox de e-mail (AD-13); limite de desvio e Lista de aviso começam com padrão provisório até o cliente responder; em Teste o e-mail vai só ao administrador.
+
+### Epic 6: Dashboards de desvios e tendência
+A diretoria vê os maiores desvios por departamento, gerente e filial, a tendência da despesa sobre o Faturamento Líquido, a ponte do resultado e a projeção do ano.
+**FRs covered:** FR-16, FR-17
+
+### Epic 7: Rateio entre filiais
+O DRE por filial mostra o custo real, com as despesas dos departamentos centralizados rateadas entre as unidades.
+**FRs covered:** FR-15
+**Notas:** depende de respostas do cliente (quais departamentos e se o critério é fixo ou mensal); só começa depois delas.
+
+### Epic 8: Go-live com dado real (trilha paralela)
+A equipe do cliente passa a usar o sistema com dado real sabendo que há backup restaurável, que o Oracle cobre as contas do DRE e que não restou dívida de segurança.
+**FRs covered:** nenhum; cobre NFR6, NFR7, AR-15 e AR-16
+**Notas:** corre em paralelo aos demais; o pedido de autorização do cliente sobre o destino do backup é aberto desde já; a virada para Produção avisa quando o Oracle ainda não cobre contas do DRE.
+
+### Ordem e dependências
+1 → 2 → 3 → 4 → 5 → 6. O épico 7 depende dos épicos 1 e 3 e das respostas do cliente. O épico 8 corre em paralelo e deve terminar antes do go-live.
+
+## Epic 1: Fechar o mês com segurança
+
+O Controller fecha o mês do grupo e o reabre com motivo, sabendo que ninguém altera números fechados; a equipe valida o sistema num ambiente de Teste que pode ser apagado e que vira Produção de forma irreversível.
+
+**Nota de perfis:** até o épico 4, o analista e o Controller usam o mesmo perfil `controladoria`; o perfil `analista` e a matriz de capacidades chegam no épico 4. Toda história futura que criar tabela de domínio a inclui em `auditoria.limpar_dados_teste` e usa `auditoria.imutavel_salvo_em_teste` nos seus gatilhos (AD-18).
+
+### Story 1.1: Testes que registram o fechamento e a importação de hoje
+
+As a dono do produto,
+I want testes automáticos que registram como o fechamento e a importação CSV funcionam hoje,
+So that eu possa mover esse código sem quebrar o que o Controller já usa.
+
+**Acceptance Criteria:**
+
+**Given** um banco PostgreSQL de teste com as migrations 001 a 003
+**When** `go test ./...` roda em `backend/`
+**Then** os testes usam um banco cujo nome termina em `_test`
+**And** abortam com mensagem clara se o nome não terminar assim
+
+**Given** lançamentos mapeados para as linhas do DRE
+**When** o teste fecha uma competência
+**Then** confirma a versão 1, as linhas congeladas com os valores esperados e o registro na trilha
+
+**Given** uma conta com lançamento sem mapeamento
+**When** o teste tenta fechar
+**Then** recebe `409` e nada é gravado
+
+**Given** um CSV com `;` e outro com `,`
+**When** o teste importa
+**Then** as linhas entram com `carga_id` e a trilha registra a importação
+
+**Given** que hoje a importação ignora o fechamento
+**When** o teste importa para uma competência fechada
+**Then** o comportamento atual (aceita) fica registrado e marcado "muda na 1.6"
+**And** `go build ./...` e `go vet ./...` seguem passando
+
+### Story 1.2: Marcador Teste/Produção e apagar os dados de teste (AD-18)
+
+As a administrador de plataforma,
+I want marcar a empresa como Teste ou Produção e apagar os dados de teste com a minha senha,
+So that eu valide com planilhas e depois comece do zero sem risco de apagar dado real.
+
+**Acceptance Criteria:**
+
+**Given** as empresas existentes
+**When** a migration roda
+**Then** `companies.ambiente` existe com padrão `teste` e todas ficam em `teste`
+
+**Given** uma empresa em `producao`
+**When** alguém tenta voltar para `teste` (por SQL ou API)
+**Then** o banco recusa (gatilho de mão única)
+
+**Given** o admin de plataforma logado
+**When** pede para apagar informando a senha correta
+**Then** `auditoria.limpar_dados_teste` apaga lançamentos, orçado, fechamentos e cargas, mantém estrutura do DRE, Mapa, usuários e `audit_log`, e grava na trilha
+
+**Given** senha errada ou ausente
+**When** pede para apagar
+**Then** `403` e nada é apagado
+
+**Given** empresa em `producao`
+**When** chama apagar (inclusive direto na API)
+**Then** a função recusa e nada é apagado
+
+**Given** um perfil que não é admin de plataforma
+**When** chama apagar
+**Then** `403`
+**And** existe `auditoria.imutavel_salvo_em_teste(empresa_id)`, verdadeira só em `teste` com a sessão aberta pela função de limpeza
+
+### Story 1.3: Virar para Produção e faixa de ambiente
+
+As a administrador de plataforma,
+I want virar a empresa para Produção e ver em toda tela em que ambiente estou,
+So that ninguém confunda teste com produção.
+
+**Acceptance Criteria:**
+
+**Given** empresa em `teste`
+**When** o admin pede para virar informando a senha e digitando "VIRAR PARA PRODUCAO"
+**Then** `ambiente` passa a `producao` e a trilha registra quem e quando
+**And** a resposta lista as contas com lançamento de origem arquivo (aviso, não bloqueia)
+
+**Given** ambiente `teste`
+**When** qualquer tela carrega
+**Then** a faixa "AMBIENTE DE TESTE" aparece fixa (via `/api/aud/me`)
+
+**Given** `producao`
+**When** o admin abre a tela de administração
+**Then** não há faixa, a tela mostra "Produção" e não há botão de apagar
+
+**Given** senha errada
+**When** pede para virar
+**Then** `403` e nada muda
+
+### Story 1.4: Importação CSV passa pelo Ingestor (AD-1, AD-2, AD-3)
+
+As a analista,
+I want que reenviar um CSV substitua os dados em vez de duplicá-los,
+So that a carga de validação seja repetível.
+
+**Acceptance Criteria:**
+
+**Given** o pacote `backend/dre` com a porta `Fonte` e `dre/fontes/csv`
+**When** o handler recebe um CSV
+**Then** só chama `dre.Ingestor`, sem `INSERT` em lançamentos
+
+**Given** um escopo `(empresa, origem, competência, filial)` já importado
+**When** o CSV é reenviado
+**Then** o escopo é substituído numa transação e não duplica
+
+**Given** lançamentos de outra origem na mesma competência e filial
+**When** reimporta
+**Then** eles permanecem
+
+**Given** linha inválida ou `filial` vazia
+**When** importa
+**Then** rejeita listando as linhas e nada é gravado
+
+**Given** arquivo sem linhas
+**When** importa
+**Then** não apaga o escopo e informa
+**And** um teste falha o build se outro pacote tiver `INSERT` ou `DELETE` em `lancamentos`
+
+### Story 1.5: Fechamento passa pelo serviço `dre` (AD-1)
+
+As a Controller,
+I want que o fechamento continue funcionando como hoje, agora num único lugar,
+So that as garantias seguintes tenham onde morar.
+
+**Acceptance Criteria:**
+
+**Given** o handler de fechamento
+**When** recebe o POST
+**Then** chama `dre.Fechamento.Fechar` sem SQL próprio, e só a controladoria fecha
+
+**Given** os testes da 1.1
+**When** rodam
+**Then** seguem passando (versão, linhas, `409` sem mapeamento, trilha)
+
+**Given** Fechar
+**When** calcula o snapshot
+**Then** o cálculo acontece dentro da transação, via `dre.Realizado` (hoje é fora dela)
+**And** `dre.Realizado` é o único caminho que calcula o realizado exibido
+**And** a listagem de fechamentos devolve o mesmo JSON de hoje
+
+### Story 1.6: Guarda de período e bloqueio de escrita em mês fechado (FR-11, AD-8)
+
+As a Controller,
+I want que nenhuma carga entre em mês fechado,
+So that o detalhe nunca mostre dado posterior ao fechamento.
+
+**Acceptance Criteria:**
+
+**Given** competência com fechamento (nesta história "ativo" significa que existe fechamento; a reabertura chega na 1.7)
+**When** o analista importa para ela
+**Then** `409` listando os escopos recusados, com a mensagem de que é preciso reabrir, e nada é gravado
+
+**Given** competência aberta
+**When** importa
+**Then** funciona
+
+**Given** `dre.Periodo.Guardar(tx, empresa, competência)` com `pg_advisory_xact_lock(dre.ChaveLock)` e isolamento `READ COMMITTED`
+**When** fechar e importar a mesma competência rodam juntas
+**Then** são serializadas: a carga entra antes do snapshot ou é recusada depois, nunca fica de fora do snapshot e dentro dos lançamentos
+**And** um teste garante que toda escrita em `lancamentos` passa por `Guardar`
+**And** o teste da 1.1 que registrava "aceita em mês fechado" é invertido
+
+### Story 1.7: Um fechamento ativo por mês e reabertura com motivo (FR-9, FR-10, AD-9)
+
+As a Controller,
+I want fechar o mês do grupo uma única vez e reabri-lo com motivo,
+So that eu corrija sem perder a história do fechamento anterior.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `dre_fechamentos` ganha `reaberto_em`, `reaberto_por`, `motivo_reabertura` e um índice único parcial em `(empresa, competência) WHERE reaberto_em IS NULL`
+**And** se houver duplicatas, a migration aborta com mensagem, sem alterar dado
+
+**Given** competência fechada e ativa
+**When** o Controller tenta fechar de novo
+**Then** `409`
+
+**Given** motivo informado
+**When** o Controller reabre
+**Then** o ativo recebe `reaberto_*`, a competência volta a aceitar escrita, a versão anterior fica legível e a trilha registra
+
+**Given** reabrir sem motivo
+**When** o Controller envia
+**Then** recusa
+
+**Given** competência reaberta
+**When** o Controller fecha de novo
+**Then** a versão é `MAX+1` por `(empresa, competência)`, mantendo as anteriores
+
+**Given** um usuário sem o perfil `controladoria` (por exemplo, diretoria)
+**When** tenta fechar ou reabrir
+**Then** `403`
+**And** `reaberto_*` mudam uma só vez, por gatilho que respeita `imutavel_salvo_em_teste`
+**And** a tela de fechamento deixa de oferecer escolha de filial; fechamentos por filial já gravados continuam legíveis
+
+### Story 1.8: Mês fechado lido do que foi congelado (AD-17)
+
+As a Controller,
+I want que o mês fechado seja lido sempre do snapshot,
+So that mudar o Mapa depois não altere um mês fechado.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `dre_fechamento_contas` (conta, linha, departamento, realizado, orçado, ano anterior, ajustes) e `dre_fechamento_linhas` ganha orçado e ano anterior
+**And** ambas são imutáveis por gatilho que respeita `imutavel_salvo_em_teste` e entram em `limpar_dados_teste`
+
+**Given** Fechar
+**When** grava o snapshot
+**Then** grava linhas e contas; departamento, ajustes e orçado por conta ficam vazios até os épicos 2, 3 e 5
+
+**Given** competência fechada
+**When** o DRE (mensal, acumulado, detalhe por conta) é consultado
+**Then** lê só do snapshot, e mudar Mapa ou estrutura depois não altera o resultado
+
+**Given** competência aberta
+**When** o DRE é consultado
+**Then** lê ao vivo como hoje
+**And** o aviso da tela "o detalhe mostra lançamentos posteriores ao fechamento" deixa de existir
+
+### Story 1.9: Nenhum endereço do banco do cliente no repositório (NFR7)
+
+As a dono do produto,
+I want que o repositório não carregue o endereço do banco do cliente,
+So that uma cópia do código não revele a infraestrutura dele.
+
+**Acceptance Criteria:**
+
+**Given** `docker-compose.yml`, `backend/.env.example` e `backend/cmd/jc-probe`
+**When** revisados
+**Then** nenhum traz IP, service name ou schema do cliente como valor padrão
+**And** `JC_ORACLE_HOST` e `JC_ORACLE_SERVICE` ficam obrigatórios
+
+**Given** o `jc-probe` sem variáveis
+**When** roda
+**Then** falha pedindo-as, sem endereço embutido
+
+**Given** o deploy
+**When** a história é entregue
+**Then** ela lista as variáveis a cadastrar no Coolify antes do push
+**And** `go mod tidy` marca o `go-ora` como dependência direta
+**And** o endereço continua no histórico do git; a mitigação decidida é o repositório privado, sem reescrever histórico
+
+## Epic 2: Os dados do cliente entram sozinhos
+
+O analista importa o realizado consolidado e o orçado do banco do cliente, carrega por arquivo o que ainda não vem de lá, e confere que o resultado bate com a planilha atual.
+
+**Nota:** a história 2.12 é opcional; nenhuma outra depende dela. Na 2.2, a coluna `Ajustes` da planilha não é importada: ajuste nasce no épico 5.
+
+### Story 2.1: Uma conta, uma fonte (AD-16)
+
+As a Controller,
+I want que cada conta tenha uma única fonte dona,
+So that a mesma conta vinda do Oracle e do arquivo nunca seja somada em dobro.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `auditoria.conta_fonte (empresa_id, conta_padrao, origem)`
+**And** ela é mantida por `limpar_dados_teste` (é configuração)
+
+**Given** um CSV com conta sem dona
+**When** importa
+**Then** o Ingestor registra `csv.contas` como dona e grava
+
+**Given** conta cuja dona é outra origem
+**When** o CSV a traz
+**Then** a linha é rejeitada citando a dona
+**And** nada é gravado se houver erro bloqueante
+
+**Given** a posse de uma conta
+**When** é registrada
+**Then** ela vai à trilha
+
+### Story 2.2: CSV no formato da planilha atual (FR-3)
+
+As a analista,
+I want carregar o bloco de contas da planilha atual sem reformatar,
+So that eu valide o ambiente com os mesmos dados que o Excel usa.
+
+**Acceptance Criteria:**
+
+**Given** um arquivo com `CONTA, DESCRIÇÃO, VL. Realizado, Ajustes, Saldo, Grupo, Mês, Loja`
+**When** importa
+**Then** `Mês` (AAAAMM) vira competência, `Loja` vira filial e `VL. Realizado` vira o valor, com origem `csv.contas`
+
+**Given** linhas com `Ajustes` preenchido
+**When** importa
+**Then** o ajuste não é importado e a resposta avisa quantas linhas o tinham
+**And** `Saldo` é ignorado
+
+**Given** `Mês` fora de AAAAMM ou `Loja` vazia
+**When** importa
+**Then** a linha é rejeitada com o seu número
+
+**Given** o formato antigo do importador
+**When** importa
+**Then** continua aceito
+**And** competência fechada é recusada (1.6)
+
+### Story 2.3: Realizado consolidado do Oracle (FR-1, AD-2, AD-4, AD-15)
+
+As a analista,
+I want importar o realizado consolidado do banco do cliente,
+So that faturamento, devoluções, CMV de devolução, ST e desconto de custo venham do ERP sem digitação.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `lancamentos` ganha `uf` e existe `auditoria.execucoes`
+**And** ambas entram em `limpar_dados_teste`
+
+**Given** `dre/fontes/oracle` (go-ora v2, só leitura) e as variáveis `JC_ORACLE_*` e `JC_EMPRESA_ID`
+**When** a importação é disparada
+**Then** lê `VW_DRE_CONSOLIDADO` por competência (`WHERE MES_ANO = :1`), com ping de 30 s e timeout de consulta, nunca sem filtro
+
+**Given** cada coluna de valor da view
+**When** importa
+**Then** vira lançamento com conta `ERP.<COLUNA>`, origem `oracle.consolidado`, a UF na coluna própria e o valor como a fonte entrega
+**And** valor nulo não é gravado
+
+**Given** `MES_ANO` em `MM/AAAA`
+**When** importa
+**Then** vira competência
+**And** formato inválido rejeita a linha
+
+**Given** reimportação do mesmo escopo
+**When** importa
+**Then** substitui sem duplicar nem apagar outra origem
+**And** leitura vazia nunca apaga
+
+**Given** competência fechada
+**When** importa
+**Then** é pulada e informada, sem falhar as demais
+
+**Given** as contas `ERP.*`
+**When** importadas
+**Then** ganham dona `oracle.consolidado` (2.1)
+**And** a execução grava em `execucoes` (início, fim, status, resumo) e na trilha
+**And** falha de conexão devolve mensagem clara (rede, serviço ou credencial)
+
+### Story 2.4: Tela "Importar do banco do cliente"
+
+As a analista,
+I want um botão "Importar agora" e ver o resultado,
+So that eu acompanhe cada importação.
+
+**Acceptance Criteria:**
+
+**Given** Configurações, Carga
+**When** clico em "Importar do banco do cliente" e escolho o período
+**Then** a importação roda e a tela mostra aplicadas, puladas por mês fechado e rejeitadas
+
+**Given** execuções anteriores
+**When** abro a tela
+**Then** ela lista as últimas (início, fim, status, resumo)
+
+**Given** uma falha
+**When** a importação termina
+**Then** a tela mostra a causa e os dados anteriores continuam
+
+**Given** um perfil sem permissão (diretoria, gestor)
+**When** abre a tela ou chama a API
+**Then** não vê o botão e a API devolve `403`
+
+### Story 2.5: Orçado do Oracle por conta (FR-2, AD-5)
+
+As a analista,
+I want importar o orçado do banco do cliente por conta,
+So that o DRE compare com o planejado.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `auditoria.orcado_conta (empresa_id, competencia, filial, conta, valor, origem, carga_id)`, escrita só pelo Ingestor
+**And** o teste de arquitetura passa a cobri-la e ela entra em `limpar_dados_teste`
+
+**Given** uma linha de `VW_DRE_ORCAMENTO` (ano, filial, conta, 12 meses)
+**When** importa
+**Then** gera até 12 registros, origem `oracle.orcamento`
+
+**Given** um mês nulo
+**When** importa
+**Then** não grava ("sem orçado", não zero)
+
+**Given** reimportação do ano
+**When** importa
+**Then** substitui por escopo
+**And** competências fechadas são puladas e informadas
+
+**Given** o `CODCONTA` do orçamento
+**When** é guardado
+**Then** fica como texto
+
+### Story 2.6: O DRE lê o orçado por conta (AD-5)
+
+As a Controller,
+I want que o DRE use o orçado vindo do banco do cliente,
+So that exista uma só fonte de orçado.
+
+**Acceptance Criteria:**
+
+**Given** orçado em `orcado_conta`
+**When** o DRE é consultado
+**Then** o orçado é resolvido pelo Mapa (mesma função do realizado) e somado por linha
+
+**Given** conta sem Mapa
+**When** o DRE é consultado
+**Then** aparece como "sem mapeamento"
+
+**Given** a rota que grava orçado por linha
+**When** chamada
+**Then** foi removida, e `dre_orcado` fica só para leitura (legado)
+
+**Given** conta ou filial sem orçado
+**When** o DRE é consultado
+**Then** o DRE não inventa zero
+
+**Given** o snapshot do fechamento
+**When** Fechar roda
+**Then** grava o orçado por conta
+**And** os testes da 1.1 seguem passando
+
+### Story 2.7: Trocar a dona da conta (AD-16)
+
+As a Controller,
+I want passar uma conta de arquivo para o Oracle quando ele passar a cobri-la,
+So that a virada não duplique nem perca dados.
+
+**Acceptance Criteria:**
+
+**Given** conta com dona `csv.contas`
+**When** o Controller troca a dona
+**Then** a troca vai à trilha e vale para as importações seguintes
+
+**Given** lançamentos da origem antiga em competência aberta
+**When** tenta trocar
+**Then** recusa listando as competências (em Teste dá para apagar antes; em Produção primeiro se fecha o mês)
+
+**Given** competências fechadas
+**When** a dona é trocada
+**Then** elas mantêm os lançamentos da origem antiga
+
+**Given** um perfil sem `controladoria`
+**When** tenta trocar
+**Then** `403`
+
+### Story 2.8: Cadastro de departamentos
+
+As a analista,
+I want cadastrar os departamentos e o grupo de cada um,
+So that contas e gerentes tenham a quem se ligar.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `departamentos (empresa_id, codigo, nome, grupo)` com `grupo` em Comercial, Logística ou Administrativo, único por `(empresa, codigo)`
+**And** escrita só por `dre.Dicionario` e mantida por `limpar_dados_teste`
+
+**Given** a tela de Configurações
+**When** o analista cria, edita ou lista
+**Then** funciona e grava na trilha
+
+**Given** departamento ligado a contas
+**When** tenta excluir
+**Then** `409`
+
+### Story 2.9: Dicionário de contas por arquivo (FR-20, AD-2)
+
+As a analista,
+I want carregar o dicionário (conta, descrição, grupo, departamento) por arquivo,
+So that o sistema saiba de qual departamento é cada conta.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existem `conta_dicionario (empresa_id, conta, descricao, grupo)` e `conta_departamento (empresa_id, conta_padrao, departamento_id)`, escritas só por `dre.Dicionario`
+
+**Given** linhas com conta repetida ou departamento inexistente
+**When** carrega
+**Then** são listadas
+**And** nada é gravado se houver erro bloqueante
+
+**Given** reenvio do arquivo
+**When** carrega
+**Then** atualiza descrição, grupo e departamento sem apagar a associação à linha do DRE no Mapa
+
+**Given** conta com prefixo `%`
+**When** resolvida
+**Then** vale a mesma resolução do Mapa (a mais específica vence)
+**And** a carga vai à trilha
+
+### Story 2.10: Dicionário inicial validado com o cliente (tarefa de dados)
+
+As a dono do produto,
+I want gerar o arquivo do dicionário a partir da planilha do cliente e validá-lo com a área de negócio,
+So that os gerentes tenham departamento desde o primeiro dia.
+
+**Acceptance Criteria:**
+
+**Given** a aba de gerentes da planilha (contas por departamento)
+**When** o arquivo é gerado
+**Then** traz conta, descrição, grupo e departamento
+**And** as contas sem departamento vêm listadas à parte
+
+**Given** o arquivo gerado
+**When** o repositório é verificado
+**Then** o arquivo não está nele
+
+**Given** a revisão com o responsável do cliente
+**When** termina
+**Then** quem validou e quando fica registrado
+
+**Given** o arquivo validado
+**When** é carregado em Teste pela 2.9
+**Then** a contagem de contas por departamento é conferida
+
+### Story 2.11: Conferir o Oracle contra a planilha
+
+As a dono do produto,
+I want comparar o que veio do Oracle com a planilha do mesmo mês,
+So that eu confie na conexão antes de virar para Produção.
+
+**Acceptance Criteria:**
+
+**Given** duas origens com lançamentos na mesma competência e um arquivo de correspondência (conta de uma, conta da outra, fator)
+**When** peço a conferência
+**Then** lista por filial e conta os dois valores, a diferença e se passou da tolerância (padrão 0,01)
+
+**Given** diferença acima da tolerância
+**When** a conferência termina
+**Then** é marcada e contada no resumo
+
+**Given** conta sem correspondência
+**When** a conferência roda
+**Then** aparece como "sem par"
+
+**Given** a conferência
+**When** roda
+**Then** é só leitura e grava apenas a execução em `execucoes`
+**And** funciona em Teste e em Produção
+
+### Story 2.12: Importação automática diária (opcional, AD-15)
+
+As a analista,
+I want que a importação rode sozinha todo dia,
+So that eu não precise lembrar.
+
+**Acceptance Criteria:**
+
+**Given** a hora em `config_empresa` (padrão 06:30, `America/Sao_Paulo`; a tabela é criada aqui se ainda não existir)
+**When** chega a hora
+**Then** dispara as importações 2.3 e 2.5
+
+**Given** `pg_try_advisory_lock` em conexão dedicada, com o unlock na mesma conexão (descartada se o unlock falhar)
+**When** outra execução está em andamento
+**Then** a segunda não roda e registra
+
+**Given** uma execução agendada
+**When** termina
+**Then** a trilha usa `user_id` nulo e origem agendador
+**And** a falha fica visível em `execucoes`
+
+## Epic 3: DRE por departamento, com orçado e ano anterior
+
+Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
+
+**Nota:** o perfil `gestor` não vê dado de departamento até o épico 4. O fim deste épico é a primeira demonstração ao cliente.
+
+### Story 3.1: Estrutura do DRE editável (FR-5)
+
+As a analista,
+I want criar, editar, reordenar e excluir as linhas do DRE,
+So that a estrutura acompanhe o DRE do cliente sem novo deploy.
+
+**Acceptance Criteria:**
+
+**Given** a rota de linhas (hoje só leitura)
+**When** o analista cria, edita, reordena ou exclui
+**Then** funciona na tela, com descrição, ordem, nível, tipo (conta ou subtotal) e as linhas somadas
+
+**Given** um subtotal que referencia linha inexistente ou cria ciclo
+**When** salva
+**Then** recusa com mensagem
+
+**Given** uma linha usada no Mapa
+**When** tenta excluir
+**Then** `409` listando as contas
+
+**Given** competência fechada
+**When** a estrutura muda
+**Then** o mês fechado não muda (lê do snapshot, 1.8)
+
+**Given** um perfil sem `controladoria`
+**When** tenta alterar
+**Then** `403`
+**And** cada alteração vai à trilha
+
+### Story 3.2: Carregar estrutura e Mapa por arquivo (FR-5, FR-6)
+
+As a analista,
+I want carregar a estrutura e o Mapa de contas por arquivo,
+So that eu não digite centenas de contas uma a uma.
+
+**Acceptance Criteria:**
+
+**Given** um arquivo de estrutura (código, descrição, nível, ordem, tipo, soma_de)
+**When** carrega
+**Then** cria ou atualiza pelo código e valida as referências
+**And** erro bloqueante não grava nada
+
+**Given** um arquivo de Mapa (conta_padrão, linha_código, sinal)
+**When** carrega
+**Then** cria ou atualiza pela conta
+**And** linha inexistente rejeita a linha e sinal só vale `1` ou `-1`
+
+**Given** contas com prefixo `%`
+**When** resolvidas
+**Then** a mais específica vence, como hoje
+
+**Given** reenvio do arquivo
+**When** carrega
+**Then** atualiza sem duplicar
+**And** a trilha registra a carga com a quantidade de linhas
+
+### Story 3.3: Estrutura e Mapa iniciais derivados da planilha (tarefa de dados)
+
+As a dono do produto,
+I want gerar a estrutura e o Mapa iniciais a partir do DRE da planilha e validá-los com a área de negócio,
+So that o primeiro fechamento não trave em centenas de contas sem mapeamento.
+
+**Acceptance Criteria:**
+
+**Given** as abas de DRE da planilha
+**When** o arquivo de estrutura é gerado
+**Then** reproduz as linhas: Faturamento Líquido; CMV, Deduções e Verbas; Margem Composta; Impostos sobre Faturamento Líquido; Margem de Contribuição; os departamentos Comercial, Logística e Administrativo e o Total de Despesas; Margem Líquida; Outras Receitas e Despesas; Resultado antes da tributação; IRPJ
+
+**Given** as contas das cargas de validação (CSV e `ERP.*`)
+**When** o Mapa é gerado
+**Then** cada conta com lançamento tem linha, ou aparece numa lista "sem mapeamento"
+
+**Given** os sinais das contas `ERP.*`
+**When** o Mapa é gerado
+**Then** ficam marcados como provisórios, confirmados pela paridade (3.7) ou pela resposta do cliente
+
+**Given** os arquivos gerados
+**When** o repositório é verificado
+**Then** eles não estão nele
+**And** a validação registra quem e quando, e eles são carregados em Teste pela 3.2
+
+### Story 3.4: DRE com percentual sobre o Faturamento Líquido (FR-7)
+
+As a usuário autorizado,
+I want ver o DRE mensal e acumulado, do grupo ou de uma filial, com o percentual de cada linha sobre o Faturamento Líquido,
+So that eu compare a estrutura de custos entre meses e filiais.
+
+**Acceptance Criteria:**
+
+**Given** a tela do DRE
+**When** aberta
+**Then** cada linha mostra também o percentual sobre o Faturamento Líquido
+
+**Given** Faturamento Líquido zero
+**When** o DRE é calculado
+**Then** o percentual aparece como "não calculável"
+
+**Given** qualquer subtotal
+**When** o DRE é calculado
+**Then** é exatamente a soma das linhas que o compõem (teste com centavos)
+
+**Given** lançamentos com várias UFs na mesma filial
+**When** o DRE é calculado
+**Then** a filial soma todas elas
+
+**Given** competência fechada
+**When** o DRE é consultado
+**Then** usa o snapshot (1.8), inclusive os percentuais
+
+### Story 3.5: DRE por departamento (FR-6, FR-7)
+
+As a Controller,
+I want ver o DRE por departamento, com as contas de cada um,
+So that eu veja onde cada área gastou.
+
+**Acceptance Criteria:**
+
+**Given** contas ligadas a departamentos (2.9)
+**When** abro a visão por departamento
+**Then** lista cada departamento (agrupado em Comercial, Logística e Administrativo) com as contas, o total e o percentual sobre o Faturamento Líquido
+
+**Given** contas sem departamento
+**When** abro a visão
+**Then** aparecem em "Sem departamento", visível só a perfis sem restrição
+
+**Given** o perfil `gestor` (sem escopo até o épico 4)
+**When** abre essa visão ou chama a API
+**Then** não recebe dado de departamento
+
+**Given** Fechar
+**When** grava o snapshot
+**Then** o snapshot por contas grava o departamento de cada conta
+
+### Story 3.6: Orçado e ano anterior, "sem orçado" e detalhe até a filial (FR-8)
+
+As a usuário autorizado,
+I want comparar o Realizado com o Orçado e o Ano anterior por linha e conta, descendo até a filial,
+So that eu entenda de onde vem cada variação.
+
+**Acceptance Criteria:**
+
+**Given** o DRE
+**When** aberto
+**Then** cada linha e conta mostra Realizado, Orçado, Ano anterior e a variação em valor e em percentual
+
+**Given** Orçado zero
+**When** a variação é calculada
+**Then** o percentual aparece como "não calculável"
+
+**Given** conta ou filial sem orçado
+**When** o DRE é consultado
+**Then** mostra o Realizado com "sem orçado" e variação não calculável, nunca zero
+
+**Given** uma conta
+**When** abro o detalhe
+**Then** vejo por filial os valores e a origem de cada um (Oracle ou arquivo)
+
+**Given** um Ano anterior sem dado (as views começam em 2021)
+**When** o DRE é consultado
+**Then** aparece vazio, não zero
+
+### Story 3.7: Paridade do DRE com a planilha
+
+As a dono do produto,
+I want comparar o DRE do sistema com o da planilha para um mês de referência,
+So that eu saiba que os números batem antes de mostrar ao cliente.
+
+**Acceptance Criteria:**
+
+**Given** um mês de referência com Oracle consolidado, CSV de contas e orçado carregados em Teste, e um arquivo com os valores da planilha por linha do DRE e filial (fora do repositório)
+**When** peço a paridade
+**Then** lista por linha e filial o valor do sistema, o da planilha, a diferença e se passou da tolerância (0,01)
+
+**Given** diferença numa linha de subtotal
+**When** a paridade termina
+**Then** aponta a primeira linha componente que diverge
+
+**Given** valores iguais com sinal oposto
+**When** a paridade termina
+**Then** marca "sinal invertido", para ajustar o Mapa
+
+**Given** todas as linhas dentro da tolerância
+**When** a paridade termina
+**Then** o relatório conclui "bate" e grava a execução em `execucoes`
+**And** é só leitura e reaproveita o mecanismo da conferência 2.11
+
+### Story 3.8: Primeira demonstração ao cliente (marco)
+
+As a dono do produto,
+I want mostrar o DRE por departamento ao cliente com um mês de referência,
+So that o cliente valide o rumo antes de os gerentes entrarem.
+
+**Acceptance Criteria:**
+
+**Given** o épico 3 em Teste com um mês de referência que bate (3.7)
+**When** a demonstração é feita com os gestores do cliente
+**Then** o que foi aprovado e o que precisa mudar ficam registrados
+
+**Given** as perguntas abertas do PRD (rateio, limite de desvio, lista de aviso, folha)
+**When** a demonstração termina
+**Then** cada uma ganha resposta ou data de resposta
+
+**Given** a demonstração
+**When** acontece
+**Then** nenhum dado real do cliente sai do ambiente de Teste (sem capturas de tela no repositório)
+

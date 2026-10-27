@@ -8,7 +8,7 @@ scope: 'Release A1 do FB_AUDITORIA, brownfield em produção: ingestão, DRE, aj
 status: final
 created: '2026-10-27'
 updated: '2026-10-27'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21]
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21, FR-22]
 sources: ['_bmad-output/planning-artifacts/prds/prd-FB_AUDITORIA-2026-10-27/prd.md']
 companions: []
 ---
@@ -30,7 +30,7 @@ Monólito modular em camadas. Os handlers são adaptadores HTTP finos. A regra q
 
 | Já existe | Novo nesta release |
 | --- | --- |
-| `audit_log` imutável e `writeAuditLogTx`; `AuditoriaAuthMiddleware`; `dre_linhas`, `dre_mapa`, `lancamentos` (com coluna `origem`), `dre_orcado`, `dre_fechamentos` e linhas congeladas; SMTP em `services/email.go` | pacote `dre`; `orcado_conta`; `ajustes`; `justificativas`; `conta_dicionario`, `departamentos`, `conta_departamento`, `usuario_departamentos`; `conta_fonte`; `dre_fechamento_contas`; `outbox_email`; `config_empresa`; `execucoes`; `perfis.go`; perfil `analista`; `ALLOW_SELF_REGISTER`; `companies.ambiente` |
+| `audit_log` imutável e `writeAuditLogTx`; `AuditoriaAuthMiddleware`; `dre_linhas`, `dre_mapa`, `lancamentos` (com coluna `origem`), `dre_orcado`, `dre_fechamentos` e linhas congeladas; SMTP em `services/email.go` | pacote `dre`; `orcado_conta`; `ajustes`; `justificativas`; `conta_dicionario`, `departamentos`, `conta_departamento`, `usuario_departamentos`; `conta_fonte`; `dre_fechamento_contas`; `outbox_email`; `config_empresa`; `execucoes`; `perfis.go`; perfil `analista`; `ALLOW_SELF_REGISTER`; `companies.ambiente`; `users.bloqueado_em` |
 
 Os handlers `dre.go` (fechamento) e `dre_import.go` ainda fazem `INSERT` e cálculo próprios; migram para `dre` na primeira história da release.
 
@@ -124,7 +124,7 @@ Setas são as únicas dependências permitidas. `dre` não importa `handlers` ne
 | `diretoria` | diretoria | ler |
 | `auditoria` | legado, fora do PRD | ler (somente leitura) |
 
-Admin de plataforma (`users.role = 'admin'`) mantém acesso total, como hoje.
+Admin de plataforma (`users.role = 'admin'`) mantém acesso total, como hoje. Um perfil `ti` (administração do ambiente da empresa: criar e bloquear usuários) é previsto para depois do A1; até lá, gerir usuários é do Controller e do admin de plataforma.
 
 ### AD-12 — Ids de área e migração [ADOPTED]
 
@@ -167,6 +167,12 @@ Admin de plataforma (`users.role = 'admin'`) mantém acesso total, como hoje.
 - **Binds:** FR-21, FR-4, FR-9, FR-14
 - **Prevents:** apagar dado real; voltar de Produção a Teste para apagar; e-mail de validação chegando a gerentes reais; o ambiente passar despercebido.
 - **Rule:** `companies.ambiente` aceita `teste` ou `producao` (padrão `teste`); um trigger recusa `producao` para `teste`. A função `auditoria.limpar_dados_teste(empresa)` apaga lançamentos, orçado, ajustes, justificativas, fechamentos (linhas e contas), envios, cargas e execuções; mantém a estrutura do DRE, o Mapa, o dicionário, os departamentos e os usuários; não toca `audit_log`; e **recusa** se o ambiente não for `teste`. Os gatilhos de imutabilidade chamam `auditoria.imutavel_salvo_em_teste(empresa_id)`: só permitem `DELETE` quando o ambiente é `teste` e a sessão foi aberta pela função de limpeza (`set_config` local). Limpar e virar para `producao` exigem admin de plataforma e a senha digitada de novo, e gravam na trilha; a virada devolve a lista de contas cuja fonte dona ainda é arquivo (aviso, não bloqueio). O worker de e-mail consulta o ambiente: em `teste` envia só ao administrador. `/api/aud/me` informa o ambiente, e a interface mostra a faixa "AMBIENTE DE TESTE".
+
+### AD-19 — Bloqueio de usuário no lugar da expiração por tempo
+
+- **Binds:** FR-22, FR-18, FR-19
+- **Prevents:** usuário perdendo acesso por passagem de tempo; usuário bloqueado seguindo com sessão aberta; o ambiente ficar sem nenhum administrador.
+- **Rule:** `users` ganha `bloqueado_em`, `bloqueado_por` e `motivo_bloqueio`. O bloqueio é verificado no login, na renovação de sessão e em toda requisição do middleware (que já lê `users` a cada chamada), valendo na requisição seguinte. A verificação por `trial_ends_at` é **removida** do login e do middleware (a coluna passa a ser ignorada, e nenhum usuário novo recebe prazo); deixar o campo vazio não basta, porque o login o troca por "agora". Bloquear e desbloquear exigem motivo e gravam na trilha; ninguém bloqueia a si mesmo, e o último admin de plataforma ativo não pode ser bloqueado. A capacidade é "gerir usuários" (AD-11).
 
 ## Consistency Conventions
 
@@ -256,6 +262,7 @@ backend/
 | FR-15 Rateio | `dre/rateio` | AD-14, AD-8, AD-17 |
 | FR-18, FR-19 Perfis e cadastro | `perfis.go`, `auditoria_auth.go` | AD-10, AD-11, AD-12 |
 | FR-21 Ambiente Teste ou Produção | `companies.ambiente`, `dre/ambiente` | AD-18, AD-11 |
+| FR-22 Bloqueio de usuário | `auditoria_auth.go`, `auth.go`, tela de usuários | AD-19, AD-11 |
 
 ## Deferred
 
@@ -272,3 +279,4 @@ backend/
 - **Dívida de versões e imagens**: `node:18-alpine` sem suporte desde 2025-04-30, Vite 5 fora da lista suportada, `lib/pq` v1.11.2 atrás da v1.12.3, `cloudflared:latest` e `alpine:latest` sem tag fixa, `go-ora` marcado `indirect` no `go.mod`. Nada bloqueia o A1.
 - **Limpeza**: remover o host padrão do Oracle do `docker-compose.yml`, `.env.example` e `jc-probe`; resíduos do Farol em `services/email.go`; verificar `DeleteUserHandler` frente ao trigger de `audit_log` (`ON DELETE SET NULL` colide com o bloqueio de `UPDATE`).
 - **Várias réplicas da API**: os locks já são seguros, mas o A1 roda com uma réplica.
+- **Perfil `ti`** (administração do ambiente: criar e bloquear usuários): decidido para depois do A1; a matriz de capacidades (AD-11) comporta o novo perfil sem mudar as rotas.
