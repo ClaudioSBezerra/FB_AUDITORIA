@@ -252,7 +252,7 @@ backend/
 
 ## Deferred
 
-- **Backup e retenção** do volume do Postgres e da trilha: a promessa de imutabilidade depende disso. Decidir **antes do go-live com dado real**.
+- **Backup e retenção** do volume do Postgres e da trilha: já existe um job no servidor do Coolify (cron diário às 23:00 UTC, `pg_dump -Fc` por stack, envio por `rclone` para `onedrive:FBTax-Backups/<data>/`, retenção de 56 dias, alerta por e-mail em falha), mas com **lista fixa de stacks** e `-U postgres`. A Auditoria não está na lista e o usuário `postgres` não existe aqui. Condição para o go-live com dado real: incluir a Auditoria (usuário lido de `POSTGRES_USER`) e **restaurar uma cópia num banco de teste** com sucesso.
 - **Fonte real do Realizado por conta** (pergunta 1 do PRD): a porta `Fonte` e AD-16 isolam a troca. Revisitar quando o cliente responder.
 - **Dicionário de contas** (pergunta 2): carga por arquivo via `dre.Dicionario` até haver fonte.
 - **UF, `AC`, sinais das colunas e filiais sem orçado** (perguntas 3, 9 e 10): ficam no adaptador e em `dre_mapa.sinal`.

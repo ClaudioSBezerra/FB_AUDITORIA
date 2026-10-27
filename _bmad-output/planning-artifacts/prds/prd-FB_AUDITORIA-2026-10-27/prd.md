@@ -184,7 +184,7 @@ O analista carrega um arquivo com **Conta gerencial**, descrição, grupo e **De
 
 ### 4.3 Visões do DRE
 
-**Description:** O DRE é apresentado por **Competência** (mensal) e acumulado do ano, por **Filial**, consolidado do grupo e por **Departamento**, comparando **Realizado**, **Orçado** e **Ano anterior**, com variação em valor e em percentual e percentual sobre a Faturamento Líquido. O detalhe desce da **Linha do DRE** até a **Conta gerencial** e a **Filial**. O detalhe até o documento de origem não existe com as fontes atuais, que chegam agregadas por **Conta gerencial**, **Filial** e mês; passaria a existir se o cliente expusesse uma fonte no nível do **Lançamento** (pergunta aberta 11). Realiza UJ-2, UJ-3, UJ-4.
+**Description:** O DRE é apresentado por **Competência** (mensal) e acumulado do ano, por **Filial**, consolidado do grupo e por **Departamento**, comparando **Realizado**, **Orçado** e **Ano anterior**, com variação em valor e em percentual e percentual sobre o Faturamento Líquido. O detalhe desce da **Linha do DRE** até a **Conta gerencial** e a **Filial**. O detalhe até o documento de origem não existe com as fontes atuais, que chegam agregadas por **Conta gerencial**, **Filial** e mês; passaria a existir se o cliente expusesse uma fonte no nível do **Lançamento** (pergunta aberta 11). Realiza UJ-2, UJ-3, UJ-4.
 
 **Functional Requirements:**
 
@@ -311,7 +311,7 @@ O usuário autorizado vê o ranking dos maiores **Desvios** e filtra por ano, **
 
 #### FR-17: Exibir tendência, ponte do resultado e projeção do ano
 
-O usuário autorizado vê a despesa sobre a Faturamento Líquido por ano e se está subindo, a ponte que explica a diferença entre **Orçado** (ou **Ano anterior**) e **Realizado**, e a projeção de fechamento do ano. Referência visual: o protótipo de painel que o cliente já usa. Realiza UJ-4.
+O usuário autorizado vê a despesa sobre o Faturamento Líquido por ano e se está subindo, a ponte que explica a diferença entre **Orçado** (ou **Ano anterior**) e **Realizado**, e a projeção de fechamento do ano. Referência visual: o protótipo de painel que o cliente já usa. Realiza UJ-4.
 
 **Consequences (testable):**
 - A ponte do resultado fecha: a soma das contribuições é igual à diferença total entre os dois pontos comparados.
