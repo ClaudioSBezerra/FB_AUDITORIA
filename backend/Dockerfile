@@ -14,7 +14,8 @@ RUN go mod download
 
 COPY backend/ .
 
-RUN CGO_ENABLED=0 GOOS=linux go build -v -ldflags="-w -s" -o server .
+RUN CGO_ENABLED=0 GOOS=linux go build -v -ldflags="-w -s" -o server . && \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o jc-probe ./cmd/jc-probe
 
 # Run Stage
 FROM alpine:latest
@@ -32,6 +33,8 @@ RUN apk --no-cache add tzdata ca-certificates && \
 RUN adduser -D -u 1000 appuser && mkdir -p /root/uploads/imports && chown -R appuser:appuser /root
 WORKDIR /root/
 COPY --from=builder --chown=appuser:appuser /app/server .
+# Sonda de leitura do Oracle da JC: roda no terminal do Coolify (o IP do servidor está na allowlist).
+COPY --from=builder --chown=appuser:appuser /app/jc-probe .
 COPY --from=builder --chown=appuser:appuser /app/migrations ./migrations
 USER appuser
 EXPOSE 8088

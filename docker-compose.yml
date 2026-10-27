@@ -21,6 +21,12 @@ services:
       - SMTP_FROM=${SMTP_FROM}
       - APP_URL=${APP_URL:-https://auditoria.fbtax.cloud}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://auditoria.fbtax.cloud}
+      - JC_ORACLE_HOST=${JC_ORACLE_HOST:-201.48.119.197}
+      - JC_ORACLE_PORT=${JC_ORACLE_PORT:-1521}
+      - JC_ORACLE_SERVICE=${JC_ORACLE_SERVICE:-cdb1}
+      - JC_ORACLE_USER=${JC_ORACLE_USER}
+      - JC_ORACLE_PASS=${JC_ORACLE_PASS}
+      - JC_ORACLE_DRE_VIEWS=${JC_ORACLE_DRE_VIEWS:-VW_DRE_CONSOLIDADO,VW_DRE_ORCAMENTO}
     depends_on:
       db:
         condition: service_healthy
