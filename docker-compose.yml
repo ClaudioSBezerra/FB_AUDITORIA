@@ -11,7 +11,7 @@ services:
       - "8088:8088"
     environment:
       - PORT=8088
-      - DATABASE_URL=postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-fb_auditoria}?sslmode=disable
+      - DATABASE_URL=postgres://${DB_USER:?defina DB_USER no Coolify}:${DB_PASSWORD:?defina DB_PASSWORD no Coolify}@db:5432/${DB_NAME:-fb_auditoria}?sslmode=disable
       - JWT_SECRET=${JWT_SECRET}
       - COOKIE_SECURE=${COOKIE_SECURE:-true}
       - SMTP_HOST=${SMTP_HOST}
@@ -54,15 +54,15 @@ services:
     image: postgres:15-alpine
     restart: always
     environment:
-      - POSTGRES_USER=${DB_USER:-postgres}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_USER=${DB_USER:?defina DB_USER no Coolify}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?defina DB_PASSWORD no Coolify}
       - POSTGRES_DB=${DB_NAME:-fb_auditoria}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - fb_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:?defina DB_USER no Coolify}"]
       interval: 10s
       timeout: 5s
       retries: 5
