@@ -39,6 +39,7 @@ func env(k, def string) string {
 
 func main() {
 	amostra := flag.Bool("amostra", false, "imprime 1 linha de cada view (timeout 20s)")
+	resumoF := flag.Bool("resumo", false, "contagens e períodos das views + outras views do mesmo schema (sem valores financeiros)")
 	flag.Parse()
 
 	user, pass := env("JC_ORACLE_USER", ""), env("JC_ORACLE_PASS", "")
@@ -70,8 +71,12 @@ func main() {
 		fmt.Println("conectado (v$version sem permissão)")
 	}
 
-	for _, v := range strings.Split(env("JC_ORACLE_DRE_VIEWS", "VW_DRE_CONSOLIDADO,VW_DRE_ORCAMENTO"), ",") {
+	views := strings.Split(env("JC_ORACLE_DRE_VIEWS", "VW_DRE_CONSOLIDADO,VW_DRE_ORCAMENTO"), ",")
+	for _, v := range views {
 		sonda(db, strings.ToUpper(strings.TrimSpace(v)), *amostra)
+	}
+	if *resumoF {
+		resumo(db, views)
 	}
 }
 
@@ -164,4 +169,57 @@ func sonda(db *sql.DB, nome string, amostra bool) {
 func fail(f string, a ...any) {
 	fmt.Fprintf(os.Stderr, "ERRO: "+f+"\n", a...)
 	os.Exit(1)
+}
+
+// resumo responde o que as colunas não dizem: quais períodos/filiais/contas as
+// views cobrem e que outras views o mesmo schema oferece (ex.: realizado por
+// conta, plano de contas). Só nomes e contagens — nenhum valor financeiro.
+func resumo(db *sql.DB, views []string) {
+	fmt.Println("\n== RESUMO ==")
+	consulta := func(titulo, q string, args ...any) {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		rows, err := db.QueryContext(ctx, q, args...)
+		if err != nil {
+			fmt.Printf("%s: ERRO %v\n", titulo, err)
+			return
+		}
+		defer rows.Close()
+		var itens []string
+		for rows.Next() {
+			var s sql.NullString
+			if rows.Scan(&s) == nil {
+				itens = append(itens, s.String)
+			}
+		}
+		fmt.Printf("%s (%d): %s\n", titulo, len(itens), strings.Join(itens, ", "))
+	}
+
+	owners := map[string]bool{}
+	for _, v := range views {
+		var o sql.NullString
+		_ = db.QueryRow("SELECT table_owner FROM all_synonyms WHERE synonym_name = :1 FETCH FIRST 1 ROWS ONLY",
+			strings.ToUpper(strings.TrimSpace(v))).Scan(&o)
+		if o.Valid {
+			owners[o.String] = true
+		}
+	}
+
+	consulta("VW_DRE_CONSOLIDADO · MES_ANO distintos",
+		"SELECT DISTINCT MES_ANO FROM IACONTR.VW_DRE_CONSOLIDADO ORDER BY 1")
+	consulta("VW_DRE_CONSOLIDADO · filiais",
+		"SELECT DISTINCT CODFILIAL||'/'||UF FROM IACONTR.VW_DRE_CONSOLIDADO ORDER BY 1")
+	consulta("VW_DRE_CONSOLIDADO · linhas",
+		"SELECT TO_CHAR(COUNT(*)) FROM IACONTR.VW_DRE_CONSOLIDADO")
+	consulta("VW_DRE_ORCAMENTO · anos",
+		"SELECT DISTINCT TO_CHAR(ANO) FROM IACONTR.VW_DRE_ORCAMENTO ORDER BY 1")
+	consulta("VW_DRE_ORCAMENTO · filiais",
+		"SELECT DISTINCT CODFILIAL FROM IACONTR.VW_DRE_ORCAMENTO ORDER BY 1")
+	consulta("VW_DRE_ORCAMENTO · contas (quantidade)",
+		"SELECT TO_CHAR(COUNT(DISTINCT CODCONTA)) FROM IACONTR.VW_DRE_ORCAMENTO")
+
+	for o := range owners {
+		consulta("views visíveis em "+o, "SELECT view_name FROM all_views WHERE owner = :1 ORDER BY 1", o)
+		consulta("tabelas visíveis em "+o, "SELECT table_name FROM all_tables WHERE owner = :1 ORDER BY 1", o)
+	}
 }
