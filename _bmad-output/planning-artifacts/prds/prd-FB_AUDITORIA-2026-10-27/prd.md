@@ -320,7 +320,7 @@ O usuário autorizado vê a despesa sobre o Faturamento Líquido por ano e se es
 - A ponte do resultado fecha: a soma das contribuições é igual à diferença total entre os dois pontos comparados, tanto em pontos percentuais do Faturamento Líquido quanto em valor (neste, com o efeito do volume de vendas).
 - "Está subindo?" compara a despesa sobre o Faturamento Líquido do acumulado atual com o mesmo período do ano anterior, em pontos percentuais, com tolerância de 0,1 ponto. `[ASSUMPTION]`
 - A projeção do ano indica quais meses são **Realizado** e quais são estimados, e o método. Há dois métodos: **Orçado** (realizado acumulado mais o orçado dos meses restantes, quando há orçado) e **Sazonal** (realizado acumulado mais os meses restantes do ano anterior, escalados pela razão entre o acumulado atual e o do ano anterior; razão fora do intervalo de 0 a 3 vale 1). Sem orçado, usa o Sazonal; em dezembro, a projeção é o realizado. `[ASSUMPTION: regras tomadas do protótipo de painel do cliente]`
-- O **Gerente** vê esses indicadores apenas para o seu **Departamento**.
+- O **Gerente** vê a tendência e a projeção apenas do seu **Departamento** e não acessa a ponte do resultado, que envolve o resultado do grupo.
 
 ### 4.9 Perfis e acesso
 

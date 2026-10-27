@@ -150,7 +150,13 @@ A equipe do cliente passa a usar o sistema com dado real sabendo que há backup 
 **Notas:** corre em paralelo aos demais; o pedido de autorização do cliente sobre o destino do backup é aberto desde já; a virada para Produção avisa quando o Oracle ainda não cobre contas do DRE.
 
 ### Ordem e dependências
-1 → 2 → 3 → 4 → 5 → 6. O épico 7 depende dos épicos 1 e 3 e das respostas do cliente. O épico 8 corre em paralelo e deve terminar antes do go-live.
+1 → 2 → 3 → 4 → 5 → 6. O épico 7 depende dos épicos 1, 2 e 3 e das respostas do cliente. O épico 8 corre em paralelo e deve terminar antes do go-live.
+
+**Consolidação considerada e recusada.** Vários épicos mexem no pacote `dre` e nos mesmos handlers, mas cada um separa uma fronteira de risco ou um ciclo de retorno: o épico 1 troca a base de código em produção, o 2 depende da fonte do cliente, o 4 muda segurança e menu, o 5 e o 7 dependem de respostas do cliente, e o 8 depende de decisões externas.
+
+**Épicos com carga técnica.** O épico 1 abre com fundação (testes e migração dos handlers) porque corrige falhas que já existem na Fase 1; o épico 8 é uma trilha de prontidão, e não um épico de valor para o usuário.
+
+**Histórias sem FR próprio.** Sustentam requisitos sem implementá-los: 1.1 e 1.5 (FR-9 a FR-11), 1.4 (FR-3), 1.9 (NFR7), 2.7 (FR-1 e FR-3), 2.10 (FR-20), 2.11 (FR-1), 3.3 (FR-5 e FR-6), 3.7 (FR-7), 4.3 (AR-9) e as do épico 8 (NFR6, NFR7, AR-15, AR-16). A 3.8 é um marco, sem requisito.
 
 ## Epic 1: Fechar o mês com segurança
 
@@ -362,12 +368,12 @@ So that mudar o Mapa depois não altere um mês fechado.
 **Acceptance Criteria:**
 
 **Given** a migration
-**Then** existe `dre_fechamento_contas` (conta, linha, departamento, realizado, orçado, ano anterior, ajustes) e `dre_fechamento_linhas` ganha orçado e ano anterior
+**Then** existe `dre_fechamento_contas` (conta, linha, realizado, ano anterior) e `dre_fechamento_linhas` ganha orçado e ano anterior
 **And** ambas são imutáveis por gatilho que respeita `imutavel_salvo_em_teste` e entram em `limpar_dados_teste`
 
 **Given** Fechar
 **When** grava o snapshot
-**Then** grava linhas e contas; departamento, ajustes e orçado por conta ficam vazios até os épicos 2, 3 e 5
+**Then** grava linhas e contas; as colunas de orçado por conta, departamento e ajustes são acrescentadas pelas histórias 2.6, 3.5 e 5.4
 
 **Given** competência fechada
 **When** o DRE (mensal, acumulado, detalhe por conta) é consultado
@@ -578,7 +584,7 @@ So that exista uma só fonte de orçado.
 
 **Given** o snapshot do fechamento
 **When** Fechar roda
-**Then** grava o orçado por conta
+**Then** `dre_fechamento_contas` ganha a coluna `orcado` e grava o orçado por conta
 **And** os testes da 1.1 seguem passando
 
 ### Story 2.7: Trocar a dona da conta (AD-16)
@@ -866,7 +872,7 @@ So that eu veja onde cada área gastou.
 
 **Given** Fechar
 **When** grava o snapshot
-**Then** o snapshot por contas grava o departamento de cada conta
+**Then** `dre_fechamento_contas` ganha a coluna `departamento` e o snapshot grava o departamento de cada conta
 
 ### Story 3.6: Orçado e ano anterior, "sem orçado" e detalhe até a filial (FR-8)
 
@@ -1004,6 +1010,10 @@ So that o analista carregue dados sem poder fechar o mês.
 **When** acessa qualquer rota
 **Then** segue com acesso total
 **And** a assinatura antiga com lista de perfis é removida ao migrar a última rota
+
+**Given** uma rota criada depois desta história
+**When** o teste de rotas roda
+**Then** falha se ela usar lista de perfis em vez de capacidade
 
 ### Story 4.3: Ids de área novos e menu (AD-12)
 
@@ -1307,7 +1317,7 @@ So that a correção fique registrada sem alterar o dado original.
 
 **Given** Fechar
 **When** grava o snapshot
-**Then** a coluna de ajustes do snapshot por contas é preenchida
+**Then** `dre_fechamento_contas` ganha a coluna `ajustes` e o snapshot a preenche
 **And** reimportar não toca nos ajustes, e gestor ou diretoria recebem `403`
 
 ### Story 5.5: Justificar os ajustes (FR-4, FR-12)
@@ -1377,7 +1387,7 @@ So that eu saiba o que justificar sem abrir o sistema à procura.
 
 **Given** Fechar
 **When** grava o fechamento
-**Then** na mesma transação enfileira um `dre_departamento` por Gerente (chave `fech:<id>:user:<uid>`), com o corpo renderizado do snapshot: todos os departamentos do destinatário, Realizado, Orçado, variação, a quantidade de desvios pendentes e o link para "Meu departamento"
+**Then** na mesma transação enfileira um `dre_departamento` por Gerente (chave `fech:<id>:user:<uid>`), com o corpo renderizado do snapshot: todos os departamentos do destinatário, Realizado, Orçado, variação, a quantidade de desvios pendentes e o link para a tela "Desvios" (5.2), onde ele justifica
 
 **Given** o corpo do e-mail
 **When** é gerado
