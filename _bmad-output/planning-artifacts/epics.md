@@ -156,7 +156,7 @@ A equipe do cliente passa a usar o sistema com dado real sabendo que há backup 
 
 **Épicos com carga técnica.** O épico 1 abre com fundação (testes e migração dos handlers) porque corrige falhas que já existem na Fase 1; o épico 8 é uma trilha de prontidão, e não um épico de valor para o usuário.
 
-**Histórias sem FR próprio.** Sustentam requisitos sem implementá-los: 1.1 e 1.5 (FR-9 a FR-11), 1.4 (FR-3), 1.9 (NFR7), 2.7 (FR-1 e FR-3), 2.10 (FR-20), 2.11 (FR-1), 3.3 (FR-5 e FR-6), 3.7 (FR-7), 4.3 (AR-9) e as do épico 8 (NFR6, NFR7, AR-15, AR-16). A 3.8 é um marco, sem requisito.
+**Histórias sem FR próprio.** Sustentam requisitos sem implementá-los: 1.1 e 1.5 (FR-9 a FR-11), 1.4 (FR-3), 1.9 (NFR7), 2.4 (FR-1), 2.8 (FR-1 e FR-3), 2.11 (FR-20), 2.12 (FR-1), 3.3 (FR-5 e FR-6), 3.7 (FR-7), 4.3 (FR-18), 4.4 (AR-9), 5.6 (FR-4 e FR-14) e as do épico 8 (NFR6, NFR7, AR-15, AR-16). A 3.8 é um marco, sem requisito.
 
 ## Epic 1: Fechar o mês com segurança
 
@@ -373,7 +373,7 @@ So that mudar o Mapa depois não altere um mês fechado.
 
 **Given** Fechar
 **When** grava o snapshot
-**Then** grava linhas e contas; as colunas de orçado por conta, departamento e ajustes são acrescentadas pelas histórias 2.6, 3.5 e 5.4
+**Then** grava linhas e contas; as colunas de orçado por conta, departamento e ajustes são acrescentadas pelas histórias 2.7, 3.5 e 5.4
 
 **Given** competência fechada
 **When** o DRE (mensal, acumulado, detalhe por conta) é consultado
@@ -411,7 +411,7 @@ So that uma cópia do código não revele a infraestrutura dele.
 
 O analista importa o realizado consolidado e o orçado do banco do cliente, carrega por arquivo o que ainda não vem de lá, e confere que o resultado bate com a planilha atual.
 
-**Nota:** a história 2.12 é opcional; nenhuma outra depende dela. Na 2.2, a coluna `Ajustes` da planilha não é importada: ajuste nasce no épico 5.
+**Nota:** a história 2.13 é opcional; nenhuma outra depende dela. Na 2.2, a coluna `Ajustes` da planilha não é importada: ajuste nasce no épico 5.
 
 ### Story 2.1: Uma conta, uma fonte (AD-16)
 
@@ -464,17 +464,16 @@ So that eu valide o ambiente com os mesmos dados que o Excel usa.
 **Then** continua aceito
 **And** competência fechada é recusada (1.6)
 
-### Story 2.3: Realizado consolidado do Oracle (FR-1, AD-2, AD-4, AD-15)
+### Story 2.3: Ler o realizado consolidado do Oracle (FR-1, AD-2, AD-4)
 
 As a analista,
-I want importar o realizado consolidado do banco do cliente,
+I want trazer o realizado consolidado do banco do cliente para dentro do sistema,
 So that faturamento, devoluções, CMV de devolução, ST e desconto de custo venham do ERP sem digitação.
 
 **Acceptance Criteria:**
 
 **Given** a migration
-**Then** `lancamentos` ganha `uf` e existe `auditoria.execucoes`
-**And** ambas entram em `limpar_dados_teste`
+**Then** `lancamentos` ganha a coluna `uf`
 
 **Given** `dre/fontes/oracle` (go-ora v2, só leitura) e as variáveis `JC_ORACLE_*` e `JC_EMPRESA_ID`
 **When** a importação é disparada
@@ -499,13 +498,32 @@ So that faturamento, devoluções, CMV de devolução, ST e desconto de custo ve
 **When** importa
 **Then** é pulada e informada, sem falhar as demais
 
-**Given** as contas `ERP.*`
-**When** importadas
-**Then** ganham dona `oracle.consolidado` (2.1)
-**And** a execução grava em `execucoes` (início, fim, status, resumo) e na trilha
-**And** falha de conexão devolve mensagem clara (rede, serviço ou credencial)
+### Story 2.4: Registrar cada importação e a posse das contas (FR-1, AD-15, AD-16)
 
-### Story 2.4: Tela "Importar do banco do cliente"
+As a analista,
+I want que cada importação fique registrada e que as contas do Oracle tenham dona,
+So that eu saiba o que foi importado e nada seja somado em dobro.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `auditoria.execucoes`
+**And** ela entra em `limpar_dados_teste`
+
+**Given** uma importação do Oracle (2.3)
+**When** termina
+**Then** a execução grava início, fim, status e resumo (aplicadas, puladas por mês fechado, rejeitadas), e a trilha registra quem a disparou
+
+**Given** as contas `ERP.*`
+**When** são importadas pela primeira vez
+**Then** ganham dona `oracle.consolidado` (2.1)
+**And** uma conta `ERP.*` cuja dona é outra origem é rejeitada
+
+**Given** falha de conexão
+**When** a importação roda
+**Then** devolve mensagem clara (rede, serviço ou credencial), registra a execução com status de falha e mantém os dados anteriores
+
+### Story 2.5: Tela "Importar do banco do cliente"
 
 As a analista,
 I want um botão "Importar agora" e ver o resultado,
@@ -529,7 +547,7 @@ So that eu acompanhe cada importação.
 **When** abre a tela ou chama a API
 **Then** não vê o botão e a API devolve `403`
 
-### Story 2.5: Orçado do Oracle por conta (FR-2, AD-5)
+### Story 2.6: Orçado do Oracle por conta (FR-2, AD-5)
 
 As a analista,
 I want importar o orçado do banco do cliente por conta,
@@ -558,7 +576,7 @@ So that o DRE compare com o planejado.
 **When** é guardado
 **Then** fica como texto
 
-### Story 2.6: O DRE lê o orçado por conta (AD-5)
+### Story 2.7: O DRE lê o orçado por conta (AD-5)
 
 As a Controller,
 I want que o DRE use o orçado vindo do banco do cliente,
@@ -587,7 +605,7 @@ So that exista uma só fonte de orçado.
 **Then** `dre_fechamento_contas` ganha a coluna `orcado` e grava o orçado por conta
 **And** os testes da 1.1 seguem passando
 
-### Story 2.7: Trocar a dona da conta (AD-16)
+### Story 2.8: Trocar a dona da conta (AD-16)
 
 As a Controller,
 I want passar uma conta de arquivo para o Oracle quando ele passar a cobri-la,
@@ -611,7 +629,7 @@ So that a virada não duplique nem perca dados.
 **When** tenta trocar
 **Then** `403`
 
-### Story 2.8: Cadastro de departamentos
+### Story 2.9: Cadastro de departamentos
 
 As a analista,
 I want cadastrar os departamentos e o grupo de cada um,
@@ -631,7 +649,7 @@ So that contas e gerentes tenham a quem se ligar.
 **When** tenta excluir
 **Then** `409`
 
-### Story 2.9: Dicionário de contas por arquivo (FR-20, AD-2)
+### Story 2.10: Dicionário de contas por arquivo (FR-20, AD-2)
 
 As a analista,
 I want carregar o dicionário (conta, descrição, grupo, departamento) por arquivo,
@@ -656,7 +674,7 @@ So that o sistema saiba de qual departamento é cada conta.
 **Then** vale a mesma resolução do Mapa (a mais específica vence)
 **And** a carga vai à trilha
 
-### Story 2.10: Dicionário inicial validado com o cliente (tarefa de dados)
+### Story 2.11: Dicionário inicial validado com o cliente (tarefa de dados)
 
 As a dono do produto,
 I want gerar o arquivo do dicionário a partir da planilha do cliente e validá-lo com a área de negócio,
@@ -678,10 +696,10 @@ So that os gerentes tenham departamento desde o primeiro dia.
 **Then** quem validou e quando fica registrado
 
 **Given** o arquivo validado
-**When** é carregado em Teste pela 2.9
+**When** é carregado em Teste pela 2.10
 **Then** a contagem de contas por departamento é conferida
 
-### Story 2.11: Conferir o Oracle contra a planilha
+### Story 2.12: Conferir o Oracle contra a planilha
 
 As a dono do produto,
 I want comparar o que veio do Oracle com a planilha do mesmo mês,
@@ -706,7 +724,7 @@ So that eu confie na conexão antes de virar para Produção.
 **Then** é só leitura e grava apenas a execução em `execucoes`
 **And** funciona em Teste e em Produção
 
-### Story 2.12: Importação automática diária (opcional, AD-15)
+### Story 2.13: Importação automática diária (opcional, AD-15)
 
 As a analista,
 I want que a importação rode sozinha todo dia,
@@ -716,7 +734,7 @@ So that eu não precise lembrar.
 
 **Given** a hora em `config_empresa` (padrão 06:30, `America/Sao_Paulo`; a tabela é criada aqui se ainda não existir)
 **When** chega a hora
-**Then** dispara as importações 2.3 e 2.5
+**Then** dispara as importações 2.3 e 2.6
 
 **Given** `pg_try_advisory_lock` em conexão dedicada, com o unlock na mesma conexão (descartada se o unlock falhar)
 **When** outra execução está em andamento
@@ -858,7 +876,7 @@ So that eu veja onde cada área gastou.
 
 **Acceptance Criteria:**
 
-**Given** contas ligadas a departamentos (2.9)
+**Given** contas ligadas a departamentos (2.10)
 **When** abro a visão por departamento
 **Then** lista cada departamento (agrupado em Comercial, Logística e Administrativo) com as contas, o total e o percentual sobre o Faturamento Líquido
 
@@ -925,7 +943,7 @@ So that eu saiba que os números batem antes de mostrar ao cliente.
 **Given** todas as linhas dentro da tolerância
 **When** a paridade termina
 **Then** o relatório conclui "bate" e grava a execução em `execucoes`
-**And** é só leitura e reaproveita o mecanismo da conferência 2.11
+**And** é só leitura e reaproveita o mecanismo da conferência 2.12
 
 ### Story 3.8: Primeira demonstração ao cliente (marco)
 
@@ -951,7 +969,7 @@ So that o cliente valide o rumo antes de os gerentes entrarem.
 
 Cada pessoa vê e faz só o que cabe ao seu papel, o Gerente enxerga apenas o seu departamento, e o cadastro público deixa de existir.
 
-**Nota:** a história 4.1 não depende de nenhuma outra e sai antes de todas as demais, inclusive do épico 1. Não há expiração de usuário por tempo: o acesso termina por bloqueio (4.5). O perfil de TI fica para depois do A1.
+**Nota:** a história 4.1 não depende de nenhuma outra e sai antes de todas as demais, inclusive do épico 1. Não há expiração de usuário por tempo: o acesso termina por bloqueio (4.6). O perfil de TI fica para depois do A1.
 
 ### Story 4.1: Fechar o cadastro público (FR-19, AR-14), a primeira a sair
 
@@ -983,7 +1001,7 @@ So that só quem eu autorizo entre no sistema.
 
 As a Controller,
 I want perfis com capacidades claras,
-So that o analista carregue dados sem poder fechar o mês.
+So that o analista tenha o que precisa sem poder fechar o mês.
 
 **Acceptance Criteria:**
 
@@ -995,7 +1013,27 @@ So that o analista carregue dados sem poder fechar o mês.
 
 **Given** o middleware
 **When** protege uma rota
-**Then** recebe uma capacidade, e todas as rotas atuais migram sem mudar o comportamento dos perfis existentes (testes da 1.1)
+**Then** aceita uma capacidade e, até a 4.3, ainda aceita a lista de perfis atual
+
+**Given** a matriz
+**When** um teste a percorre
+**Then** confirma que o analista carrega e edita Mapa e estrutura mas não fecha nem reabre, e que diretoria e auditoria não têm nenhuma capacidade de escrita
+
+**Given** o admin de plataforma
+**When** acessa qualquer capacidade
+**Then** segue com acesso total
+
+### Story 4.3: Migrar as rotas para capacidades (AD-11)
+
+As a Controller,
+I want que todas as rotas usem a matriz,
+So that não haja listas de perfil soltas e divergentes.
+
+**Acceptance Criteria:**
+
+**Given** as rotas atuais
+**When** são migradas
+**Then** cada uma declara uma capacidade e os perfis existentes mantêm o comportamento de hoje (testes da 1.1)
 
 **Given** diretoria e auditoria
 **When** chamam qualquer rota de escrita
@@ -1006,16 +1044,15 @@ So that o analista carregue dados sem poder fechar o mês.
 **Then** funciona
 **And** recebe `403` ao fechar ou reabrir
 
-**Given** o admin de plataforma
-**When** acessa qualquer rota
-**Then** segue com acesso total
-**And** a assinatura antiga com lista de perfis é removida ao migrar a última rota
+**Given** a última rota migrada
+**When** a migração termina
+**Then** a assinatura com lista de perfis é removida
 
 **Given** uma rota criada depois desta história
 **When** o teste de rotas roda
 **Then** falha se ela usar lista de perfis em vez de capacidade
 
-### Story 4.3: Ids de área novos e menu (AD-12)
+### Story 4.4: Ids de área novos e menu (AD-12)
 
 As a usuário,
 I want o menu com as áreas do cliente (Administrativo, Configurações, Comercial, Operação),
@@ -1040,7 +1077,7 @@ So that eu encontre cada coisa onde o contrato diz.
 **Then** mostra Administrativo (DRE, fechamentos, Mapa), Configurações (carga, usuários, trilha), Comercial e Operação ("em breve") e o módulo de administração da plataforma passa a se chamar "Plataforma"
 **And** backend, rotas e frontend saem no mesmo release
 
-### Story 4.4: Usuários com perfil e departamentos (FR-18, AD-10)
+### Story 4.5: Usuários com perfil e departamentos (FR-18, AD-10)
 
 As a Controller,
 I want definir o perfil de cada usuário e os departamentos de cada Gerente,
@@ -1064,7 +1101,7 @@ So that o escopo de cada um fique claro.
 **Then** vai à trilha
 **And** só a capacidade "gerir usuários" acessa a tela
 
-### Story 4.5: Bloqueio de usuário no lugar da expiração (FR-22, AD-19)
+### Story 4.6: Bloqueio de usuário no lugar da expiração (FR-22, AD-19)
 
 As a Controller,
 I want bloquear e desbloquear um usuário com motivo,
@@ -1097,7 +1134,7 @@ So that o acesso termine quando eu decidir, e não por prazo.
 **Then** ela foi removida e um usuário comum com a coluna vazia entra normalmente (teste que reproduz o caso do login)
 **And** a tela de usuários troca a coluna "Trial" por "Bloqueado" e o menu deixa de mostrar "Licença vence"
 
-### Story 4.6: Escopo por departamento que nega por padrão (FR-18, AD-10)
+### Story 4.7: Escopo por departamento que nega por padrão (FR-18, AD-10)
 
 As a Controller,
 I want que o Gerente nunca receba dado de outro departamento,
@@ -1130,7 +1167,7 @@ So that a confidencialidade não dependa da tela.
 **Then** acontece em Go, nunca com `LIKE`
 **And** mês fechado aplica o filtro sobre o snapshot por contas
 
-### Story 4.7: "Meu departamento" para o Gerente (FR-18, FR-8)
+### Story 4.8: "Meu departamento" para o Gerente (FR-18, FR-8)
 
 As a Gerente,
 I want ver as contas do meu departamento com Realizado, Orçado, Ano anterior e variação,
@@ -1155,7 +1192,7 @@ So that eu entenda o meu resultado.
 **Then** a aba aparece só para o `gestor`
 **And** nenhum outro departamento é visível, nem por URL direta
 
-### Story 4.8: Criar usuário da empresa (FR-19)
+### Story 4.9: Criar usuário da empresa (FR-19)
 
 As a administrador de plataforma,
 I want criar o usuário da empresa com perfil e departamentos,
@@ -1195,7 +1232,7 @@ So that o sistema saiba o que exige justificativa e quem avisar.
 **Acceptance Criteria:**
 
 **Given** a migration
-**Then** existe `auditoria.config_empresa (empresa_id, chave, valor JSONB)` (criada aqui se a 2.12 não existiu), mantida por `limpar_dados_teste` (é configuração)
+**Then** existe `auditoria.config_empresa (empresa_id, chave, valor JSONB)` (criada aqui se a 2.13 não existiu), mantida por `limpar_dados_teste` (é configuração)
 **And** `dre_fechamentos` ganha `limite_desvio`
 
 **Given** a tela de Configurações
@@ -1345,7 +1382,38 @@ So that nenhum ajuste fique sem explicação.
 **Then** `403`
 **And** o Controller vê os ajustes pendentes de todos os departamentos
 
-### Story 5.6: Aviso de ajuste por e-mail (FR-4, AD-13)
+### Story 5.6: Fila de e-mail e envio (AD-13)
+
+As a dono do produto,
+I want uma fila de e-mails com envio confiável,
+So that nenhum e-mail se perca nem saia duplicado.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `auditoria.outbox_email (empresa_id, tipo, chave_dedup UNIQUE, destinatarios, assunto, corpo_html, corpo_texto, status, tentativas, erro, criado_em, enviado_em)`, incluída em `limpar_dados_teste`
+
+**Given** uma função nova em `services/email.go` que envia HTML e texto com `Message-ID` estável (reaproveita `sendMailSSL`)
+**When** o worker drena a fila com `FOR UPDATE SKIP LOCKED`
+**Then** envia e marca como enviado (entrega pelo menos uma vez); um teste enfileira um item sintético por `dre.Envio.Enfileirar` e confere os estados
+
+**Given** um item com a mesma `chave_dedup`
+**When** é enfileirado de novo
+**Then** não duplica
+
+**Given** SMTP não configurado ou erro
+**When** o worker tenta enviar
+**Then** o status é `falha` com a mensagem e as tentativas contam (até 3, com intervalo)
+
+**Given** o ambiente em Teste
+**When** um item é enfileirado
+**Then** o destinatário é só o administrador de plataforma da empresa, nunca os destinatários originais
+
+**Given** o enfileirar e o resultado do envio
+**When** acontecem
+**Then** vão à trilha
+
+### Story 5.7: Aviso de ajuste por e-mail (FR-4)
 
 As a Controller,
 I want que a Lista de aviso seja avisada quando um ajuste é lançado,
@@ -1353,31 +1421,27 @@ So that os gestores saibam e justifiquem.
 
 **Acceptance Criteria:**
 
-**Given** a migration
-**Then** existe `auditoria.outbox_email (empresa_id, tipo, chave_dedup UNIQUE, destinatarios, assunto, corpo_html, corpo_texto, status, tentativas, erro, criado_em, enviado_em)`, incluída em `limpar_dados_teste`
-
-**Given** um ajuste lançado
+**Given** um ajuste lançado (5.4)
 **When** a transação termina
-**Then** enfileira `aviso_ajuste` com chave `ajuste:<id>`; o e-mail traz conta, departamento, competência, valor, motivo e autor, sem dado de outros departamentos
+**Then** enfileira `aviso_ajuste` (5.6) com chave `ajuste:<id>` para a `lista_aviso`
 
-**Given** uma função nova em `services/email.go` que envia HTML e texto com `Message-ID` estável (reaproveita `sendMailSSL`)
-**When** o worker drena com `SKIP LOCKED`
-**Then** envia e marca como enviado (entrega pelo menos uma vez)
-
-**Given** SMTP não configurado ou erro
-**When** o worker tenta enviar
-**Then** o status é `falha` com a mensagem e as tentativas contam (até 3, com intervalo)
-
-**Given** o ambiente em Teste
-**When** o e-mail é enfileirado
-**Then** o destinatário é só o administrador de plataforma da empresa, nunca a lista
+**Given** o e-mail do aviso
+**When** é gerado
+**Then** traz conta, departamento, competência, valor, motivo e autor, sem dado de outros departamentos
 
 **Given** a Lista de aviso vazia
 **When** um ajuste é lançado
 **Then** não enfileira e registra "sem destinatários"
-**And** o enfileirar e o resultado do envio vão à trilha
 
-### Story 5.7: E-mail do DRE por departamento no fechamento (FR-14)
+**Given** o ambiente em Teste
+**When** um ajuste é lançado
+**Then** o aviso vai só ao administrador (regra da 5.6)
+
+**Given** um ajuste
+**When** é lançado
+**Then** o aviso é enfileirado na mesma transação do ajuste, de modo que ajuste e aviso não se separam
+
+### Story 5.8: E-mail do DRE por departamento no fechamento (FR-14)
 
 As a Gerente,
 I want receber por e-mail o DRE do meu departamento quando o mês fecha,
@@ -1406,7 +1470,7 @@ So that eu saiba o que justificar sem abrir o sistema à procura.
 **Then** a nova versão gera novo envio
 **And** o enfileirar e o resultado vão à trilha
 
-### Story 5.8: Painel de envios (FR-14)
+### Story 5.9: Painel de envios (FR-14)
 
 As a Controller,
 I want ver o estado de cada e-mail e reenviar os que falharam,
