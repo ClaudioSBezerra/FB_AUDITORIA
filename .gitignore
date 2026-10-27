@@ -1,0 +1,26 @@
+# Backend
+backend/fb_auditoria
+backend/server
+backend/*.log
+backend/.env
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+
+# Go
+*.exe
+*.test
+*.out
+
+# Environment
+.env
+.env.local
+.env.production
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

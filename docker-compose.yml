@@ -1,0 +1,71 @@
+services:
+  # Backend (Go) — o proxy/túnel roteia /api/* direto pra cá
+  api:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: always
+    expose:
+      - "8088"
+    ports:
+      - "8088:8088"
+    environment:
+      - PORT=8088
+      - DATABASE_URL=postgres://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/${DB_NAME:-fb_auditoria}?sslmode=disable
+      - JWT_SECRET=${JWT_SECRET}
+      - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_FROM=${SMTP_FROM}
+      - APP_URL=${APP_URL:-https://auditoria.fbtax.cloud}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://auditoria.fbtax.cloud}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      # Alias único evita colisão de DNS entre stacks Coolify (mesmo padrão do Farol).
+      fb_net:
+        aliases:
+          - auditoria-api
+      coolify: {}
+
+  # Frontend (React/Nginx)
+  web:
+    build:
+      context: ./frontend
+    restart: always
+    expose:
+      - "80"
+    depends_on:
+      - api
+    networks:
+      - fb_net
+      - coolify
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+      - POSTGRES_DB=${DB_NAME:-fb_auditoria}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - fb_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  fb_net:
+    driver: bridge
+  coolify:
+    external: true
+
+volumes:
+  postgres_data:

@@ -1,0 +1,907 @@
+import { useState, useEffect, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Plus, Trash2, Building, Layers, Factory, Pencil } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+
+interface Environment {
+  id: string;
+  name: string;
+  description: string;
+  created_at: string;
+}
+
+interface EnterpriseGroup {
+  id: string;
+  environment_id: string;
+  name: string;
+  description: string;
+  created_at: string;
+}
+
+interface Company {
+  id: string;
+  group_id: string;
+  cnpj: string;
+  name: string;
+  trade_name: string;
+  created_at: string;
+}
+
+interface Branch {
+  cnpj: string;
+  company_name: string;
+}
+
+interface UserHierarchy {
+  environment: Environment;
+  group: EnterpriseGroup;
+  company: Company;
+  branches: Branch[];
+}
+
+export default function GestaoAmbiente() {
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [selectedEnv, setSelectedEnv] = useState<Environment | null>(null);
+  const [groups, setGroups] = useState<EnterpriseGroup[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<EnterpriseGroup | null>(null);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  
+  // Modal states
+  const [isEnvModalOpen, setIsEnvModalOpen] = useState(false);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  
+  // Form states
+  const [newEnvName, setNewEnvName] = useState("");
+  const [newEnvDesc, setNewEnvDesc] = useState("");
+  const [newGroupName, setNewGroupName] = useState("");
+  const [newGroupDesc, setNewGroupDesc] = useState("");
+  const [newCompanyCNPJ, setNewCompanyCNPJ] = useState("");
+  const [newCompanyName, setNewCompanyName] = useState("");
+  const [newCompanyTradeName, setNewCompanyTradeName] = useState("");
+
+  // Edit company state
+  const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+  const [editCompanyCNPJ, setEditCompanyCNPJ] = useState("");
+  const [editCompanyName, setEditCompanyName] = useState("");
+  const [editCompanyTradeName, setEditCompanyTradeName] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const { user, token, company, companyId, cnpj } = useAuth();
+  const [userHierarchy, setUserHierarchy] = useState<UserHierarchy | null>(null);
+
+  // ── Logo ──────────────────────────────────────────────────────────────────
+  // logoURL = logo da empresa ativa do usuário (não-admin view + fallback)
+  // editLogoURL = logo da empresa sendo editada no dialog (admin)
+  const [logoURL, setLogoURL] = useState<string | null>(null);
+  const [editLogoURL, setEditLogoURL] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const editLogoInputRef = useRef<HTMLInputElement>(null);
+  const prevLogoURL = useRef<string | null>(null);
+  const prevEditLogoURL = useRef<string | null>(null);
+
+  const fetchLogo = (companyId?: string, onDone?: (url: string | null) => void) => {
+    const t = token || localStorage.getItem("token");
+    if (!t) return;
+    const headers: Record<string, string> = { Authorization: `Bearer ${t}` };
+    if (companyId) headers["X-Company-ID"] = companyId;
+    fetch("/api/config/empresa/logo", { headers })
+      .then(res => res.ok ? res.blob() : null)
+      .then(blob => { onDone?.(blob ? URL.createObjectURL(blob) : null); })
+      .catch(() => { onDone?.(null); });
+  };
+
+  const loadLogo = () => {
+    fetchLogo(undefined, url => {
+      if (prevLogoURL.current) URL.revokeObjectURL(prevLogoURL.current);
+      prevLogoURL.current = url;
+      setLogoURL(url);
+    });
+  };
+
+  const loadEditLogo = (companyId: string) => {
+    fetchLogo(companyId, url => {
+      if (prevEditLogoURL.current) URL.revokeObjectURL(prevEditLogoURL.current);
+      prevEditLogoURL.current = url;
+      setEditLogoURL(url);
+    });
+  };
+
+  const handleLogoUpload = async (file: File, companyId?: string) => {
+    const t = token || localStorage.getItem("token");
+    if (!t) return;
+    setLogoUploading(true);
+    try {
+      const form = new FormData();
+      form.append("logo", file);
+      const headers: Record<string, string> = { Authorization: `Bearer ${t}` };
+      if (companyId) headers["X-Company-ID"] = companyId;
+      const res = await fetch("/api/config/empresa/logo", {
+        method: "POST",
+        headers,
+        body: form,
+      });
+      if (!res.ok) {
+        toast.error((await res.text()) || "Erro ao enviar logo");
+        return;
+      }
+      toast.success("Logotipo atualizado");
+      window.dispatchEvent(new CustomEvent("empresa-logo-updated"));
+      if (companyId) {
+        loadEditLogo(companyId);
+      } else {
+        loadLogo();
+      }
+    } catch {
+      toast.error("Erro ao enviar logo");
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  // Initial Load
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchEnvironments();
+    } else if (user) {
+      fetchUserHierarchy();
+    }
+    loadLogo();
+  }, [user]);
+
+  // Load Groups when Env selected
+  useEffect(() => {
+    if (selectedEnv) {
+      fetchGroups(selectedEnv.id);
+      setGroups([]);
+      setSelectedGroup(null);
+      setCompanies([]);
+    } else {
+      setGroups([]);
+      setSelectedGroup(null);
+      setCompanies([]);
+    }
+  }, [selectedEnv]);
+
+  // Load Companies when Group selected
+  useEffect(() => {
+    if (selectedGroup) {
+      fetchCompanies(selectedGroup.id);
+    } else {
+      setCompanies([]);
+    }
+  }, [selectedGroup]);
+
+  const fetchUserHierarchy = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch("/api/user/hierarchy", {
+        headers: { 
+            "Authorization": `Bearer ${token}` 
+        }
+      });
+      if (!res.ok) throw new Error("Failed to fetch hierarchy");
+      const data = await res.json();
+      setUserHierarchy(data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar dados do usuário");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchEnvironments = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch("/api/config/environments", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch environments");
+      const data = await res.json();
+      setEnvironments(data);
+      // Select first one by default if none selected and data exists
+      if (!selectedEnv && data.length > 0) {
+        setSelectedEnv(data[0]);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar ambientes");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchGroups = async (envId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/config/groups?environment_id=${envId}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch groups");
+      const data = await res.json();
+      setGroups(data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar grupos de empresas");
+    }
+  };
+
+  const fetchCompanies = async (groupId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/config/companies?group_id=${groupId}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to fetch companies");
+      const data = await res.json();
+      setCompanies(data);
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar empresas");
+    }
+  };
+
+  const handleCreateEnvironment = async () => {
+    if (!newEnvName) {
+      toast.error("Nome do ambiente é obrigatório");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch("/api/config/environments", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: newEnvName, description: newEnvDesc }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create");
+      
+      toast.success("Ambiente criado com sucesso!");
+      setIsEnvModalOpen(false);
+      setNewEnvName("");
+      setNewEnvDesc("");
+      fetchEnvironments();
+    } catch (error) {
+      toast.error("Erro ao criar ambiente");
+    }
+  };
+
+  const handleCreateGroup = async () => {
+    if (!selectedEnv) return;
+    if (!newGroupName) {
+      toast.error("Nome do grupo é obrigatório");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch("/api/config/groups", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          environment_id: selectedEnv.id,
+          name: newGroupName,
+          description: newGroupDesc
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create");
+      
+      toast.success("Grupo criado com sucesso!");
+      setIsGroupModalOpen(false);
+      setNewGroupName("");
+      setNewGroupDesc("");
+      fetchGroups(selectedEnv.id);
+    } catch (error) {
+      toast.error("Erro ao criar grupo");
+    }
+  };
+
+  const handleCreateCompany = async () => {
+    if (!selectedGroup) return;
+    if (!newCompanyName) {
+      toast.error("Razão Social é obrigatória");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch("/api/config/companies", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          group_id: selectedGroup.id,
+          cnpj: newCompanyCNPJ,
+          name: newCompanyName,
+          trade_name: newCompanyTradeName
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to create");
+
+      toast.success("Empresa cadastrada com sucesso!");
+      setIsCompanyModalOpen(false);
+      setNewCompanyCNPJ("");
+      setNewCompanyName("");
+      setNewCompanyTradeName("");
+      fetchCompanies(selectedGroup.id);
+    } catch (error) {
+      toast.error("Erro ao criar empresa");
+    }
+  };
+
+  const openEditCompany = (c: Company) => {
+    setEditingCompany(c);
+    setEditCompanyCNPJ(c.cnpj || "");
+    setEditCompanyName(c.name || "");
+    setEditCompanyTradeName(c.trade_name || "");
+    setEditLogoURL(null);
+    loadEditLogo(c.id);
+  };
+
+  const handleUpdateCompany = async () => {
+    if (!editingCompany) return;
+    const cnpjDigits = editCompanyCNPJ.replace(/\D/g, "");
+    if (cnpjDigits !== "" && cnpjDigits.length !== 14) {
+      toast.error("CNPJ deve ter 14 dígitos");
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/config/companies?id=${encodeURIComponent(editingCompany.id)}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          cnpj: cnpjDigits,
+          name: editCompanyName,
+          trade_name: editCompanyTradeName,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update");
+      toast.success("Empresa atualizada");
+      setEditingCompany(null);
+      if (selectedGroup) fetchCompanies(selectedGroup.id);
+    } catch {
+      toast.error("Erro ao atualizar empresa");
+    }
+  };
+
+  const handleDeleteEnvironment = async (id: string) => {
+    if (!confirm("Tem certeza? Isso apagará TODOS os grupos e empresas vinculados.")) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/config/environments?id=${id}`, { 
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Ambiente removido");
+      if (selectedEnv?.id === id) setSelectedEnv(null);
+      fetchEnvironments();
+    } catch (error) {
+      toast.error("Erro ao remover ambiente");
+    }
+  };
+
+  const handleDeleteGroup = async (id: string) => {
+    if (!confirm("Tem certeza? Isso apagará TODAS as empresas vinculadas.")) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/config/groups?id=${id}`, { 
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Grupo removido");
+      if (selectedGroup?.id === id) setSelectedGroup(null);
+      if (selectedEnv) fetchGroups(selectedEnv.id);
+    } catch (error) {
+      toast.error("Erro ao remover grupo");
+    }
+  };
+
+  const handleDeleteCompany = async (id: string) => {
+    if (!confirm("Tem certeza?")) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/config/companies?id=${id}`, { 
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      toast.success("Empresa removida");
+      if (selectedGroup) fetchCompanies(selectedGroup.id);
+    } catch (error) {
+      toast.error("Erro ao remover empresa");
+    }
+  };
+
+  if (user?.role !== 'admin') {
+    return (
+      <div className="container mx-auto p-4 space-y-6">
+        <div>
+            <h1 className="text-3xl font-bold text-gray-900">Meu Ambiente</h1>
+            <p className="text-gray-500 mt-1">
+                Visualização dos dados vinculados ao seu usuário
+            </p>
+        </div>
+
+        {loading ? (
+             <p>Carregando...</p>
+        ) : !userHierarchy ? (
+             <p>Nenhum dado encontrado. Contate o administrador.</p>
+        ) : (
+            <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Environment */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Layers className="h-5 w-5" />
+                            Ambiente
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="text-lg font-medium">{userHierarchy.environment.name}</div>
+                         <div className="text-sm text-muted-foreground">{userHierarchy.environment.description}</div>
+                    </CardContent>
+                </Card>
+
+                {/* Group */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Building className="h-5 w-5" />
+                            Grupo
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="text-lg font-medium">{userHierarchy.group.name}</div>
+                         <div className="text-sm text-muted-foreground">{userHierarchy.group.description}</div>
+                    </CardContent>
+                </Card>
+
+                {/* Company */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Factory className="h-5 w-5" />
+                            Empresa
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center gap-4">
+                            {logoURL ? (
+                              <img src={logoURL} alt="Logo" className="h-12 w-12 rounded-lg object-cover border shrink-0" />
+                            ) : (
+                              <div className="h-12 w-12 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground text-[10px] shrink-0">
+                                logo
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <div className="text-lg font-medium truncate">{userHierarchy.company.name}</div>
+                              <p className="text-[10px] text-gray-400 font-mono truncate" title={userHierarchy.company.id}>ID: {userHierarchy.company.id}</p>
+                              {userHierarchy.company.cnpj && <div className="text-sm text-muted-foreground">CNPJ: {userHierarchy.company.cnpj}</div>}
+                            </div>
+                        </div>
+                        {user?.role === "admin" && (
+                          <div className="mt-3">
+                            <Button variant="outline" size="sm" disabled={logoUploading} onClick={() => logoInputRef.current?.click()}>
+                              {logoUploading ? "Enviando..." : "Alterar logotipo"}
+                            </Button>
+                            <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden"
+                              onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ""; }} />
+                          </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="space-y-4">
+                <h2 className="text-xl font-semibold">Filiais Importadas</h2>
+                <div className="border rounded-md p-4 bg-white">
+                    {userHierarchy.branches.length === 0 ? (
+                        <p className="text-muted-foreground">Nenhuma filial identificada nas importações.</p>
+                    ) : (
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>CNPJ</TableHead>
+                                    <TableHead>Razão Social (Importada)</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {userHierarchy.branches.map((branch, idx) => (
+                                    <TableRow key={idx}>
+                                        <TableCell className="font-mono">{branch.cnpj}</TableCell>
+                                        <TableCell>{branch.company_name}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+                </div>
+            </div>
+            </>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-4 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Gestão de Ambientes</h1>
+        <p className="text-gray-500 mt-1">
+          Configuração Hierárquica: Ambiente &gt; Grupo &gt; Empresa
+        </p>
+      </div>
+
+      {/* Minha Empresa — logo + upload direto para a empresa ativa do admin */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Factory className="h-4 w-4" />
+            Minha Empresa
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Logotipo exibido na barra lateral e nos painéis
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex items-center gap-4">
+            {logoURL ? (
+              <img src={logoURL} alt="Logo" className="h-16 w-16 rounded-lg object-cover border shrink-0" />
+            ) : (
+              <div className="h-16 w-16 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground text-[10px] shrink-0">
+                sem logo
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="text-base font-medium truncate">{company || "—"}</div>
+              {cnpj && <div className="text-xs text-muted-foreground font-mono">CNPJ: {cnpj}</div>}
+              <div className="text-[10px] text-gray-400 font-mono truncate" title={companyId || ""}>ID: {companyId || "—"}</div>
+            </div>
+            <div className="shrink-0">
+              <Button variant="outline" size="sm" disabled={logoUploading} onClick={() => logoInputRef.current?.click()}>
+                {logoUploading ? "Enviando..." : "Alterar logotipo"}
+              </Button>
+              <p className="text-[10px] text-muted-foreground mt-1 text-right">JPEG/PNG/WebP/SVG · 5MB</p>
+              <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ""; }} />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[calc(100vh-22rem)]">
+        {/* Column 1: Environments */}
+        <div className="flex flex-col space-y-4 h-full">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Layers className="w-5 h-5" /> Ambientes
+            </h2>
+            <Dialog open={isEnvModalOpen} onOpenChange={setIsEnvModalOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline"><Plus className="w-4 h-4" /></Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Novo Ambiente</DialogTitle>
+                  <DialogDescription>Crie um novo ambiente (Ex: Produção, Homologação).</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Nome</Label>
+                    <Input value={newEnvName} onChange={(e) => setNewEnvName(e.target.value)} placeholder="Ex: Ambiente Produção" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descrição</Label>
+                    <Input value={newEnvDesc} onChange={(e) => setNewEnvDesc(e.target.value)} placeholder="Opcional" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreateEnvironment}>Criar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50/50">
+            {loading && <p className="text-sm text-muted-foreground p-2">Carregando...</p>}
+            {!loading && environments.length === 0 && (
+              <p className="text-sm text-muted-foreground p-2">Nenhum ambiente.</p>
+            )}
+            {environments.map((env) => (
+              <div
+                key={env.id}
+                className={`flex items-center justify-between p-3 rounded-md border cursor-pointer transition-all ${
+                  selectedEnv?.id === env.id
+                    ? "bg-white border-primary shadow-sm ring-1 ring-primary"
+                    : "bg-white border-gray-200 hover:border-primary/50"
+                }`}
+                onClick={() => setSelectedEnv(env)}
+              >
+                <div className="overflow-hidden">
+                  <p className="font-medium text-sm truncate">{env.name}</p>
+                  {env.description && <p className="text-xs text-gray-500 truncate">{env.description}</p>}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 text-gray-400 hover:text-red-500"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteEnvironment(env.id);
+                  }}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Column 2: Groups */}
+        <div className="flex flex-col space-y-4 h-full">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Building className="w-5 h-5" /> Grupos
+            </h2>
+            <Dialog open={isGroupModalOpen} onOpenChange={setIsGroupModalOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" disabled={!selectedEnv}><Plus className="w-4 h-4" /></Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Novo Grupo</DialogTitle>
+                  <DialogDescription>Vinculado a: {selectedEnv?.name}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Nome do Grupo</Label>
+                    <Input value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} placeholder="Ex: Grupo Varejo X" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descrição</Label>
+                    <Input value={newGroupDesc} onChange={(e) => setNewGroupDesc(e.target.value)} placeholder="Opcional" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreateGroup}>Criar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50/50">
+            {!selectedEnv ? (
+              <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                Selecione um ambiente
+              </div>
+            ) : groups.length === 0 ? (
+               <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                Nenhum grupo cadastrado
+              </div>
+            ) : (
+              groups.map((group) => (
+                <div
+                  key={group.id}
+                  className={`flex items-center justify-between p-3 rounded-md border cursor-pointer transition-all ${
+                    selectedGroup?.id === group.id
+                      ? "bg-white border-primary shadow-sm ring-1 ring-primary"
+                      : "bg-white border-gray-200 hover:border-primary/50"
+                  }`}
+                  onClick={() => setSelectedGroup(group)}
+                >
+                  <div className="overflow-hidden">
+                    <p className="font-medium text-sm truncate">{group.name}</p>
+                    <p className="text-[10px] text-gray-400 font-mono truncate" title={group.id}>ID: {group.id}</p>
+                    {group.description && <p className="text-xs text-gray-500 truncate">{group.description}</p>}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-gray-400 hover:text-red-500"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteGroup(group.id);
+                    }}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Column 3: Companies */}
+        <div className="flex flex-col space-y-4 h-full">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Factory className="w-5 h-5" /> Empresas
+            </h2>
+            <Dialog open={isCompanyModalOpen} onOpenChange={setIsCompanyModalOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" disabled={!selectedGroup}><Plus className="w-4 h-4" /></Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Nova Empresa</DialogTitle>
+                  <DialogDescription>Vinculada a: {selectedGroup?.name}</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>CNPJ (apenas números)</Label>
+                    <Input value={newCompanyCNPJ} onChange={(e) => setNewCompanyCNPJ(e.target.value)} placeholder="Opcional" maxLength={14} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Razão Social</Label>
+                    <Input value={newCompanyName} onChange={(e) => setNewCompanyName(e.target.value)} placeholder="Empresa S/A" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Nome Fantasia</Label>
+                    <Input value={newCompanyTradeName} onChange={(e) => setNewCompanyTradeName(e.target.value)} placeholder="Empresa X" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreateCompany}>Cadastrar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-2 border rounded-md p-2 bg-gray-50/50">
+             {!selectedGroup ? (
+              <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                Selecione um grupo
+              </div>
+            ) : companies.length === 0 ? (
+               <div className="h-full flex items-center justify-center text-gray-400 text-sm">
+                Nenhuma empresa cadastrada
+              </div>
+            ) : (
+              companies.map((company) => (
+                <div
+                  key={company.id}
+                  className="flex items-center justify-between p-3 rounded-md border bg-white border-gray-200 hover:border-primary/50 transition-all"
+                >
+                  <div className="overflow-hidden">
+                    <p className="font-medium text-sm truncate">{company.name}</p>
+                    <p className="text-[10px] text-gray-400 font-mono truncate" title={company.id}>ID: {company.id}</p>
+                    {company.cnpj && <p className="text-xs text-gray-500 font-mono">{company.cnpj}</p>}
+                    {company.trade_name && <p className="text-xs text-gray-400 truncate">{company.trade_name}</p>}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-gray-400 hover:text-blue-500"
+                      onClick={() => openEditCompany(company)}
+                      title="Editar empresa"
+                    >
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-gray-400 hover:text-red-500"
+                      onClick={() => handleDeleteCompany(company.id)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Dialog de edição de empresa */}
+      <Dialog open={!!editingCompany} onOpenChange={(open) => !open && setEditingCompany(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Empresa</DialogTitle>
+            <DialogDescription>{editingCompany?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Logo */}
+            <div className="space-y-2">
+              <Label>Logotipo</Label>
+              <div className="flex items-center gap-4">
+                {editLogoURL ? (
+                  <img src={editLogoURL} alt="Logo" className="h-14 w-14 rounded-lg object-cover border shrink-0" />
+                ) : (
+                  <div className="h-14 w-14 rounded-lg border-2 border-dashed flex items-center justify-center text-muted-foreground text-[10px] shrink-0">
+                    sem logo
+                  </div>
+                )}
+                <div>
+                  <Button variant="outline" size="sm" disabled={logoUploading} onClick={() => editLogoInputRef.current?.click()}>
+                    {logoUploading ? "Enviando..." : "Alterar logotipo"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, SVG · máx 5 MB</p>
+                  <input ref={editLogoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/svg+xml" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f, editingCompany?.id); e.target.value = ""; }} />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>CNPJ (apenas números)</Label>
+              <Input
+                value={editCompanyCNPJ}
+                onChange={(e) => setEditCompanyCNPJ(e.target.value.replace(/\D/g, ""))}
+                placeholder="14 dígitos"
+                maxLength={14}
+              />
+              <p className="text-xs text-muted-foreground">
+                Identifica a empresa nas integrações.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Razão Social</Label>
+              <Input value={editCompanyName} onChange={(e) => setEditCompanyName(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome Fantasia</Label>
+              <Input value={editCompanyTradeName} onChange={(e) => setEditCompanyTradeName(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingCompany(null)}>Cancelar</Button>
+            <Button onClick={handleUpdateCompany}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

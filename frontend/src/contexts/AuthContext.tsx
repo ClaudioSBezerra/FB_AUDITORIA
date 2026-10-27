@@ -1,0 +1,326 @@
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+
+interface User {
+  id: string;
+  email: string;
+  full_name: string;
+  trial_ends_at: string;
+  role?: string;
+}
+
+interface AuthContextType {
+  user: User | null;
+  token: string | null;
+  environment: string | null;
+  group: string | null;
+  company: string | null;
+  companyId: string | null;
+  cnpj: string | null;
+  /** perfil funcional: auditoria | controladoria | diretoria | gestor */
+  perfil: string | null;
+  /** áreas do menu liberadas: administrativo | operacional | estrategico */
+  areas: string[];
+  /** admin de plataforma (role=admin) */
+  isAdmin: boolean;
+  /** true depois que /api/aud/me respondeu */
+  acessoCarregado: boolean;
+  canManageUsers: boolean;
+  loading: boolean;
+  login: (data: any) => void;
+  logout: () => void;
+  switchCompany: (id: string, name: string, cnpj: string) => void;
+  isAuthenticated: boolean;
+  hasArea: (area: string) => boolean;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [environment, setEnvironment] = useState<string | null>(null);
+  const [group, setGroup] = useState<string | null>(null);
+  const [company, setCompany] = useState<string | null>(null);
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  const [cnpj, setCnpj] = useState<string | null>(null);
+  const [perfil, setPerfil] = useState<string | null>(null);
+  const [areas, setAreas] = useState<string[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [acessoCarregado, setAcessoCarregado] = useState(false);
+  const [canManageUsers, setCanManageUsers] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const fetchAcesso = (tok: string) => {
+    fetch('/api/aud/me', { headers: { Authorization: `Bearer ${tok}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.perfil) setPerfil(d.perfil)
+        if (Array.isArray(d?.areas)) setAreas(d.areas)
+        setIsAdmin(!!d?.admin)
+        setCanManageUsers(!!d?.can_manage_users)
+      })
+      .catch(() => {})
+      .finally(() => setAcessoCarregado(true));
+  };
+
+  // Refs para o interceptor de fetch (sem stale closure)
+  const tokenRef = useRef<string | null>(null);
+  // Inicializa do localStorage de forma síncrona para evitar race condition:
+  // effects de filhos rodam ANTES do useEffect de AuthProvider, então se o ref
+  // começar null o primeiro fetch de qualquer página filha vai sem X-Company-ID.
+  const companyIdRef = useRef<string | null>(localStorage.getItem('companyId'));
+
+  // Controle de fila de auto-refresh (evita múltiplas chamadas simultâneas ao /api/auth/refresh)
+  const isRefreshingRef = useRef(false);
+  const refreshQueueRef = useRef<Array<(newToken: string | null) => void>>([]);
+
+  // Mantém refs atualizados com o estado mais recente
+  useEffect(() => { tokenRef.current = token; }, [token]);
+  useEffect(() => { companyIdRef.current = companyId; }, [companyId]);
+
+  // Interceptor global de fetch: injeta Authorization e X-Company-ID; auto-renova token expirado
+  useEffect(() => {
+    const originalFetch = window.fetch.bind(window);
+
+    const flushQueue = (newToken: string | null) => {
+      refreshQueueRef.current.forEach(cb => cb(newToken));
+      refreshQueueRef.current = [];
+    };
+
+    const retryWithToken = (input: RequestInfo | URL, init: RequestInit, newToken: string) => {
+      const h = new Headers(init.headers || {});
+      h.set('Authorization', `Bearer ${newToken}`);
+      if (companyIdRef.current) h.set('X-Company-ID', companyIdRef.current);
+      return originalFetch(input, { ...init, headers: h });
+    };
+
+    const refreshAndRetry = (input: RequestInfo | URL, init: RequestInit): Promise<Response> => {
+      // Já está renovando — enfileira e aguarda resultado
+      if (isRefreshingRef.current) {
+        return new Promise<Response>(resolve => {
+          refreshQueueRef.current.push(newToken => {
+            resolve(newToken ? retryWithToken(input, init, newToken) : new Response('Unauthorized', { status: 401 }));
+          });
+        });
+      }
+
+      isRefreshingRef.current = true;
+      return originalFetch('/api/auth/refresh', { method: 'POST' })
+        .then(async rr => {
+          if (rr.ok) {
+            const { token: newToken } = await rr.json();
+            tokenRef.current = newToken;
+            setToken(newToken);
+            localStorage.setItem('token', newToken);
+            flushQueue(newToken);
+            return retryWithToken(input, init, newToken);
+          }
+          // Refresh expirado — desloga
+          flushQueue(null);
+          localStorage.clear();
+          if (!window.location.pathname.startsWith('/m/')) window.location.href = '/login';
+          return new Response('Unauthorized', { status: 401 });
+        })
+        .catch(() => {
+          flushQueue(null);
+          return new Response('Unauthorized', { status: 401 });
+        })
+        .finally(() => { isRefreshingRef.current = false; });
+    };
+
+    window.fetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      const headers = new Headers(init.headers || {});
+      if (!headers.has('Authorization') && tokenRef.current) {
+        headers.set('Authorization', `Bearer ${tokenRef.current}`);
+      }
+      if (companyIdRef.current && !headers.has('X-Company-ID')) {
+        headers.set('X-Company-ID', companyIdRef.current);
+      }
+
+      const response = await originalFetch(input, { ...init, headers });
+
+      // 401 fora de endpoints de auth → tenta renovar token automaticamente
+      if (response.status === 401) {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
+        if (!url.includes('/api/auth/') && !url.includes('/api/aud/me')) {
+          return refreshAndRetry(input, init);
+        }
+      }
+
+      return response;
+    };
+
+    return () => { window.fetch = originalFetch; };
+  }, []);
+
+  useEffect(() => {
+    // Restore session from localStorage
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    const storedEnv = localStorage.getItem('environment');
+    const storedGroup = localStorage.getItem('group');
+    const storedCompany = localStorage.getItem('company');
+    const storedCompanyId = localStorage.getItem('companyId');
+    const storedCnpj = localStorage.getItem('cnpj');
+
+    if (storedToken && storedUser) {
+      setToken(storedToken);
+      tokenRef.current = storedToken;
+      setUser(JSON.parse(storedUser));
+      setEnvironment(storedEnv);
+      setGroup(storedGroup);
+      setCompany(storedCompany);
+      setCompanyId(storedCompanyId);
+      companyIdRef.current = storedCompanyId;
+      setCnpj(storedCnpj);
+
+      // Refresh user profile from server to ensure role and trial status are up to date
+      fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${storedToken}` }
+      })
+      .then(res => {
+        if (res.ok) return res.json();
+        if (res.status === 401) {
+          localStorage.clear();
+          // Rotas públicas mobile (/m/...) não precisam de autenticação —
+          // não redirecionar para login ao detectar token expirado nessas páginas.
+          if (!window.location.pathname.startsWith('/m/')) {
+            window.location.href = '/login';
+          }
+          throw new Error('Session expired');
+        }
+        throw new Error('Failed to refresh user data');
+      })
+      .then(userData => {
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        fetchAcesso(storedToken);
+      })
+      .catch(err => console.error("Session refresh error:", err))
+      .finally(() => setLoading(false));
+    } else {
+      setLoading(false);
+    }
+  }, []);
+
+  const login = (data: any) => {
+    setToken(data.token);
+    setUser(data.user);
+    setEnvironment(data.environment_name);
+    setGroup(data.group_name);
+
+    // Restaura preferência de empresa salva para este usuário (persiste após logout)
+    let companyName = data.company_name;
+    let companyIdVal = data.company_id;
+    let cnpjVal = data.cnpj;
+    if (data.user?.id) {
+      const saved = localStorage.getItem(`pref_company_${data.user.id}`);
+      if (saved) {
+        try {
+          const pref = JSON.parse(saved);
+          if (pref.id) {
+            companyName = pref.name;
+            companyIdVal = pref.id;
+            cnpjVal = pref.cnpj || '';
+          }
+        } catch {}
+      }
+    }
+
+    setCompany(companyName);
+    setCompanyId(companyIdVal);
+    setCnpj(cnpjVal);
+
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user));
+    localStorage.setItem('environment', data.environment_name || '');
+    localStorage.setItem('group', data.group_name || '');
+    localStorage.setItem('company', companyName || '');
+    localStorage.setItem('companyId', companyIdVal || '');
+    localStorage.setItem('cnpj', cnpjVal || '');
+    fetchAcesso(data.token);
+  };
+
+  const logout = () => {
+    // Preserva preferências de empresa antes de limpar o storage
+    const prefs: Record<string, string> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith('pref_company_')) {
+        prefs[key] = localStorage.getItem(key) || '';
+      }
+    }
+    localStorage.clear();
+    Object.entries(prefs).forEach(([k, v]) => localStorage.setItem(k, v));
+
+    setUser(null);
+    setToken(null);
+    setEnvironment(null);
+    setGroup(null);
+    setCompany(null);
+    setCompanyId(null);
+    setCnpj(null);
+    setPerfil(null);
+    setAreas([]);
+    setIsAdmin(false);
+    setAcessoCarregado(false);
+    window.location.href = '/login';
+  };
+
+  const switchCompany = (id: string, name: string, newCnpj: string) => {
+    setCompany(name);
+    setCompanyId(id);
+    setCnpj(newCnpj);
+    localStorage.setItem('company', name);
+    localStorage.setItem('companyId', id);
+    localStorage.setItem('cnpj', newCnpj);
+    // Salva preferência persistente para este usuário (localStorage + banco)
+    if (user?.id) {
+      localStorage.setItem(`pref_company_${user.id}`, JSON.stringify({ id, name, cnpj: newCnpj }));
+    }
+    const tok = localStorage.getItem('token');
+    if (tok) {
+      fetch('/api/user/preferred-company', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({ company_id: id }),
+      }).catch(() => {}); // fire-and-forget
+    }
+    window.location.reload();
+  };
+
+  const hasArea = (area: string) => isAdmin || areas.includes(area);
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      token,
+      environment,
+      group,
+      company,
+      companyId,
+      cnpj,
+      perfil,
+      areas,
+      isAdmin,
+      acessoCarregado,
+      canManageUsers,
+      loading,
+      login,
+      logout,
+      switchCompany,
+      isAuthenticated: !!user,
+      hasArea,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
