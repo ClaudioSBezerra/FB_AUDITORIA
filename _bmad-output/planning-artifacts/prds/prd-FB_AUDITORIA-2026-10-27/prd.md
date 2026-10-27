@@ -163,6 +163,7 @@ O analista edita as **Linhas do DRE** (descrição, ordem, nível, tipo conta ou
 - Uma linha subtotal soma exatamente as linhas listadas; referência a linha inexistente é recusada.
 - Mudanças na estrutura não alteram **Competências** com **Fechamento** ativo.
 - Toda alteração grava na **Trilha de auditoria**.
+- Uma linha pode receber um papel (faturamento líquido, margem composta, impostos, comercial, logística, administrativo, margem líquida, outras receitas e despesas, resultado antes ou após o IR), único por empresa; os cálculos de percentual, ponte e projeção encontram a linha pelo papel, nunca pelo código ou pela descrição.
 
 #### FR-6: Manter o Mapa de contas
 
@@ -316,8 +317,9 @@ O usuário autorizado vê o ranking dos maiores **Desvios** e filtra por ano, **
 O usuário autorizado vê a despesa sobre o Faturamento Líquido por ano e se está subindo, a ponte que explica a diferença entre **Orçado** (ou **Ano anterior**) e **Realizado**, e a projeção de fechamento do ano. Referência visual: o protótipo de painel que o cliente já usa. Realiza UJ-4.
 
 **Consequences (testable):**
-- A ponte do resultado fecha: a soma das contribuições é igual à diferença total entre os dois pontos comparados.
-- A projeção do ano indica quais meses são **Realizado** e quais são estimados, e o método de estimativa. `[ASSUMPTION: estimativa = realizado acumulado mais orçado dos meses restantes]`
+- A ponte do resultado fecha: a soma das contribuições é igual à diferença total entre os dois pontos comparados, tanto em pontos percentuais do Faturamento Líquido quanto em valor (neste, com o efeito do volume de vendas).
+- "Está subindo?" compara a despesa sobre o Faturamento Líquido do acumulado atual com o mesmo período do ano anterior, em pontos percentuais, com tolerância de 0,1 ponto. `[ASSUMPTION]`
+- A projeção do ano indica quais meses são **Realizado** e quais são estimados, e o método. Há dois métodos: **Orçado** (realizado acumulado mais o orçado dos meses restantes, quando há orçado) e **Sazonal** (realizado acumulado mais os meses restantes do ano anterior, escalados pela razão entre o acumulado atual e o do ano anterior; razão fora do intervalo de 0 a 3 vale 1). Sem orçado, usa o Sazonal; em dezembro, a projeção é o realizado. `[ASSUMPTION: regras tomadas do protótipo de painel do cliente]`
 - O **Gerente** vê esses indicadores apenas para o seu **Departamento**.
 
 ### 4.9 Perfis e acesso
@@ -461,7 +463,7 @@ O administrador de plataforma define o **Ambiente** da **Empresa**. Em Teste ele
 
 - §4.1 FR-1 — a UF do realizado consolidado é a do destino da venda e não é dimensão do DRE nesta release.
 - §4.5 FR-13 — o limite de Desvio é global, ajustável pelo Controller.
-- §4.8 FR-17 — a projeção do ano usa o realizado acumulado mais o orçado dos meses restantes.
+- §4.8 FR-17 — a projeção segue as regras do protótipo de painel do cliente (Orçado e Sazonal), e "subindo" usa a diferença em pontos percentuais contra o ano anterior.
 - §4.9 FR-18 — um Gerente pode responder por mais de um Departamento.
 - §4.10 FR-21 — apagar em Teste mantém estrutura, Mapa, dicionário e usuários e nunca toca a Trilha de auditoria.
 - §4.6 FR-14 — até confirmar a data de fechamento, o e-mail só sai após o Fechamento.

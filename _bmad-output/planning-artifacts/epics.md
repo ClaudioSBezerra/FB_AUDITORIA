@@ -76,6 +76,7 @@ Brownfield, sem starter template: a Fase 1 existe em produção; o trabalho é i
 - AR-15: backup do Postgres da Auditoria com restauração testada. Verificado no servidor: o cron diário `pg-backup-gdrive.sh` (23:00 UTC, `pg_dump -Fc`, `rclone` para o OneDrive, retenção de 56 dias, alerta por e-mail) tem lista fixa de stacks e usa `-U postgres`; a Auditoria não está na lista e seu usuário é outro. Trabalho: incluir a Auditoria no script (usuário lido de `POSTGRES_USER`), versionar uma cópia sem segredos no repositório, documentar e executar o teste de restauração; confirmar com o cliente o destino dos dados no OneDrive.
 - AR-17 (AD-18): `companies.ambiente` (padrão `teste`, trigger de mão única), função `limpar_dados_teste`, função `imutavel_salvo_em_teste` nos gatilhos de imutabilidade, senha de novo para apagar e virar, faixa de ambiente, e-mail em Teste só ao administrador.
 - AR-18 (AD-19): `users.bloqueado_em`, `bloqueado_por` e `motivo_bloqueio`; verificação no login, na renovação de sessão e no middleware; **remover** a verificação por `trial_ends_at` do login (`auth.go`) e do middleware (`auditoria_auth.go`), a extensão de teste do `PromoteUserHandler`, o prazo de 14 dias do `CreateUserHandler` e, no frontend, a coluna Trial de `AdminUsers.tsx` e o "Licença vence" do `AppRail.tsx`.
+- AR-19 (AD-20): `dre_linhas.papel` e `dre.LinhaPorPapel` para percentual sobre o Faturamento Líquido, ponte e projeção.
 - AR-16 (dívida, não bloqueia): `node:18-alpine`, tags fixas de `cloudflared` e `alpine`, `go mod tidy`; `DeleteUserHandler` versus o trigger de `audit_log`.
 
 ### UX Design Requirements
@@ -755,6 +756,10 @@ So that a estrutura acompanhe o DRE do cliente sem novo deploy.
 **Then** `403`
 **And** cada alteração vai à trilha
 
+**Given** a migration
+**Then** `dre_linhas` ganha `papel` (opcional, único por empresa quando preenchido)
+**And** o analista pode marcar a linha com um papel: faturamento líquido, margem composta, impostos, comercial, logística, administrativo, margem líquida, outras receitas e despesas, resultado antes do IR ou resultado após o IR (AD-20)
+
 ### Story 3.2: Carregar estrutura e Mapa por arquivo (FR-5, FR-6)
 
 As a analista,
@@ -822,6 +827,10 @@ So that eu compare a estrutura de custos entre meses e filiais.
 **Given** Faturamento Líquido zero
 **When** o DRE é calculado
 **Then** o percentual aparece como "não calculável"
+
+**Given** nenhuma linha com o papel faturamento líquido
+**When** o DRE é aberto
+**Then** a tela avisa em vez de calcular o percentual
 
 **Given** qualquer subtotal
 **When** o DRE é calculado
@@ -931,4 +940,480 @@ So that o cliente valide o rumo antes de os gerentes entrarem.
 **Given** a demonstração
 **When** acontece
 **Then** nenhum dado real do cliente sai do ambiente de Teste (sem capturas de tela no repositório)
+
+## Epic 4: Acesso seguro por perfil e departamento
+
+Cada pessoa vê e faz só o que cabe ao seu papel, o Gerente enxerga apenas o seu departamento, e o cadastro público deixa de existir.
+
+**Nota:** a história 4.1 não depende de nenhuma outra e sai antes de todas as demais, inclusive do épico 1. Não há expiração de usuário por tempo: o acesso termina por bloqueio (4.5). O perfil de TI fica para depois do A1.
+
+### Story 4.1: Fechar o cadastro público (FR-19, AR-14), a primeira a sair
+
+As a dono do produto,
+I want que ninguém consiga criar conta pela internet,
+So that só quem eu autorizo entre no sistema.
+
+**Acceptance Criteria:**
+
+**Given** `ALLOW_SELF_REGISTER` ausente ou `false`
+**When** alguém chama `POST /api/auth/register`
+**Then** responde `404` e nenhuma empresa ou usuário é criado
+
+**Given** `ALLOW_SELF_REGISTER=true`
+**When** alguém chama o cadastro
+**Then** o comportamento é o de hoje (uso em desenvolvimento)
+
+**Given** o frontend
+**When** a rota `/register` é aberta
+**Then** redireciona para o login
+
+**Given** as rotas públicas
+**When** um teste as lista
+**Then** confirma que nenhuma outra cria usuário ou empresa
+**And** o padrão `false` consta em `.env.example` e no compose
+**And** a história pode ser entregue sozinha, antes de qualquer outra
+
+### Story 4.2: Perfil `analista` e matriz de capacidades (AD-11)
+
+As a Controller,
+I want perfis com capacidades claras,
+So that o analista carregue dados sem poder fechar o mês.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `users.perfil` aceita `analista` além dos atuais
+
+**Given** `perfis.go`
+**Then** define as capacidades (ler, ler no escopo, carregar, ajustar, editar Mapa, estrutura e dicionário, configurar rateio, fechar, reabrir, aplicar rateio, definir limite, justificar, gerir usuários) e a matriz: analista, controladoria (Controller), gestor (Gerente), diretoria e auditoria (só leitura)
+
+**Given** o middleware
+**When** protege uma rota
+**Then** recebe uma capacidade, e todas as rotas atuais migram sem mudar o comportamento dos perfis existentes (testes da 1.1)
+
+**Given** diretoria e auditoria
+**When** chamam qualquer rota de escrita
+**Then** são recusadas (teste que percorre as rotas)
+
+**Given** um analista
+**When** carrega, edita Mapa ou estrutura
+**Then** funciona
+**And** recebe `403` ao fechar ou reabrir
+
+**Given** o admin de plataforma
+**When** acessa qualquer rota
+**Then** segue com acesso total
+**And** a assinatura antiga com lista de perfis é removida ao migrar a última rota
+
+### Story 4.3: Ids de área novos e menu (AD-12)
+
+As a usuário,
+I want o menu com as áreas do cliente (Administrativo, Configurações, Comercial, Operação),
+So that eu encontre cada coisa onde o contrato diz.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `users.areas` é transformada por um único `UPDATE` com `CASE` (`estrategico`→`empresa`, `administrativo`→`configuracoes`, `operacional`→`operacao`) e o `DEFAULT` é atualizado
+
+**Given** usuários de cada combinação de áreas (inclusive vazia e as três)
+**When** a migration roda
+**Then** cada um fica com o equivalente
+**And** rodar de novo não altera nada
+
+**Given** o backend
+**When** valida áreas
+**Then** as constantes e a validação usam os ids novos e recusam os antigos
+
+**Given** o `navigation.ts`
+**When** o menu é montado
+**Then** mostra Administrativo (DRE, fechamentos, Mapa), Configurações (carga, usuários, trilha), Comercial e Operação ("em breve") e o módulo de administração da plataforma passa a se chamar "Plataforma"
+**And** backend, rotas e frontend saem no mesmo release
+
+### Story 4.4: Usuários com perfil e departamentos (FR-18, AD-10)
+
+As a Controller,
+I want definir o perfil de cada usuário e os departamentos de cada Gerente,
+So that o escopo de cada um fique claro.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `usuario_departamentos (user_id, departamento_id)`, mantida por `limpar_dados_teste` (é configuração)
+
+**Given** a tela de usuários
+**When** o Controller escolhe `analista` ou `gestor`
+**Then** salva, e para `gestor` pode ligar um ou mais departamentos
+
+**Given** um perfil que não é `gestor`
+**When** se tenta ligar departamentos
+**Then** a ligação é recusada
+
+**Given** qualquer alteração de perfil ou departamento
+**When** é salva
+**Then** vai à trilha
+**And** só a capacidade "gerir usuários" acessa a tela
+
+### Story 4.5: Bloqueio de usuário no lugar da expiração (FR-22, AD-19)
+
+As a Controller,
+I want bloquear e desbloquear um usuário com motivo,
+So that o acesso termine quando eu decidir, e não por prazo.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `users` ganha `bloqueado_em`, `bloqueado_por` e `motivo_bloqueio`
+
+**Given** um usuário bloqueado
+**When** tenta entrar ou renovar a sessão
+**Then** é recusado com mensagem clara
+
+**Given** uma sessão aberta
+**When** o usuário é bloqueado
+**Then** a requisição seguinte devolve `403`
+
+**Given** bloquear ou desbloquear sem motivo
+**When** envia
+**Then** recusa; com motivo, grava na trilha
+
+**Given** o próprio usuário
+**When** tenta se bloquear
+**Then** recusa
+**And** o último administrador de plataforma ativo não pode ser bloqueado
+
+**Given** a verificação por `trial_ends_at`
+**When** o login e o middleware rodam
+**Then** ela foi removida e um usuário comum com a coluna vazia entra normalmente (teste que reproduz o caso do login)
+**And** a tela de usuários troca a coluna "Trial" por "Bloqueado" e o menu deixa de mostrar "Licença vence"
+
+### Story 4.6: Escopo por departamento que nega por padrão (FR-18, AD-10)
+
+As a Controller,
+I want que o Gerente nunca receba dado de outro departamento,
+So that a confidencialidade não dependa da tela.
+
+**Acceptance Criteria:**
+
+**Given** o escopo como `struct {Irrestrito bool; Deptos []string}` com valor zero sem acesso
+**When** um Gerente com os departamentos A e B consulta qualquer rota que devolve valor por conta
+**Then** recebe só as contas de A e B
+
+**Given** um Gerente sem departamento
+**When** consulta
+**Then** recebe resposta vazia, nunca tudo
+
+**Given** o Gerente pedindo outro departamento direto na API
+**When** chama
+**Then** `403`
+
+**Given** a rota do DRE do grupo (faturamento, margens)
+**When** o Gerente chama
+**Then** `403`, sem receber a base
+
+**Given** perfis sem restrição
+**When** consultam
+**Then** veem tudo
+
+**Given** o casamento de conta por prefixo
+**When** é feito
+**Then** acontece em Go, nunca com `LIKE`
+**And** mês fechado aplica o filtro sobre o snapshot por contas
+
+### Story 4.7: "Meu departamento" para o Gerente (FR-18, FR-8)
+
+As a Gerente,
+I want ver as contas do meu departamento com Realizado, Orçado, Ano anterior e variação,
+So that eu entenda o meu resultado.
+
+**Acceptance Criteria:**
+
+**Given** um Gerente com departamentos ligados
+**When** abre "Meu departamento"
+**Then** vê as contas deles com os quatro valores, os totais e a variação
+
+**Given** o percentual sobre o Faturamento Líquido
+**When** é exibido
+**Then** é calculado no servidor, sem devolver a base
+
+**Given** mês fechado
+**When** o Gerente consulta
+**Then** lê do snapshot
+
+**Given** o menu
+**When** é montado
+**Then** a aba aparece só para o `gestor`
+**And** nenhum outro departamento é visível, nem por URL direta
+
+### Story 4.8: Criar usuário da empresa (FR-19)
+
+As a administrador de plataforma,
+I want criar o usuário da empresa com perfil e departamentos,
+So that o gerente entre sem cadastro público.
+
+**Acceptance Criteria:**
+
+**Given** e-mail, nome, perfil e áreas
+**When** o administrador cria
+**Then** o usuário é vinculado à empresa e recebe um link para definir a própria senha; sem SMTP configurado, a tela mostra o link para o administrador repassar
+
+**Given** o usuário criado
+**When** é gravado
+**Then** não recebe nenhum prazo (o `CreateUserHandler` deixa de gravar os 14 dias)
+
+**Given** e-mail já existente
+**When** cria
+**Then** `409`
+
+**Given** a criação
+**When** termina
+**Then** vai à trilha
+**And** só o administrador de plataforma cria; o perfil de TI, que poderá criar usuários, fica para depois
+
+## Epic 5: Gerentes justificam ajustes e desvios
+
+O analista lança ajuste com motivo, os gerentes são avisados e justificam, e cada gerente recebe por e-mail o DRE do seu departamento.
+
+**Nota:** o limite de desvio e a Lista de aviso começam sem valor definido pelo cliente; até lá, nenhum desvio exige justificativa e a tela avisa.
+
+### Story 5.1: Limite de desvio e Lista de aviso (FR-13)
+
+As a Controller,
+I want definir o limite de desvio e a Lista de aviso,
+So that o sistema saiba o que exige justificativa e quem avisar.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `auditoria.config_empresa (empresa_id, chave, valor JSONB)` (criada aqui se a 2.12 não existiu), mantida por `limpar_dados_teste` (é configuração)
+**And** `dre_fechamentos` ganha `limite_desvio`
+
+**Given** a tela de Configurações
+**When** o Controller define o limite em percentual e/ou valor
+**Then** salva e grava na trilha
+**And** um analista recebe `403`
+
+**Given** a Lista de aviso
+**When** o Controller informa os e-mails
+**Then** salva em `lista_aviso`
+**And** e-mail com formato inválido é recusado
+
+**Given** nenhum limite definido
+**When** a tela é aberta
+**Then** nenhum desvio exige justificativa e a tela mostra "defina o limite"
+
+**Given** Fechar
+**When** grava o fechamento
+**Then** guarda o `limite_desvio` vigente
+**And** mudar o limite depois não altera a classificação de um mês fechado
+
+### Story 5.2: Ver os desvios que exigem justificativa (FR-12)
+
+As a Gerente,
+I want ver as contas do meu departamento cujo desvio passou do limite,
+So that eu saiba o que preciso explicar.
+
+**Acceptance Criteria:**
+
+**Given** o limite definido
+**When** o Gerente abre "Desvios"
+**Then** lista só as contas do seu escopo cujo desvio contra o Orçado ou contra o Ano anterior passa do limite, com os valores e a base
+
+**Given** um desvio
+**When** é identificado
+**Then** a chave é `desvio:<AAAA-MM>:<filial>:<conta>:<base>`, gerada só por `dre.ChaveDesvio`
+**And** a tela, a API e o e-mail usam a mesma função
+
+**Given** nenhuma justificativa existente
+**When** a lista é aberta
+**Then** todos aparecem como "pendente"
+
+**Given** conta sem orçado
+**When** o desvio é calculado
+**Then** não entra na base Orçado ("sem orçado" não é desvio)
+
+**Given** mês fechado
+**When** a lista é aberta
+**Then** usa o snapshot e o limite do fechamento
+
+**Given** o Controller
+**When** abre "Desvios"
+**Then** vê os desvios de todos os departamentos
+**And** a lista é paginada
+
+### Story 5.3: Registrar a justificativa de um desvio (FR-12, AD-7)
+
+As a Gerente,
+I want escrever a justificativa de um desvio do meu departamento,
+So that a controladoria saiba por que a área fugiu do orçado.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `auditoria.justificativas (alvo_tipo, alvo_chave, texto, autor, valor_desvio, criado_em)` é append-only por gatilho que respeita `imutavel_salvo_em_teste`
+**And** ela entra em `limpar_dados_teste`
+
+**Given** um Gerente com escopo
+**When** justifica um desvio do seu departamento
+**Then** grava o texto (não vazio, até 2.000 caracteres) com autor, momento e o valor do desvio, e o status vira "justificada"
+
+**Given** um desvio de outro departamento (API direta)
+**When** o Gerente justifica
+**Then** `403`
+
+**Given** edição de uma justificativa
+**When** o Gerente salva
+**Then** cria nova versão, a anterior permanece e a vigente é a de maior `id`
+
+**Given** o valor do desvio mudou depois, em competência aberta
+**When** a lista é aberta
+**Then** o status vira "a revisar" (derivado, nunca gravado)
+
+**Given** a justificativa
+**When** é gravada
+**Then** vai à trilha
+**And** a diretoria e a controladoria só leem
+
+### Story 5.4: Ajuste imutável com motivo (FR-4, AD-6)
+
+As a analista,
+I want lançar um ajuste numa conta de mês aberto, com motivo,
+So that a correção fique registrada sem alterar o dado original.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `auditoria.ajustes (empresa_id, competencia, filial, conta, valor, motivo NOT NULL, criado_por NOT NULL, criado_em)` é append-only por gatilho que respeita `imutavel_salvo_em_teste`, com `criado_por` em `ON DELETE RESTRICT`
+**And** ela entra em `limpar_dados_teste`
+
+**Given** um analista
+**When** lança um ajuste com conta, filial, competência aberta, valor e motivo
+**Then** grava e registra na trilha
+**And** sem motivo, recusa
+
+**Given** competência fechada
+**When** tenta lançar ajuste
+**Then** `409` pela guarda de período (1.6)
+
+**Given** um ajuste gravado
+**When** se tenta editá-lo ou apagá-lo
+**Then** em Produção, `UPDATE` e `DELETE` falham
+**And** a correção é um novo ajuste de sinal oposto
+
+**Given** `dre.Realizado`
+**When** calcula o realizado
+**Then** é a soma dos lançamentos mais a dos ajustes, com o sinal do Mapa aplicado uma só vez
+**And** o detalhe mostra o valor carregado e os ajustes separados
+
+**Given** Fechar
+**When** grava o snapshot
+**Then** a coluna de ajustes do snapshot por contas é preenchida
+**And** reimportar não toca nos ajustes, e gestor ou diretoria recebem `403`
+
+### Story 5.5: Justificar os ajustes (FR-4, FR-12)
+
+As a Gerente,
+I want ver e justificar os ajustes feitos nas contas do meu departamento,
+So that nenhum ajuste fique sem explicação.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `justificativas` ganha `ajuste_id` com chave estrangeira para `ajustes`
+
+**Given** ajustes em contas do seu escopo
+**When** o Gerente abre "Ajustes"
+**Then** vê cada um com valor, motivo, autor e status "pendente" ou "justificado"
+
+**Given** um ajuste
+**When** o Gerente justifica
+**Then** o status vira "justificado"
+**And** uma justificativa vigente basta, mesmo com mais de um Gerente no departamento
+
+**Given** ajuste de outro departamento
+**When** o Gerente tenta justificar
+**Then** `403`
+**And** o Controller vê os ajustes pendentes de todos os departamentos
+
+### Story 5.6: Aviso de ajuste por e-mail (FR-4, AD-13)
+
+As a Controller,
+I want que a Lista de aviso seja avisada quando um ajuste é lançado,
+So that os gestores saibam e justifiquem.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `auditoria.outbox_email (empresa_id, tipo, chave_dedup UNIQUE, destinatarios, assunto, corpo_html, corpo_texto, status, tentativas, erro, criado_em, enviado_em)`, incluída em `limpar_dados_teste`
+
+**Given** um ajuste lançado
+**When** a transação termina
+**Then** enfileira `aviso_ajuste` com chave `ajuste:<id>`; o e-mail traz conta, departamento, competência, valor, motivo e autor, sem dado de outros departamentos
+
+**Given** uma função nova em `services/email.go` que envia HTML e texto com `Message-ID` estável (reaproveita `sendMailSSL`)
+**When** o worker drena com `SKIP LOCKED`
+**Then** envia e marca como enviado (entrega pelo menos uma vez)
+
+**Given** SMTP não configurado ou erro
+**When** o worker tenta enviar
+**Then** o status é `falha` com a mensagem e as tentativas contam (até 3, com intervalo)
+
+**Given** o ambiente em Teste
+**When** o e-mail é enfileirado
+**Then** o destinatário é só o administrador de plataforma da empresa, nunca a lista
+
+**Given** a Lista de aviso vazia
+**When** um ajuste é lançado
+**Then** não enfileira e registra "sem destinatários"
+**And** o enfileirar e o resultado do envio vão à trilha
+
+### Story 5.7: E-mail do DRE por departamento no fechamento (FR-14)
+
+As a Gerente,
+I want receber por e-mail o DRE do meu departamento quando o mês fecha,
+So that eu saiba o que justificar sem abrir o sistema à procura.
+
+**Acceptance Criteria:**
+
+**Given** Fechar
+**When** grava o fechamento
+**Then** na mesma transação enfileira um `dre_departamento` por Gerente (chave `fech:<id>:user:<uid>`), com o corpo renderizado do snapshot: todos os departamentos do destinatário, Realizado, Orçado, variação, a quantidade de desvios pendentes e o link para "Meu departamento"
+
+**Given** o corpo do e-mail
+**When** é gerado
+**Then** não contém dado de outros departamentos nem o DRE do grupo (teste com um Gerente de dois departamentos)
+
+**Given** um Gerente sem departamento ou bloqueado
+**When** o fechamento acontece
+**Then** não recebe, e o motivo é registrado
+
+**Given** o ambiente em Teste
+**When** o fechamento acontece
+**Then** o administrador recebe um e-mail por Gerente, com o assunto indicando o destinatário original
+
+**Given** reabertura e novo fechamento
+**When** Fechar roda de novo
+**Then** a nova versão gera novo envio
+**And** o enfileirar e o resultado vão à trilha
+
+### Story 5.8: Painel de envios (FR-14)
+
+As a Controller,
+I want ver o estado de cada e-mail e reenviar os que falharam,
+So that nenhum gerente fique sem o DRE sem eu saber.
+
+**Acceptance Criteria:**
+
+**Given** a tela de envios
+**When** o Controller escolhe uma competência
+**Then** lista tipo, destinatário, status, tentativas e erro de cada e-mail, e um resumo por status
+
+**Given** um e-mail com falha
+**When** o Controller clica em "Reenviar"
+**Then** nova tentativa com a mesma chave e o mesmo `Message-ID`
+
+**Given** um perfil sem a capacidade
+**When** abre a tela ou chama a API
+**Then** `403`
+**And** o reenvio vai à trilha
 

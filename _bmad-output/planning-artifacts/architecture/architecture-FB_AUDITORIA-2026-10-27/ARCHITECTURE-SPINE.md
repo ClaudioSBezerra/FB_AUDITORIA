@@ -174,6 +174,12 @@ Admin de plataforma (`users.role = 'admin'`) mantém acesso total, como hoje. Um
 - **Prevents:** usuário perdendo acesso por passagem de tempo; usuário bloqueado seguindo com sessão aberta; o ambiente ficar sem nenhum administrador.
 - **Rule:** `users` ganha `bloqueado_em`, `bloqueado_por` e `motivo_bloqueio`. O bloqueio é verificado no login, na renovação de sessão e em toda requisição do middleware (que já lê `users` a cada chamada), valendo na requisição seguinte. A verificação por `trial_ends_at` é **removida** do login e do middleware (a coluna passa a ser ignorada, e nenhum usuário novo recebe prazo); deixar o campo vazio não basta, porque o login o troca por "agora". Bloquear e desbloquear exigem motivo e gravam na trilha; ninguém bloqueia a si mesmo, e o último admin de plataforma ativo não pode ser bloqueado. A capacidade é "gerir usuários" (AD-11).
 
+### AD-20 — Papéis das linhas do DRE
+
+- **Binds:** FR-5, FR-7, FR-17
+- **Prevents:** duas funções procurando a mesma linha por código ou descrição diferentes; um cálculo quebrar quando a estrutura do DRE muda.
+- **Rule:** `dre_linhas` ganha `papel` (opcional, único por empresa quando preenchido): faturamento líquido, margem composta, impostos, comercial, logística, administrativo, margem líquida, outras receitas e despesas, resultado antes do IR e resultado após o IR. Percentual sobre o Faturamento Líquido, ponte e projeção encontram a linha só por `dre.LinhaPorPapel`. Papel ausente devolve aviso, nunca valor inventado.
+
 ## Consistency Conventions
 
 | Concern | Convention |
@@ -255,7 +261,7 @@ backend/
 | FR-1 a FR-3, FR-20 Ingestão e dicionário | `dre/ingest`, `dre/dicionario`, `dre/fontes` | AD-2, AD-3, AD-4, AD-15, AD-16 |
 | FR-4 Ajuste, FR-12 Justificativa | `dre/ajuste`, `dre/justificativa` | AD-6, AD-7, AD-8, AD-10, AD-13 |
 | FR-5, FR-6 Estrutura e Mapa | handlers existentes + `dre` | AD-4, AD-10, AD-11, AD-17 |
-| FR-7, FR-8, FR-16, FR-17 Visões | `dre.Realizado` + handlers | AD-5, AD-6, AD-10, AD-17 |
+| FR-7, FR-8, FR-16, FR-17 Visões | `dre.Realizado` + handlers | AD-5, AD-6, AD-10, AD-17, AD-20 |
 | FR-9 a FR-11 Fechamento | `dre/fechamento`, `dre/periodo` | AD-8, AD-9, AD-17 |
 | FR-13 Limite | `config_empresa`, snapshot | AD-9, AD-11, convenção de Config |
 | FR-14 E-mail | `dre/envio` | AD-13, AD-10 |
