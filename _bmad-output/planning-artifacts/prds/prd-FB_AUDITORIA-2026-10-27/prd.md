@@ -93,6 +93,7 @@ O que importa para quem decide é a confiança: qualquer número tem origem rast
 - **Trilha de auditoria** — registro imutável de toda escrita relevante (quem, quando, o quê).
 - **Perfil** — papel do usuário: analista, Controller, **Gerente** ou diretoria.
 - **Lista de aviso** — grupo de e-mail que recebe o aviso de cada **Ajuste**.
+- **Ambiente** — marcador da **Empresa**: Teste (os dados podem ser apagados) ou Produção (nada pode ser apagado); a virada de Teste para Produção é de mão única.
 
 ## 4. Features
 
@@ -214,12 +215,11 @@ O usuário vê, por **Linha do DRE** e **Conta gerencial**, **Realizado**, **Or�
 
 #### FR-9: Fechar a Competência
 
-O Controller fecha a **Competência**, por **Filial** ou consolidada.
+O Controller fecha a **Competência** do grupo inteiro (fechamento sempre consolidado).
 
 **Consequences (testable):**
 - O fechamento é recusado se houver **Conta gerencial** com **Lançamento** sem **Linha do DRE**, e o sistema lista as contas.
 - O fechamento é recusado se o usuário não for Controller.
-- O fechamento consolidado fecha todas as **Filiais** da **Competência**; o fechamento por **Filial** bloqueia a escrita só naquela **Filial**. `[ASSUMPTION]`
 - O fechamento grava as linhas do DRE congeladas e a versão, e registra na **Trilha de auditoria**.
 
 #### FR-10: Reabrir o Fechamento
@@ -236,7 +236,7 @@ O Controller reabre uma **Competência** fechada informando o motivo; o sistema 
 Carga, importação e **Ajuste** são recusados em **Competência** com **Fechamento** ativo, de modo que o drill-down não mostre dados posteriores ao fechamento.
 
 **Consequences (testable):**
-- Toda escrita de realizado em **Competência** fechada para a **Filial** da escrita retorna recusa com a mensagem de que é preciso reabrir o **Fechamento**.
+- Toda escrita de realizado em **Competência** fechada retorna recusa com a mensagem de que é preciso reabrir o **Fechamento**.
 
 ### 4.5 Justificativa de Desvios
 
@@ -273,6 +273,7 @@ O sistema envia o e-mail a cada **Gerente** com o resumo do **Departamento** e o
 **Consequences (testable):**
 - Cada **Gerente** recebe apenas o seu **Departamento**.
 - O envio é disparado pelo **Fechamento** da **Competência** (ver pergunta aberta 4).
+- Em **Ambiente** de Teste o e-mail não vai aos **Gerentes** (ver FR-21).
 - O envio é registrado na **Trilha de auditoria** (destinatário, momento, **Competência**) e falhas de envio são visíveis ao Controller.
 - O e-mail não contém o DRE completo do grupo.
 
@@ -343,6 +344,25 @@ Usuários são criados apenas por administrador; o cadastro público é desativa
 **Feature-specific NFRs:**
 - Contas de folha de pagamento são sensíveis: `[NOTE FOR PM]` definir se o **Gerente** vê o detalhe por conta ou só o total do seu **Departamento**.
 
+### 4.10 Ambiente de Teste e Produção
+
+**Description:** Enquanto o cliente valida o sistema com arquivos e planilhas, o **Ambiente** da **Empresa** é Teste e os dados podem ser apagados. Quando o sistema passa a usar o banco do cliente de verdade, o **Ambiente** vira Produção e nada mais pode ser apagado. A virada é de mão única.
+
+**Functional Requirements:**
+
+#### FR-21: Marcar o Ambiente como Teste ou Produção
+
+O administrador de plataforma define o **Ambiente** da **Empresa**. Em Teste ele pode apagar os dados de domínio; em Produção nenhum dado de domínio pode ser apagado. Sem jornada própria: requisito de segurança operacional.
+
+**Consequences (testable):**
+- A **Empresa** nasce em Teste; a virada para Produção é de mão única, e voltar para Teste é recusado.
+- Apagar e virar exigem que o administrador digite a senha de novo, mesmo com a sessão aberta, e ambos gravam na **Trilha de auditoria**.
+- Apagar remove lançamentos, **Orçado**, **Ajustes**, **Justificativas**, **Fechamentos** e envios, e mantém a estrutura do DRE, o **Mapa de contas**, o dicionário de contas e os usuários; a **Trilha de auditoria** nunca é apagada. `[ASSUMPTION]`
+- Em Produção, apagar é recusado pelo banco, inclusive por chamada direta à API.
+- Toda tela mostra a faixa "AMBIENTE DE TESTE" enquanto o **Ambiente** for Teste.
+- Em Teste, o e-mail do DRE e o aviso de **Ajuste** vão só ao administrador (ou ficam apenas registrados), nunca aos **Gerentes**.
+- A virada avisa, sem bloquear, quando alguma **Conta gerencial** com **Lançamento** de origem arquivo ainda não tem fonte no banco do cliente, e lista essas contas.
+
 ## 5. Non-Goals (Explicit)
 
 - Não é contabilidade fiscal nem substitui o ERP; o sistema só lê dele.
@@ -364,6 +384,7 @@ Usuários são criados apenas por administrador; o cadastro público é desativa
 - Justificativas dos Gerentes, limite de Desvio e envio do DRE por e-mail.
 - Rateio de despesas centralizadas e dashboards de desvios.
 - Perfis (analista, Controller, Gerente, diretoria) e cadastro de usuários restrito.
+- Ambiente de Teste e Produção, com apagar em Teste e virada de mão única.
 
 ### 6.2 Out of Scope for MVP
 - Realizado por Conta gerencial direto do banco do cliente: depende de fonte ainda não confirmada; entra quando houver. `[NOTE FOR PM]`
@@ -373,7 +394,7 @@ Usuários são criados apenas por administrador; o cadastro público é desativa
 
 ### 6.3 Sequência de entrega
 
-- **Núcleo** (não depende de pergunta aberta): FR-1 a FR-3, FR-5 a FR-12, FR-16, FR-18 a FR-20.
+- **Núcleo** (não depende de pergunta aberta): FR-1 a FR-3, FR-5 a FR-12, FR-16, FR-18 a FR-21. O FR-19 (cadastro fechado) sai antes de todos, porque o site já é público.
 - **Com padrão provisório até o cliente responder:** FR-4 (aviso à **Lista de aviso**), FR-13 (limite configurável, sem valor inicial) e FR-14 (envio só após o **Fechamento**).
 - **Só começa com a resposta do cliente:** FR-15 (**Rateio**), que depende das perguntas abertas 4 e 5.
 - **Depois do núcleo:** FR-17 (tendência, ponte e projeção).
@@ -387,7 +408,7 @@ Usuários são criados apenas por administrador; o cadastro público é desativa
 | 4.1 Ingestão | Carga por CSV **existe**; importação do banco do cliente e **Ajuste** são **novos** |
 | 4.2 Estrutura e **Mapa de contas** | **Existe**; **ampliar** com **Departamento** e carga do dicionário |
 | 4.3 Visões do DRE | **Existe** (mensal, acumulada, por **Filial**, **Orçado**, **Ano anterior**); **ampliar** com **Departamento** e percentual sobre **Faturamento Líquido** |
-| 4.4 **Fechamento** | **Existe** (versionado, recusa conta sem mapeamento); **ampliar** com bloqueio de escrita, motivo de reabertura e escopo por **Filial** |
+| 4.4 **Fechamento** | **Existe** (versionado, recusa conta sem mapeamento); **ampliar** com bloqueio de escrita e motivo de reabertura; fechamento só consolidado |
 | 4.5 a 4.8 | **Novos** |
 | 4.9 Perfis e acesso | **Existe** (perfil e áreas validados no backend); **ampliar** com **Gerente** por **Departamento** e cadastro restrito |
 
@@ -427,7 +448,7 @@ Usuários são criados apenas por administrador; o cadastro público é desativa
 - §4.1 FR-1 — a UF do realizado consolidado é a do destino da venda e não é dimensão do DRE nesta release.
 - §4.5 FR-13 — o limite de Desvio é global, ajustável pelo Controller.
 - §4.8 FR-17 — a projeção do ano usa o realizado acumulado mais o orçado dos meses restantes.
-- §4.4 FR-9 — o Fechamento consolidado fecha todas as Filiais; o Fechamento por Filial bloqueia só aquela Filial.
 - §4.9 FR-18 — um Gerente pode responder por mais de um Departamento.
+- §4.10 FR-21 — apagar em Teste mantém estrutura, Mapa, dicionário e usuários e nunca toca a Trilha de auditoria.
 - §4.6 FR-14 — até confirmar a data de fechamento, o e-mail só sai após o Fechamento.
 - §7 SM-3 — o prazo de justificativa será definido com o cliente.

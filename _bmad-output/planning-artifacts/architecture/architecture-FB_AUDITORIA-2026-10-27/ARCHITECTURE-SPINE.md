@@ -8,7 +8,7 @@ scope: 'Release A1 do FB_AUDITORIA, brownfield em produção: ingestão, DRE, aj
 status: final
 created: '2026-10-27'
 updated: '2026-10-27'
-binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20]
+binds: [FR-1, FR-2, FR-3, FR-4, FR-5, FR-6, FR-7, FR-8, FR-9, FR-10, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20, FR-21]
 sources: ['_bmad-output/planning-artifacts/prds/prd-FB_AUDITORIA-2026-10-27/prd.md']
 companions: []
 ---
@@ -22,7 +22,7 @@ Monólito modular em camadas. Os handlers são adaptadores HTTP finos. A regra q
 | Camada | Onde | Papel |
 | --- | --- | --- |
 | Adaptadores HTTP | `backend/handlers/` | autenticação, decodificação, resposta; sem regra de período, escopo ou escrita de lançamento |
-| Aplicação | `backend/dre/` | módulos `ingest`, `periodo`, `fechamento`, `escopo`, `ajuste`, `justificativa`, `rateio`, `envio`, `dicionario` |
+| Aplicação | `backend/dre/` | módulos `ingest`, `periodo`, `fechamento`, `escopo`, `ajuste`, `justificativa`, `rateio`, `envio`, `dicionario`, `ambiente` |
 | Adaptadores de fonte | `backend/dre/fontes/` | Oracle (leitura) e CSV; implementam a porta `Fonte` definida em `dre` |
 | Composição | `backend/main.go` | liga handlers, serviços e fontes |
 
@@ -30,7 +30,7 @@ Monólito modular em camadas. Os handlers são adaptadores HTTP finos. A regra q
 
 | Já existe | Novo nesta release |
 | --- | --- |
-| `audit_log` imutável e `writeAuditLogTx`; `AuditoriaAuthMiddleware`; `dre_linhas`, `dre_mapa`, `lancamentos` (com coluna `origem`), `dre_orcado`, `dre_fechamentos` e linhas congeladas; SMTP em `services/email.go` | pacote `dre`; `orcado_conta`; `ajustes`; `justificativas`; `conta_dicionario`, `departamentos`, `conta_departamento`, `usuario_departamentos`; `conta_fonte`; `dre_fechamento_contas`; `outbox_email`; `config_empresa`; `execucoes`; `perfis.go`; perfil `analista`; `ALLOW_SELF_REGISTER` |
+| `audit_log` imutável e `writeAuditLogTx`; `AuditoriaAuthMiddleware`; `dre_linhas`, `dre_mapa`, `lancamentos` (com coluna `origem`), `dre_orcado`, `dre_fechamentos` e linhas congeladas; SMTP em `services/email.go` | pacote `dre`; `orcado_conta`; `ajustes`; `justificativas`; `conta_dicionario`, `departamentos`, `conta_departamento`, `usuario_departamentos`; `conta_fonte`; `dre_fechamento_contas`; `outbox_email`; `config_empresa`; `execucoes`; `perfis.go`; perfil `analista`; `ALLOW_SELF_REGISTER`; `companies.ambiente` |
 
 Os handlers `dre.go` (fechamento) e `dre_import.go` ainda fazem `INSERT` e cálculo próprios; migram para `dre` na primeira história da release.
 
@@ -66,7 +66,7 @@ Setas são as únicas dependências permitidas. `dre` não importa `handlers` ne
 
 - **Binds:** FR-1, FR-2, FR-3, FR-11
 - **Prevents:** duplicar lançamentos; apagar dado de outra fonte ou ajuste; mês fechado alterado por varredura; leitura vazia apagando história.
-- **Rule:** `lancamentos` usa a coluna existente `origem` (ex.: `oracle.consolidado`, `csv.contas`); `orcado_conta` ganha a mesma coluna. A reimportação substitui por `(empresa, origem, competência, filial)` numa só transação. Escopo em período fechado é recusado: a varredura agendada o pula e registra; a carga explícita devolve `409` listando os escopos recusados. Uma leitura que devolve zero linhas nunca apaga o escopo; filial ausente do arquivo não é apagada; `filial` vazia é rejeitada em lançamento (vazio é reservado ao fechamento consolidado).
+- **Rule:** `lancamentos` usa a coluna existente `origem` (ex.: `oracle.consolidado`, `csv.contas`); `orcado_conta` ganha a mesma coluna. A reimportação substitui por `(empresa, origem, competência, filial)` numa só transação. Escopo em período fechado é recusado: a varredura agendada o pula e registra; a carga explícita devolve `409` listando os escopos recusados. Uma leitura que devolve zero linhas nunca apaga o escopo; filial ausente do arquivo não é apagada; `filial` vazia é rejeitada em lançamento. A UF do consolidado é guardada em coluna própria (`uf`); a soma por filial acontece na consulta, e a substituição por escopo vale para todas as UFs da filial.
 
 ### AD-4 — Contas sintéticas e sinal só no Mapa
 
@@ -96,13 +96,13 @@ Setas são as únicas dependências permitidas. `dre` não importa `handlers` ne
 
 - **Binds:** FR-1, FR-2, FR-3, FR-4, FR-11, FR-15
 - **Prevents:** handler novo esquecer de checar o fechamento; escrita passar entre a checagem e o fechamento.
-- **Rule:** `dre.Periodo.Guardar(tx, empresa, competência, filial)` roda dentro da transação, antes de qualquer escrita em `lancamentos`, `orcado_conta`, `ajustes` ou `rateio_aplicado`. Toma `pg_advisory_xact_lock(dre.ChaveLock(empresa, competência))`, a única função de chave de lock, também usada por Fechar e Reabrir. Isolamento `READ COMMITTED` explícito. Fechado significa fechamento ativo da filial ou consolidado da competência.
+- **Rule:** `dre.Periodo.Guardar(tx, empresa, competência)` roda dentro da transação, antes de qualquer escrita em `lancamentos`, `orcado_conta`, `ajustes` ou `rateio_aplicado`. Toma `pg_advisory_xact_lock(dre.ChaveLock(empresa, competência))`, a única função de chave de lock, também usada por Fechar e Reabrir. Isolamento `READ COMMITTED` explícito. Fechado significa fechamento ativo da competência (o fechamento é sempre do grupo inteiro).
 
 ### AD-9 — Ciclo de vida do fechamento
 
 - **Binds:** FR-9, FR-10, FR-11, FR-13
 - **Prevents:** duas versões ativas; snapshot que perde ajuste; reabrir apagando história; limite retroativo.
-- **Rule:** `dre_fechamentos` ganha `reaberto_em`, `reaberto_por`, `motivo_reabertura` (mudam uma só vez, por trigger, e exigem motivo) e `limite_desvio` (o vigente no fechamento). Um índice único parcial em `(empresa, competência, filial) WHERE reaberto_em IS NULL` permite um só fechamento ativo; Fechar com ativo existente devolve `409`. Fechar toma o lock de AD-8 e calcula o snapshot dentro da transação, via `dre.Realizado`. Reabrir marca o ativo; novo Fechar cria a versão seguinte (`MAX+1`). Fechamento consolidado (filial vazia) vale para todas as filiais na guarda. Aprovação do Controller é o próprio Fechar.
+- **Rule:** `dre_fechamentos` ganha `reaberto_em`, `reaberto_por`, `motivo_reabertura` (mudam uma só vez, por trigger, e exigem motivo) e `limite_desvio` (o vigente no fechamento). Um índice único parcial em `(empresa, competência) WHERE reaberto_em IS NULL` permite um só fechamento ativo; Fechar com ativo existente devolve `409`. Fechar toma o lock de AD-8 e calcula o snapshot dentro da transação, via `dre.Realizado`. Reabrir marca o ativo; novo Fechar cria a versão seguinte (`MAX+1` por `(empresa, competência)`). O fechamento é sempre do grupo inteiro: a coluna `filial` de `dre_fechamentos` fica vazia, e fechamentos por filial já gravados continuam legíveis. Aprovação do Controller é o próprio Fechar.
 
 ### AD-10 — Escopo por departamento, fail closed, leitura e escrita
 
@@ -114,7 +114,7 @@ Setas são as únicas dependências permitidas. `dre` não importa `handlers` ne
 
 - **Binds:** FR-4, FR-9, FR-10, FR-12, FR-13, FR-15, FR-18, FR-19
 - **Prevents:** listas de perfil soltas e divergentes; dois mecanismos de autorização convivendo.
-- **Rule:** `perfis.go` define as capacidades e a matriz abaixo. O middleware recebe uma capacidade; a assinatura com lista de perfis é removida na primeira história. `analista` entra no `CHECK` de `users.perfil`.
+- **Rule:** `perfis.go` define as capacidades e a matriz abaixo. O middleware recebe uma capacidade; a assinatura com lista de perfis é removida na história do épico 4 que migra a última rota. Apagar dados de teste e virar para produção exigem admin de plataforma e a senha digitada de novo (AD-18). `analista` entra no `CHECK` de `users.perfil`.
 
 | Perfil gravado | Papel no PRD | Capacidades |
 | --- | --- | --- |
@@ -136,7 +136,7 @@ Admin de plataforma (`users.role = 'admin'`) mantém acesso total, como hoje.
 
 - **Binds:** FR-4, FR-14
 - **Prevents:** envio duplicado ou perdido sem rastro; DRE do grupo inteiro no e-mail; aviso de ajuste sem mecanismo.
-- **Rule:** `auditoria.outbox_email` com `tipo` (`dre_departamento` ou `aviso_ajuste`), `chave_dedup` única (`fech:<id>:user:<uid>` ou `ajuste:<id>`), destinatários, corpo renderizado no enfileiramento e `status`. O DRE por departamento é enfileirado na transação do Fechamento **consolidado** e traz todos os departamentos do destinatário `[ASSUMPTION: fechamento por filial não dispara e-mail]`; o aviso de ajuste vai à `lista_aviso` de `config_empresa`. Um worker no processo da API drena com `FOR UPDATE SKIP LOCKED`, usando `services.GetEmailConfig`. A entrega é at-least-once, com `Message-ID` estável. Enfileirar e o resultado do envio gravam na trilha; falhas ficam legíveis ao Controller.
+- **Rule:** `auditoria.outbox_email` com `tipo` (`dre_departamento` ou `aviso_ajuste`), `chave_dedup` única (`fech:<id>:user:<uid>` ou `ajuste:<id>`), destinatários, corpo renderizado no enfileiramento e `status`. O DRE por departamento é enfileirado na transação do Fechamento e traz todos os departamentos do destinatário; em ambiente de teste (AD-18) o destinatário é só o administrador; o aviso de ajuste vai à `lista_aviso` de `config_empresa`. Um worker no processo da API drena com `FOR UPDATE SKIP LOCKED`, usando `services.GetEmailConfig`. A entrega é at-least-once, com `Message-ID` estável. Enfileirar e o resultado do envio gravam na trilha; falhas ficam legíveis ao Controller.
 
 ### AD-14 — Rateio como dado derivado
 
@@ -148,7 +148,7 @@ Admin de plataforma (`users.role = 'admin'`) mantém acesso total, como hoje.
 
 - **Binds:** FR-1, FR-2
 - **Prevents:** duas execuções simultâneas; lock preso no pool; consulta sem limite no banco do cliente; credencial no código.
-- **Rule:** agendador no processo da API, fuso `America/Sao_Paulo`, mais gatilho manual do analista. A exclusão mútua usa `pg_try_advisory_lock` numa `*sql.Conn` dedicada, com o unlock na mesma conexão (descartada se o unlock falhar); a escrita continua protegida pelo lock de transação de AD-8. Relê o histórico inteiro por escopo (volume pequeno). Cada execução grava em `auditoria.execucoes` (início, fim, status, resumo); a trilha de execução agendada usa `user_id` nulo e `origem = agendador`. Credenciais só em variáveis de ambiente (`JC_ORACLE_*`); ping de 30 s e consulta com timeout; nunca `SELECT` sem filtro. A empresa alvo vem de `JC_EMPRESA_ID` (inquilino único no A1).
+- **Rule:** gatilho manual do analista (obrigatório no A1); agendador opcional no processo da API, fuso `America/Sao_Paulo`, como última história. A exclusão mútua usa `pg_try_advisory_lock` numa `*sql.Conn` dedicada, com o unlock na mesma conexão (descartada se o unlock falhar); a escrita continua protegida pelo lock de transação de AD-8. Relê o histórico inteiro por escopo (volume pequeno). Cada execução grava em `auditoria.execucoes` (início, fim, status, resumo); a trilha de execução agendada usa `user_id` nulo e `origem = agendador`. Credenciais só em variáveis de ambiente (`JC_ORACLE_*`); ping de 30 s e consulta com timeout; nunca `SELECT` sem filtro. A empresa alvo vem de `JC_EMPRESA_ID` (inquilino único no A1).
 
 ### AD-16 — Dono da conta (uma conta, uma fonte)
 
@@ -162,13 +162,19 @@ Admin de plataforma (`users.role = 'admin'`) mantém acesso total, como hoje.
 - **Prevents:** mês fechado mudar de significado ao vivo; drill-down divergir do snapshot; subtotal vazando receita ao Gerente.
 - **Rule:** o fechamento congela `dre_fechamento_linhas` (agora com realizado, orçado e ano anterior) e `dre_fechamento_contas` (conta, linha, departamento, realizado, orçado, ano anterior, ajustes), ambas imutáveis por trigger. Toda leitura de competência fechada, inclusive detalhe e escopo do Gerente, usa só o snapshot. Mapa, estrutura e departamento só afetam meses abertos.
 
+### AD-18 — Ambiente Teste ou Produção por empresa [ADOPTED]
+
+- **Binds:** FR-21, FR-4, FR-9, FR-14
+- **Prevents:** apagar dado real; voltar de Produção a Teste para apagar; e-mail de validação chegando a gerentes reais; o ambiente passar despercebido.
+- **Rule:** `companies.ambiente` aceita `teste` ou `producao` (padrão `teste`); um trigger recusa `producao` para `teste`. A função `auditoria.limpar_dados_teste(empresa)` apaga lançamentos, orçado, ajustes, justificativas, fechamentos (linhas e contas), envios, cargas e execuções; mantém a estrutura do DRE, o Mapa, o dicionário, os departamentos e os usuários; não toca `audit_log`; e **recusa** se o ambiente não for `teste`. Os gatilhos de imutabilidade chamam `auditoria.imutavel_salvo_em_teste(empresa_id)`: só permitem `DELETE` quando o ambiente é `teste` e a sessão foi aberta pela função de limpeza (`set_config` local). Limpar e virar para `producao` exigem admin de plataforma e a senha digitada de novo, e gravam na trilha; a virada devolve a lista de contas cuja fonte dona ainda é arquivo (aviso, não bloqueio). O worker de e-mail consulta o ambiente: em `teste` envia só ao administrador. `/api/aud/me` informa o ambiente, e a interface mostra a faixa "AMBIENTE DE TESTE".
+
 ## Consistency Conventions
 
 | Concern | Convention |
 | --- | --- |
 | Naming | tabelas em `snake_case` no schema `auditoria`; toda tabela de domínio tem `empresa_id`; pacotes Go em minúsculas sem sublinhado; migrations `NNN_descricao.sql` |
 | Data & formats | `competencia` é `DATE` no dia 1; `valor` é `NUMERIC(18,2)`; `filial` é `TEXT` com o `CODFILIAL` (a UF nunca faz parte da chave); `conta` é `TEXT`; erros HTTP com texto simples e o status certo (`409` conflito de período, `403` fora de escopo) |
-| State & cross-cutting | toda escrita relevante: transação + `writeAuditLogTx`; migrations aditivas e idempotentes, nunca tocam fechamentos; usuários são desativados e nunca apagados (tabelas append-only referenciam `users` com `ON DELETE RESTRICT`) |
+| State & cross-cutting | toda escrita relevante: transação + `writeAuditLogTx`; migrations aditivas e idempotentes, nunca tocam fechamentos; usuários são desativados e nunca apagados (tabelas append-only referenciam `users` com `ON DELETE RESTRICT`); gatilhos de imutabilidade usam `auditoria.imutavel_salvo_em_teste(empresa_id)` (AD-18) |
 | Config | configuração de negócio por empresa (lista de aviso, limite de desvio, critérios) em `auditoria.config_empresa` (`chave`, `valor` JSONB); segredos e infraestrutura (SMTP, Oracle) em variáveis de ambiente; cadastro público desligado por `ALLOW_SELF_REGISTER=false`; nenhum endereço do banco do cliente no repositório |
 
 ## Stack
@@ -228,7 +234,7 @@ erDiagram
 backend/
   handlers/        # adaptadores HTTP (existente)
   dre/             # módulos: ingest, periodo, fechamento, escopo, ajuste,
-                   #   justificativa, rateio, envio, dicionario
+                   #   justificativa, rateio, envio, dicionario, ambiente
     fontes/        # oracle, csv (implementam a porta Fonte)
   perfis.go        # capacidades e matriz de perfis
   services/email.go
@@ -249,6 +255,7 @@ backend/
 | FR-14 E-mail | `dre/envio` | AD-13, AD-10 |
 | FR-15 Rateio | `dre/rateio` | AD-14, AD-8, AD-17 |
 | FR-18, FR-19 Perfis e cadastro | `perfis.go`, `auditoria_auth.go` | AD-10, AD-11, AD-12 |
+| FR-21 Ambiente Teste ou Produção | `companies.ambiente`, `dre/ambiente` | AD-18, AD-11 |
 
 ## Deferred
 

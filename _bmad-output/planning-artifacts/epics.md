@@ -1,6 +1,6 @@
 ---
 status: draft
-stepsCompleted: []
+stepsCompleted: [1]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-FB_AUDITORIA-2026-10-27/prd.md
   - _bmad-output/planning-artifacts/architecture/architecture-FB_AUDITORIA-2026-10-27/ARCHITECTURE-SPINE.md
@@ -24,7 +24,7 @@ FR-5: Manter a estrutura de Linhas do DRE (descrição, ordem, nível, tipo cont
 FR-6: Manter o Mapa de contas (Conta gerencial para Linha do DRE com sinal, e para Departamento); a associação mais específica prevalece.
 FR-7: Exibir o DRE mensal e acumulado, por Filial ou grupo, com subtotais exatos e percentual sobre o Faturamento Líquido; competência fechada usa os valores congelados.
 FR-8: Comparar Realizado com Orçado e Ano anterior, em valor e percentual, por Linha do DRE e Conta gerencial, descendo até a Filial; "sem orçado" é indicado.
-FR-9: Fechar a Competência (por Filial ou consolidada), recusando se houver conta sem mapeamento, só pelo Controller, com versão e trilha.
+FR-9: Fechar a Competência do grupo inteiro (fechamento sempre consolidado), recusando se houver conta sem mapeamento, só pelo Controller, com versão e trilha.
 FR-10: Reabrir o Fechamento com motivo obrigatório, criando nova versão e preservando as anteriores.
 FR-11: Bloquear carga, importação e Ajuste em Competência com Fechamento ativo.
 FR-12: Registrar Justificativa de Desvio ou de Ajuste, no escopo do Departamento do Gerente, imutável e versionada.
@@ -36,6 +36,7 @@ FR-17: Exibir tendência da despesa sobre o Faturamento Líquido, ponte do resul
 FR-18: Controlar acesso por perfil e, para o Gerente, por Departamento, em toda rota do backend.
 FR-19: Restringir o cadastro de usuários ao administrador; cadastro público desativado.
 FR-20: Carregar o dicionário de contas (conta, descrição, grupo, Departamento) por arquivo.
+FR-21: Marcar o Ambiente da Empresa como Teste ou Produção: em Teste o administrador apaga os dados de domínio (com a senha de novo); em Produção nada pode ser apagado; a virada é de mão única; e-mail só ao administrador em Teste; faixa visível de ambiente.
 
 ### NonFunctional Requirements
 
@@ -50,6 +51,7 @@ NFR6: Backup do banco funcionando e **restauração testada** antes do go-live c
 NFR7: Segredos (Oracle, SMTP, JWT, banco) só em variáveis de ambiente; nenhum endereço do banco do cliente no repositório.
 NFR8: O banco do cliente é só lido, com timeout, e nunca consultado sem filtro.
 NFR9: O servidor nunca devolve a um Gerente dado fora do seu Departamento, inclusive subtotais e percentuais (FR-18).
+NFR11: Em Produção nenhum dado de domínio pode ser apagado, nem por chamada direta à API (FR-21).
 NFR10: Disponibilidade, desempenho e retenção da trilha **não estão definidos** no PRD; ficam como pergunta aberta.
 
 ### Additional Requirements
@@ -61,16 +63,17 @@ Brownfield, sem starter template: a Fase 1 existe em produção; o trabalho é i
 - AR-3 (AD-5): `orcado_conta` como única fonte de orçado do DRE; escrita de `dre_orcado` removida.
 - AR-4 (AD-6, AD-7): tabelas `ajustes` e `justificativas` append-only por trigger; chave canônica de desvio (`dre.ChaveDesvio`).
 - AR-5 (AD-8): `dre.Periodo.Guardar` com `pg_advisory_xact_lock(dre.ChaveLock)` em toda escrita; isolamento READ COMMITTED explícito.
-- AR-6 (AD-9, AD-17): `dre_fechamentos` com `reaberto_*`, `limite_desvio` e índice único parcial; Fechar dentro do lock via `dre.Realizado`; snapshot em `dre_fechamento_linhas` e novo `dre_fechamento_contas`, imutáveis.
+- AR-6 (AD-9, AD-17): `dre_fechamentos` com `reaberto_*`, `limite_desvio` e índice único parcial em `(empresa, competência)`; Fechar dentro do lock via `dre.Realizado`; snapshot em `dre_fechamento_linhas` e novo `dre_fechamento_contas`, imutáveis.
 - AR-7 (AD-10): `departamentos`, `conta_departamento`, `usuario_departamentos`; escopo fail closed na leitura e na escrita; `dre.FiltroEscopo`; prefixo em Go, nunca `LIKE`.
 - AR-8 (AD-11): `perfis.go` com capacidades; middleware por capacidade; perfil `analista` no `CHECK`.
 - AR-9 (AD-12): migração única de `users.areas` (`estrategico`→`empresa`, `administrativo`→`configuracoes`, `operacional`→`operacao`), novo `DEFAULT`, rotas e `navigation.ts` no mesmo release.
-- AR-10 (AD-13): `outbox_email` genérica, worker com `SKIP LOCKED`, `lista_aviso` em `config_empresa`; e-mail do DRE só no fechamento consolidado.
+- AR-10 (AD-13): `outbox_email` genérica, worker com `SKIP LOCKED`, `lista_aviso` em `config_empresa`; e-mail do DRE enfileirado no Fechamento; em Teste, só ao administrador.
 - AR-11 (AD-14): `rateio_regras`, percentuais e `rateio_aplicado`; resto de centavos à maior filial; reabrir invalida.
-- AR-12 (AD-15): agendador com `pg_try_advisory_lock` em `*sql.Conn` dedicada, `America/Sao_Paulo`, `auditoria.execucoes`, trilha com `user_id` nulo e origem agendador.
+- AR-12 (AD-15): gatilho manual "Importar agora" obrigatório; agendador opcional e última história, com `pg_try_advisory_lock` em `*sql.Conn` dedicada, `America/Sao_Paulo`, `auditoria.execucoes`, trilha com `user_id` nulo e origem agendador.
 - AR-13: migrations `004+` aditivas e idempotentes, nunca tocam fechamentos; usuários desativados e não apagados.
 - AR-14: `ALLOW_SELF_REGISTER=false` por padrão; `JC_EMPRESA_ID` e `JC_ORACLE_*` sem valores padrão no repositório (remover host padrão de compose, `.env.example` e `jc-probe`).
 - AR-15: backup do Postgres da Auditoria com restauração testada. Verificado no servidor: o cron diário `pg-backup-gdrive.sh` (23:00 UTC, `pg_dump -Fc`, `rclone` para o OneDrive, retenção de 56 dias, alerta por e-mail) tem lista fixa de stacks e usa `-U postgres`; a Auditoria não está na lista e seu usuário é outro. Trabalho: incluir a Auditoria no script (usuário lido de `POSTGRES_USER`), versionar uma cópia sem segredos no repositório, documentar e executar o teste de restauração; confirmar com o cliente o destino dos dados no OneDrive.
+- AR-17 (AD-18): `companies.ambiente` (padrão `teste`, trigger de mão única), função `limpar_dados_teste`, função `imutavel_salvo_em_teste` nos gatilhos de imutabilidade, senha de novo para apagar e virar, faixa de ambiente, e-mail em Teste só ao administrador.
 - AR-16 (dívida, não bloqueia): `node:18-alpine`, tags fixas de `cloudflared` e `alpine`, `go mod tidy`; `DeleteUserHandler` versus o trigger de `audit_log`.
 
 ### UX Design Requirements
