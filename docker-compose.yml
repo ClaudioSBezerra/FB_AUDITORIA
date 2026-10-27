@@ -5,10 +5,10 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     restart: always
+    # Sem `ports:` — a API só é alcançável pelo túnel (rota ^/api), nunca direto
+    # pelo IP da VPS (sem WAF/DDoS). Mesmo padrão do Farol.
     expose:
       - "8088"
-    ports:
-      - "8088:8088"
     environment:
       - PORT=8088
       - DATABASE_URL=postgres://${DB_USER:?defina DB_USER no Coolify}:${DB_PASSWORD:?defina DB_PASSWORD no Coolify}@db:5432/${DB_NAME:-fb_auditoria}?sslmode=disable
@@ -67,6 +67,19 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Cloudflare Tunnel — único caminho público para auditoria.fbtax.cloud.
+  # Rotas no painel do túnel: hostname raiz -> http://web:80 ;
+  # hostname + path ^/api -> http://api:8088.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: fb_auditoria-cloudflared-prod
+    restart: always
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:?defina CLOUDFLARE_TUNNEL_TOKEN no Coolify}
+    networks:
+      - fb_net
+    depends_on:
+      - web
 
 networks:
   fb_net:
