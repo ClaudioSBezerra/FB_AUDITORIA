@@ -262,6 +262,11 @@ func main() {
 	fmt.Printf("FB_AUDITORIA Backend v%s\n", BackendVersion)
 
 	handlers.ValidateJWTSecret()
+	estadoCadastro := "FECHADO"
+	if handlers.SelfRegisterEnabled() {
+		estadoCadastro = "ABERTO (ALLOW_SELF_REGISTER=true, só para desenvolvimento)"
+	}
+	log.Printf("[config] cadastro público: %s", estadoCadastro)
 	initDBAsync()
 
 	port := os.Getenv("PORT")

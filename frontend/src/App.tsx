@@ -11,7 +11,6 @@ import { cn } from '@/lib/utils'
 
 // Páginas autenticadas ficam em chunks separados; só o login/registro entram cedo.
 const Login = lazy(() => import('./pages/Login'))
-const Register = lazy(() => import('./pages/Register'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const GestaoAmbiente = lazy(() => import('./pages/GestaoAmbiente'))
@@ -169,7 +168,8 @@ function App() {
           <Suspense fallback={null}>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              {/* Cadastro público fechado (story 4.1): usuários são criados pelo administrador. */}
+              <Route path="/register" element={<Navigate to="/login" replace />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-senha" element={<ResetPassword />} />
               <Route path="/*" element={<ProtectedRoute><AppLayout /></ProtectedRoute>} />

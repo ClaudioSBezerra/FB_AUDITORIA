@@ -469,8 +469,20 @@ func GetUserCompaniesHandler(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// SelfRegisterEnabled diz se o cadastro público está aberto. Fechado por padrão:
+// só ALLOW_SELF_REGISTER=true (sem diferenciar maiúsculas) o reabre, para
+// desenvolvimento. Usuários da empresa são criados pelo administrador.
+func SelfRegisterEnabled() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("ALLOW_SELF_REGISTER")), "true")
+}
+
 func RegisterHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Fechado: 404 antes de ler o corpo ou tocar o banco, sem revelar que a rota existe.
+		if !SelfRegisterEnabled() {
+			http.NotFound(w, r)
+			return
+		}
 		var req RegisterRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, "Invalid request body", http.StatusBadRequest)
