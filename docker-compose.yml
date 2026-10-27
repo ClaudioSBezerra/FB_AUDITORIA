@@ -58,7 +58,7 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWORD:?defina DB_PASSWORD no Coolify}
       - POSTGRES_DB=${DB_NAME:-fb_auditoria}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - auditoria_pg_data:/var/lib/postgresql/data
     networks:
       - fb_net
     healthcheck:
@@ -74,4 +74,4 @@ networks:
     external: true
 
 volumes:
-  postgres_data:
+  auditoria_pg_data:
