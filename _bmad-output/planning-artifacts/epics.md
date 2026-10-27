@@ -1,6 +1,6 @@
 ---
-status: draft
-stepsCompleted: [1, 2, 3]
+status: final
+stepsCompleted: [1, 2, 3, 4]
 inputDocuments:
   - _bmad-output/planning-artifacts/prds/prd-FB_AUDITORIA-2026-10-27/prd.md
   - _bmad-output/planning-artifacts/architecture/architecture-FB_AUDITORIA-2026-10-27/ARCHITECTURE-SPINE.md
