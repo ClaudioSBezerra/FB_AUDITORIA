@@ -62,7 +62,7 @@ services:
     networks:
       - fb_net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:?defina DB_USER no Coolify}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:?defina DB_USER no Coolify} -d ${DB_NAME:-fb_auditoria}"]
       interval: 10s
       timeout: 5s
       retries: 5
