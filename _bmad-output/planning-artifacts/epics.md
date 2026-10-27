@@ -188,7 +188,7 @@ So that eu possa mover esse código sem quebrar o que o Controller já usa.
 **Then** o comportamento atual (aceita) fica registrado e marcado "muda na 1.6"
 **And** `go build ./...` e `go vet ./...` seguem passando
 
-### Story 1.2: Marcador Teste/Produção e apagar os dados de teste (AD-18)
+### Story 1.2: Marcador Teste/Produção e apagar os dados de teste (FR-21, AD-18)
 
 As a administrador de plataforma,
 I want marcar a empresa como Teste ou Produção e apagar os dados de teste com a minha senha,
@@ -221,7 +221,7 @@ So that eu valide com planilhas e depois comece do zero sem risco de apagar dado
 **Then** `403`
 **And** existe `auditoria.imutavel_salvo_em_teste(empresa_id)`, verdadeira só em `teste` com a sessão aberta pela função de limpeza
 
-### Story 1.3: Virar para Produção e faixa de ambiente
+### Story 1.3: Virar para Produção e faixa de ambiente (FR-21)
 
 As a administrador de plataforma,
 I want virar a empresa para Produção e ver em toda tela em que ambiente estou,
@@ -1416,4 +1416,483 @@ So that nenhum gerente fique sem o DRE sem eu saber.
 **When** abre a tela ou chama a API
 **Then** `403`
 **And** o reenvio vai à trilha
+
+## Epic 6: Dashboards de desvios e tendência
+
+A diretoria vê os maiores desvios por departamento, gerente e filial, a tendência da despesa sobre o Faturamento Líquido, a ponte do resultado e a projeção do ano.
+
+**Nota:** a história 6.6 é opcional e não vem de nenhum FR: nasceu dos botões de copiar imagem do painel que o cliente já usa. O Gerente vê só o seu departamento e não acessa a ponte.
+
+### Story 6.1: Ranking dos maiores desvios (FR-16)
+
+As a diretoria,
+I want ver as contas com os maiores desvios do período,
+So that eu saiba onde olhar primeiro.
+
+**Acceptance Criteria:**
+
+**Given** os desvios derivados por `dre.ChaveDesvio` (5.2)
+**When** abro o ranking
+**Then** ordena do maior para o menor valor absoluto, com conta, filial, departamento, Gerente, base (Orçado ou Ano anterior), valores, variação e o status da justificativa
+
+**Given** os filtros
+**When** filtro por ano, competência, filial, departamento, Gerente ou base
+**Then** o ranking e os totais respeitam o filtro
+
+**Given** o limite da 5.1
+**When** o ranking é aberto
+**Then** os desvios acima dele aparecem marcados, e o ranking mostra todos
+
+**Given** um Gerente
+**When** abre o ranking
+**Then** vê só o ranking do seu escopo, nem por API direta
+
+**Given** mês fechado
+**When** o ranking é aberto
+**Then** usa o snapshot e o limite do fechamento
+**And** a lista é paginada e clicar numa linha abre o detalhe da conta (3.6)
+
+### Story 6.2: Desvios por departamento, Gerente, filial e ano (FR-16)
+
+As a diretoria,
+I want agrupar os desvios por departamento, Gerente, filial ou ano,
+So that eu compare as áreas.
+
+**Acceptance Criteria:**
+
+**Given** o dashboard
+**When** escolho o agrupamento
+**Then** mostra para cada grupo Realizado e Orçado (gráfico e tabela), a variação e a cobertura de justificativas (justificadas entre as acima do limite)
+
+**Given** contas sem departamento
+**When** o dashboard é aberto
+**Then** aparecem em "Sem departamento", só para perfis sem restrição
+
+**Given** qualquer total
+**When** é exibido
+**Then** é exatamente a soma dos itens
+
+**Given** um Gerente
+**When** abre o dashboard
+**Then** vê só o seu departamento
+**And** diretoria e Controller veem todos, em leitura
+
+### Story 6.3: Despesa sobre o Faturamento Líquido e "Está subindo?" (FR-17)
+
+As a diretoria,
+I want ver quanto a despesa pesa sobre o Faturamento Líquido a cada ano e se está subindo,
+So that eu perceba cedo a perda de eficiência.
+
+**Acceptance Criteria:**
+
+**Given** as linhas com os papéis faturamento líquido, comercial, logística e administrativo (AD-20)
+**When** abro "Tendência"
+**Then** mostra por ano a despesa total sobre o Faturamento Líquido e a de cada grupo
+
+**Given** o acumulado do ano atual
+**When** é comparado
+**Then** com o mesmo período do ano anterior, em pontos percentuais, indicando "subindo", "estável" ou "caindo" (tolerância de 0,1 ponto) para cada grupo
+
+**Given** Faturamento Líquido zero ou ano sem dado
+**When** a tendência é calculada
+**Then** aparece "não calculável" ou vazio, nunca zero
+
+**Given** um papel não cadastrado
+**When** a tela é aberta
+**Then** avisa
+
+**Given** um Gerente
+**When** abre a tendência
+**Then** vê só o seu departamento, com o percentual calculado no servidor e sem a base
+
+### Story 6.4: Ponte do resultado (FR-17)
+
+As a diretoria,
+I want ver por que a margem mudou de um ano para o outro,
+So that eu entenda o que a moveu.
+
+**Acceptance Criteria:**
+
+**Given** dois anos no mesmo período e o alvo (Margem líquida ou Resultado após o IR, pelos papéis)
+**When** abro a ponte
+**Then** mostra o alvo do ano anterior, as contribuições de Margem composta, Impostos, Comercial, Logística e Administrativo (e, para o resultado após o IR, Outras receitas e despesas e IRPJ), e o alvo do ano atual
+
+**Given** a unidade em pontos percentuais do Faturamento Líquido
+**When** a ponte é calculada
+**Then** a soma das contribuições é igual à diferença total
+
+**Given** a unidade em valor
+**When** a ponte é calculada
+**Then** inclui "Volume de vendas" e a soma fecha a diferença exata (teste com centavos)
+
+**Given** o resultado
+**When** é exibido
+**Then** um texto resume a maior contribuição positiva e a maior negativa
+
+**Given** Faturamento Líquido zero em algum ano
+**When** a ponte é calculada
+**Then** aparece "não calculável"
+
+**Given** um Gerente
+**When** abre a ponte
+**Then** `403` (a ponte envolve o resultado do grupo)
+
+### Story 6.5: Projeção de fechamento do ano (FR-17)
+
+As a diretoria,
+I want ver para onde o ano caminha,
+So that eu possa agir antes de dezembro.
+
+**Acceptance Criteria:**
+
+**Given** o ano corrente com realizado até o mês M
+**When** abro "Projeção"
+**Then** mostra o realizado de janeiro a M e o estimado de M+1 a dezembro, marcando o que é estimado e o método
+
+**Given** o método Orçado
+**When** é escolhido
+**Then** o estimado é o orçado dos meses restantes
+
+**Given** o método Sazonal
+**When** é escolhido
+**Then** o estimado é o restante do ano anterior multiplicado pela razão entre o acumulado atual e o do ano anterior; razão fora do intervalo de 0 a 3 vale 1
+
+**Given** que não há orçado
+**When** a projeção é aberta
+**Then** usa o Sazonal e o método Orçado fica desabilitado
+
+**Given** M igual a 12
+**When** a projeção é aberta
+**Then** a projeção é o realizado
+
+**Given** os indicadores
+**When** são exibidos
+**Then** mostram Faturamento Líquido, despesas sobre o Faturamento Líquido, margem líquida e resultado após o IR, comparados ao ano anterior e ao orçado do ano
+
+**Given** um Gerente
+**When** abre a projeção
+**Then** vê só a despesa projetada do seu departamento, sem o Faturamento Líquido
+**And** o filtro de filial funciona
+
+### Story 6.6: Copiar o gráfico como imagem (opcional)
+
+As a diretoria,
+I want copiar ou baixar um gráfico como imagem,
+So that eu cole na apresentação.
+
+**Acceptance Criteria:**
+
+**Given** qualquer gráfico dos dashboards
+**When** clico em "Copiar imagem" ou "PNG"
+**Then** recebo a imagem do que está na tela, com título, período e filtros
+
+**Given** um Gerente
+**When** copia um gráfico
+**Then** a imagem só contém o que ele já vê
+
+**Given** a imagem
+**When** é gerada
+**Then** é gerada no navegador, e não há exportação para PDF ou Excel (fora de escopo no PRD)
+
+## Epic 7: Rateio entre filiais
+
+O DRE por filial mostra o custo real, com as despesas dos departamentos centralizados rateadas entre as unidades.
+
+**Nota:** este épico só começa depois de o cliente responder quais departamentos são centralizados e se o critério é fixo ou mensal (perguntas 4 e 5 do PRD). Cada regra vale a partir de uma competência até surgir a seguinte, o que cobre os dois casos.
+
+### Story 7.1: Regras de rateio (FR-15)
+
+As a analista,
+I want definir para cada departamento centralizado o critério de rateio,
+So that o sistema saiba como distribuir o custo.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `departamentos` ganha `centralizado` e existem `rateio_regras (empresa_id, departamento_id, criterio, vigente_de)` e `rateio_percentuais (regra_id, filial, percentual)`, mantidas por `limpar_dados_teste` (são configuração)
+
+**Given** um departamento centralizado
+**When** o analista cria uma regra pelo critério **uso**
+**Then** informa o percentual de cada filial, e a regra é recusada se a soma não for 100%
+
+**Given** o critério **faturamento**
+**When** a regra é criada
+**Then** não pede percentuais: a distribuição será proporcional ao Faturamento Líquido de cada filial na competência (linha com o papel faturamento líquido, AD-20)
+
+**Given** várias regras do mesmo departamento
+**When** uma competência é consultada
+**Then** vale a de maior `vigente_de` até essa competência
+
+**Given** um perfil sem a capacidade "configurar rateio"
+**When** tenta criar ou alterar uma regra
+**Then** `403`
+**And** cada alteração vai à trilha
+
+### Story 7.2: Aplicar o rateio na competência (FR-15, AD-14, AD-8)
+
+As a Controller,
+I want aplicar o rateio de uma competência,
+So that o custo dos departamentos centralizados seja distribuído entre as filiais.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** existe `rateio_aplicado (empresa_id, competencia, departamento_id, filial, valor, regra_id, aplicado_por, aplicado_em, vigente)`, escrita só pelo módulo `dre/rateio` e incluída em `limpar_dados_teste`
+
+**Given** uma competência aberta com regras vigentes
+**When** o Controller aplica
+**Then** distribui o custo realizado de cada departamento centralizado entre as filiais pela regra, e a soma rateada é exatamente o valor do departamento
+
+**Given** que a divisão deixa centavos
+**When** o rateio é aplicado
+**Then** o resto vai à filial de maior percentual (empate: menor código)
+
+**Given** o rateio já aplicado numa competência aberta
+**When** o Controller aplica de novo
+**Then** substitui o anterior, sem duplicar
+
+**Given** competência fechada
+**When** o Controller tenta aplicar
+**Then** `409` pela guarda de período (1.6)
+
+**Given** um perfil sem "aplicar rateio"
+**When** tenta aplicar
+**Then** `403`
+**And** a aplicação vai à trilha
+
+### Story 7.3: Aba "Rateio" (FR-15)
+
+As a analista,
+I want ver o resultado do rateio por departamento e filial,
+So that eu confira antes de fechar.
+
+**Acceptance Criteria:**
+
+**Given** um rateio aplicado
+**When** abro a aba "Rateio"
+**Then** lista, por departamento centralizado e filial, o percentual, o critério, o valor rateado e o total do departamento
+
+**Given** a soma por departamento
+**When** é exibida
+**Then** é igual ao valor do departamento (conferência visível na tela)
+
+**Given** nenhum rateio aplicado
+**When** abro a aba
+**Then** mostra "não aplicado" e as regras vigentes
+
+**Given** um Gerente
+**When** tenta abrir a aba
+**Then** não acessa
+
+### Story 7.4: O DRE por filial mostra o rateio (FR-15)
+
+As a diretoria,
+I want ver o DRE de cada filial com o rateio numa linha separada,
+So that eu veja o custo real de cada unidade sem perder o resultado direto.
+
+**Acceptance Criteria:**
+
+**Given** um rateio aplicado
+**When** abro o DRE de uma filial
+**Then** mostra uma linha "Rateio" separada do realizado direto
+
+**Given** o DRE do grupo
+**When** é aberto com rateio aplicado
+**Then** o total não muda: a soma da linha "Rateio" de todas as filiais é zero
+
+**Given** nenhum rateio aplicado
+**When** o DRE é aberto
+**Then** a linha não aparece
+
+**Given** competência fechada
+**When** o DRE é aberto
+**Then** lê o rateio do snapshot
+**And** o Gerente não vê a linha de rateio de outros departamentos
+
+### Story 7.5: Rateio no fechamento e na reabertura (AD-14, AD-17)
+
+As a Controller,
+I want que o rateio entre no fechamento e saia na reabertura,
+So that um mês fechado nunca carregue um rateio defasado.
+
+**Acceptance Criteria:**
+
+**Given** regras vigentes e rateio não aplicado
+**When** o Controller fecha
+**Then** `409` listando os departamentos sem rateio aplicado
+
+**Given** o rateio aplicado
+**When** o Controller fecha
+**Then** o snapshot por contas inclui o rateio
+
+**Given** a reabertura (1.7)
+**When** o Controller reabre
+**Then** o rateio aplicado da competência fica invalidado (`vigente = false`) e precisa ser reaplicado antes de fechar de novo
+
+**Given** nenhuma regra vigente
+**When** o Controller fecha
+**Then** o fechamento não pede rateio
+
+## Epic 8: Go-live com dado real (trilha paralela)
+
+A equipe do cliente passa a usar o sistema com dado real sabendo que há backup restaurável, que o Oracle cobre as contas do DRE e que não restou dívida de segurança.
+
+**Nota:** este épico corre em paralelo aos demais e termina antes da virada para Produção. A história 8.2 deve começar já, porque depende de uma resposta do cliente. A 8.1 já tem parte feita no servidor em 27/10 (Auditoria na lista do script e restauração testada); falta confirmar a primeira execução automática. A 8.7 é opcional.
+
+### Story 8.1: Backup diário da Auditoria, com restauração testada (NFR6, AR-15)
+
+As a dono do produto,
+I want que o banco da Auditoria entre no backup diário e que eu já tenha restaurado uma cópia,
+So that um backup só valha se alguém provou que ele volta.
+
+**Acceptance Criteria:**
+
+**Given** o cron das 23:00 (UTC)
+**When** a primeira execução automática com a Auditoria termina
+**Then** `/var/log/pg-backup.log` mostra "Dump de fb_auditoria OK" e "Upload de fb_auditoria OK", e a pasta do dia no OneDrive tem o arquivo
+
+**Given** o script do servidor
+**When** é versionado
+**Then** uma cópia sem e-mails nem senhas fica em `ops/` no repositório
+
+**Given** um runbook `docs/runbook-backup.md`
+**When** é lido
+**Then** descreve como localizar o contêiner, gerar um dump, restaurar num banco temporário e conferir contagens
+
+**Given** a restauração
+**When** é repetida
+**Then** acontece antes da virada para Produção e a cada trimestre, com data e resultado registrados
+
+### Story 8.2: Autorização do cliente para o destino do backup (NFR6), começar já
+
+As a dono do produto,
+I want a decisão do cliente sobre onde o backup dos dados dele pode ficar,
+So that o contrato seja respeitado.
+
+**Acceptance Criteria:**
+
+**Given** que o dump contém dados financeiros do cliente e hoje vai sem criptografia para o OneDrive do dono do produto
+**When** a pergunta é enviada ao cliente
+**Then** a data e o texto ficam registrados
+
+**Given** a resposta do cliente
+**When** chega
+**Then** fica registrada uma de três decisões: aceita o destino atual; exige conta da empresa; exige criptografia
+
+**Given** a exigência de criptografia
+**When** é aplicada
+**Then** o backup da Auditoria passa a usar `rclone crypt` só para este banco, com a chave guardada fora do servidor de backup, e a restauração é testada de novo
+
+**Given** nenhuma decisão registrada
+**When** a virada é tentada
+**Then** não segue (item bloqueante da 8.4)
+
+### Story 8.3: Cobertura da fonte: o que ainda depende de arquivo (P11)
+
+As a dono do produto,
+I want ver quais contas o Oracle já cobre e quais ainda dependem de arquivo,
+So that eu saiba o que falta antes de virar para Produção.
+
+**Acceptance Criteria:**
+
+**Given** as contas com lançamento
+**When** abro "Cobertura"
+**Then** lista cada conta com a origem dona, a última competência carregada e se há lançamento do Oracle para ela
+
+**Given** o resumo
+**When** é exibido
+**Then** mostra quantas contas e que parte do valor do realizado ainda depende de arquivo
+
+**Given** a lista
+**When** é comparada com o aviso da virada (1.3)
+**Then** é a mesma
+**And** é só leitura, para perfis sem restrição
+
+### Story 8.4: Checklist antes de virar para Produção (NFR6, NFR7)
+
+As a administrador de plataforma,
+I want um checklist na tela de virar para Produção,
+So that eu não vire por esquecimento.
+
+**Acceptance Criteria:**
+
+**Given** a tela de virada (1.3)
+**When** o administrador a abre
+**Then** vê cada item com o estado (verde, vermelho ou "confirmar") e quem confirmou e quando
+
+**Given** os itens bloqueantes
+**When** o administrador tenta virar
+**Then** a virada só segue com todos verdes: cadastro público fechado (verificado pela configuração); SMTP com envio de teste concluído; paridade do mês de referência registrada como "bate" (3.7); decisão sobre o destino do backup registrada (8.2); backup confirmado e restauração testada nos últimos 30 dias (confirmação manual com autor e data)
+
+**Given** a cobertura (8.3)
+**When** o checklist é exibido
+**Then** aparece como aviso, que não bloqueia
+
+**Given** cada confirmação manual
+**When** é feita
+**Then** vai à trilha
+**And** a virada continua exigindo a senha de novo e a frase digitada (1.3)
+
+### Story 8.5: Imagens e versões sem validade vencida (AR-16)
+
+As a dono do produto,
+I want que as imagens do deploy tenham versão fixa e suportada,
+So that um deploy não mude de comportamento sozinho nem use base sem correção de segurança.
+
+**Acceptance Criteria:**
+
+**Given** `frontend/Dockerfile`
+**When** é revisado
+**Then** o `node:18-alpine` (sem suporte desde 2025-04-30) é trocado por uma versão LTS suportada, e o build do frontend passa (`npm run typecheck`, `npm run lint`, `vite build`)
+
+**Given** `alpine:latest` e `cloudflare/cloudflared:latest`
+**When** são revisados
+**Then** passam a usar tags fixas
+
+**Given** `go.mod`
+**When** `go mod tidy` roda
+**Then** deixa o `go-ora` como dependência direta
+**And** o deploy no Coolify é testado depois da troca, com o túnel de volta a "Healthy"
+
+### Story 8.6: Apagar usuário sem quebrar a trilha (AR-16)
+
+As a administrador de plataforma,
+I want que apagar um usuário não falhe nem apague a história dele,
+So that a trilha continue imutável.
+
+**Acceptance Criteria:**
+
+**Given** o `DeleteUserHandler`, que faz `DELETE FROM users`, e a chave `ON DELETE SET NULL` de `audit_log.user_id`
+**When** o administrador apaga um usuário que tem registros na trilha
+**Then** o comportamento atual é registrado em teste (o gatilho de imutabilidade bloqueia o `UPDATE` da chave)
+
+**Given** a decisão de que usuário é desativado e nunca apagado (AD-19)
+**When** a rota é chamada para quem tem registro
+**Then** passa a recusar e oferece o bloqueio
+
+**Given** um usuário sem nenhum registro
+**When** o administrador o apaga
+**Then** pode ser apagado
+**And** a mensagem de recusa orienta para o Bloqueio de usuário
+
+### Story 8.7: Alerta ao administrador quando a importação ou o envio falha (opcional)
+
+As a administrador de plataforma,
+I want ser avisado por e-mail quando uma importação ou um envio falha,
+So that eu não descubra só quando alguém reclamar.
+
+**Acceptance Criteria:**
+
+**Given** uma execução com status de falha em `execucoes`
+**When** termina
+**Then** o administrador recebe um e-mail com a causa
+
+**Given** um e-mail da outbox que esgotou as tentativas
+**When** o worker desiste
+**Then** o administrador é avisado, uma vez por item
+
+**Given** o SMTP indisponível
+**When** o alerta é tentado
+**Then** não tenta de novo em laço, e a falha segue visível na tela
+**And** é opcional e não bloqueia a virada
 
