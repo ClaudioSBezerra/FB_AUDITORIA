@@ -176,6 +176,7 @@ So that eu possa mover esse código sem quebrar o que o Controller já usa.
 **When** `go test ./...` roda em `backend/`
 **Then** os testes usam um banco cujo nome termina em `_test`
 **And** abortam com mensagem clara se o nome não terminar assim
+**And** o banco local `fb_auditoria_test` é criado se não existir e recriado limpo a cada execução
 
 **Given** lançamentos mapeados para as linhas do DRE
 **When** o teste fecha uma competência
@@ -497,6 +498,11 @@ So that faturamento, devoluções, CMV de devolução, ST e desconto de custo ve
 **Given** competência fechada
 **When** importa
 **Then** é pulada e informada, sem falhar as demais
+
+**Given** que o IP das máquinas de desenvolvimento não está liberado no Oracle do cliente
+**When** os testes rodam
+**Then** a leitura, a conversão de `MES_ANO` e a transformação das colunas em contas `ERP.*` são testadas com uma `Fonte` falsa, sem Oracle
+**And** a leitura real é verificada no servidor de produção, com um comando de sonda, e não nos testes automáticos
 
 ### Story 2.4: Registrar cada importação e a posse das contas (FR-1, AD-15, AD-16)
 
