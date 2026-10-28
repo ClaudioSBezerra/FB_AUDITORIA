@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"fb_auditoria/internal/testdb"
@@ -92,7 +94,7 @@ func TestPerfis_MigracaoAceitaAnalista(t *testing.T) {
 	}
 }
 
-// O middleware aceita capacidade (e a lista legada, até a 4.3), por método.
+// O middleware aceita capacidade por método (ou só a área, sem capacidade).
 func TestPerfis_MiddlewareCapacidade(t *testing.T) {
 	t.Setenv("JWT_SECRET", "segredo-de-teste-com-mais-de-32-bytes-ok")
 	db := testdb.Open(t)
@@ -114,20 +116,20 @@ func TestPerfis_MiddlewareCapacidade(t *testing.T) {
 		h(w, r)
 		return w.Code
 	}
-	mapa := AuditoriaAuthCap(db, ok, AreaEmpresa, CapLerNoEscopo, CapEditarMapa)
-	fechar := AuditoriaAuthCap(db, ok, AreaEmpresa, CapFechar)
-	legado := AuditoriaAuthMiddleware(db, ok, AreaEmpresa, "controladoria")
+	mapa := AuditoriaAuthMiddleware(db, ok, AreaEmpresa, CapLerNoEscopo, CapEditarMapa)
+	fechar := AuditoriaAuthMiddleware(db, ok, AreaEmpresa, CapFechar)
+	soArea := AuditoriaAuthMiddleware(db, ok, AreaEmpresa)
 
 	casos := []struct {
-		perfil                 string
-		leMapa, editaMapa      int
-		fecha, passaPeloLegado int
+		perfil            string
+		leMapa, editaMapa int
+		fecha, soArea     int
 	}{
-		{"analista", 200, 200, 403, 403},
+		{"analista", 200, 200, 403, 200},
 		{"controladoria", 200, 200, 200, 200},
-		{"diretoria", 200, 403, 403, 403},
-		{"auditoria", 200, 403, 403, 403},
-		{"gestor", 200, 403, 403, 403},
+		{"diretoria", 200, 403, 403, 200},
+		{"auditoria", 200, 403, 403, 200},
+		{"gestor", 200, 403, 403, 200},
 	}
 	for _, c := range casos {
 		if _, err := db.Exec(`UPDATE users SET perfil=$2, areas=$3 WHERE id=$1::uuid`, f.UserID, c.perfil, pq.Array([]string{AreaEmpresa})); err != nil {
@@ -142,8 +144,40 @@ func TestPerfis_MiddlewareCapacidade(t *testing.T) {
 		if got := chama(fechar, http.MethodPost); got != c.fecha {
 			t.Errorf("%s fecha: %d", c.perfil, got)
 		}
-		if got := chama(legado, http.MethodGet); got != c.passaPeloLegado {
-			t.Errorf("%s pela lista legada: %d", c.perfil, got)
+		if got := chama(soArea, http.MethodGet); got != c.soArea {
+			t.Errorf("%s só pela área: %d", c.perfil, got)
 		}
+	}
+}
+
+// Defesa em profundidade: os handlers também checam a capacidade, não só o middleware.
+func TestPerfis_HandlersChecamCapacidade(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	chamaCom := func(h http.Handler, metodo, perfil string) int {
+		r := httptest.NewRequest(metodo, "/x", strings.NewReader(`{}`))
+		c := &AudContext{UserID: f.UserID, EmpresaID: f.EmpresaID, Perfil: perfil}
+		r = r.WithContext(context.WithValue(r.Context(), AudContextKey, c))
+		return chamar(h, r).Code
+	}
+	for _, p := range []string{"analista", "diretoria", "auditoria", "gestor"} {
+		if c := chamaCom(DREFechamentoHandler(db), http.MethodPost, p); c != http.StatusForbidden {
+			t.Errorf("%s fecha: %d", p, c)
+		}
+		if c := chamaCom(DREReabrirHandler(db), http.MethodPost, p); c != http.StatusForbidden {
+			t.Errorf("%s reabre: %d", p, c)
+		}
+	}
+	for _, p := range []string{"diretoria", "auditoria", "gestor"} {
+		if c := chamaCom(DREMapaHandler(db), http.MethodPut, p); c != http.StatusForbidden {
+			t.Errorf("%s edita mapa: %d", p, c)
+		}
+	}
+	// O analista passa da checagem de capacidade (o corpo vazio dá 400, não 403).
+	if c := chamaCom(DREMapaHandler(db), http.MethodPut, "analista"); c == http.StatusForbidden {
+		t.Error("analista não edita mapa")
+	}
+	if c := chamaCom(DepartamentosHandler(db), http.MethodPost, "analista"); c == http.StatusForbidden {
+		t.Error("analista não edita departamentos")
 	}
 }

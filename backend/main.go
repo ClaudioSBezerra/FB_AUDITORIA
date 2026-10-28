@@ -324,14 +324,16 @@ func main() {
 		}
 	}
 	// withAud: JWT + empresa ativa + perfil + área do menu (ver auditoria_auth.go).
-	withAud := func(f func(*sql.DB) http.HandlerFunc, area string, perfis ...string) http.HandlerFunc {
+	// caps: vazio = só a área; caps[0] leitura (todos os métodos se for a única),
+	// caps[1] escrita. Não aceita lista de perfis (AD-11).
+	withAud := func(f func(*sql.DB) http.HandlerFunc, area string, caps ...handlers.Capacidade) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			database := getDB()
 			if database == nil {
 				http.Error(w, "Database initializing...", http.StatusServiceUnavailable)
 				return
 			}
-			handlers.AuditoriaAuthMiddleware(database, f(database), area, perfis...)(w, r)
+			handlers.AuditoriaAuthMiddleware(database, f(database), area, caps...)(w, r)
 		}
 	}
 	gz := handlers.GzipMiddleware
@@ -423,33 +425,33 @@ func main() {
 	http.HandleFunc("/api/aud/ambiente/limpar", withAud(handlers.AmbienteLimparHandler, ""))
 	http.HandleFunc("/api/aud/ambiente/virar", withAud(handlers.AmbienteVirarHandler, ""))
 	http.HandleFunc("/api/aud/acompanhamento", withAud(handlers.AcompanhamentoHandler, handlers.AreaAcompanhamento))
-	http.HandleFunc("/api/aud/usuarios", withAud(handlers.AudUsuariosHandler, handlers.AreaConfiguracoes, "controladoria"))
-	http.HandleFunc("/api/aud/filiais-gerenciais", withAud(handlers.FiliaisGerenciaisHandler, handlers.AreaConfiguracoes))
-	http.HandleFunc("/api/aud/agrupamentos-filiais", withAud(handlers.AgrupamentosFiliaisHandler, handlers.AreaConfiguracoes))
-	http.HandleFunc("/api/aud/departamentos", withAud(handlers.DepartamentosHandler, handlers.AreaConfiguracoes))
-	http.HandleFunc("/api/aud/dicionario", withAud(handlers.DicionarioHandler, handlers.AreaConfiguracoes))
-	http.HandleFunc("/api/aud/dicionario/carga", withAud(handlers.DicionarioCargaHandler, handlers.AreaConfiguracoes, "controladoria"))
-	http.HandleFunc("/api/aud/dicionario/conta", withAud(handlers.DicionarioContaHandler, handlers.AreaConfiguracoes, "controladoria"))
-	http.HandleFunc("/api/aud/audit-log", withAud(handlers.AuditLogHandler, handlers.AreaConfiguracoes, "controladoria", "auditoria"))
+	http.HandleFunc("/api/aud/usuarios", withAud(handlers.AudUsuariosHandler, handlers.AreaConfiguracoes, handlers.CapGerirUsuarios))
+	http.HandleFunc("/api/aud/filiais-gerenciais", withAud(handlers.FiliaisGerenciaisHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo, handlers.CapEditarEstrutura))
+	http.HandleFunc("/api/aud/agrupamentos-filiais", withAud(handlers.AgrupamentosFiliaisHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo, handlers.CapEditarEstrutura))
+	http.HandleFunc("/api/aud/departamentos", withAud(handlers.DepartamentosHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo, handlers.CapEditarEstrutura))
+	http.HandleFunc("/api/aud/dicionario", withAud(handlers.DicionarioHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo))
+	http.HandleFunc("/api/aud/dicionario/carga", withAud(handlers.DicionarioCargaHandler, handlers.AreaConfiguracoes, handlers.CapEditarDicionario))
+	http.HandleFunc("/api/aud/dicionario/conta", withAud(handlers.DicionarioContaHandler, handlers.AreaConfiguracoes, handlers.CapEditarDicionario))
+	http.HandleFunc("/api/aud/audit-log", withAud(handlers.AuditLogHandler, handlers.AreaConfiguracoes, handlers.CapLerTrilha))
 
 	// ── Administrativo (área empresa) — DRE ────────────────────────────────────────────────────
 	est := handlers.AreaEmpresa
-	http.HandleFunc("/api/aud/dre", gz(withAud(handlers.DREHandler, est)))
-	http.HandleFunc("/api/aud/dre/filiais", withAud(handlers.DREFiliaisHandler, est))
-	http.HandleFunc("/api/aud/dre/linhas", withAud(handlers.DRELinhasHandler, est))
-	http.HandleFunc("/api/aud/dre/linhas/papel", withAud(handlers.DRELinhaPapelHandler, est, "controladoria"))
-	http.HandleFunc("/api/aud/dre/departamentos", gz(withAud(handlers.DREDepartamentosHandler, est, "controladoria", "auditoria", "diretoria")))
-	http.HandleFunc("/api/aud/dre/lancamentos", gz(withAud(handlers.DRELancamentosHandler, est)))
-	http.HandleFunc("/api/aud/dre/trimestres", gz(withAud(handlers.DRETrimestresHandler, est, "controladoria", "auditoria", "diretoria")))
-	http.HandleFunc("/api/aud/dre/contas", gz(withAud(handlers.DREContasHandler, est, "controladoria", "auditoria", "diretoria")))
-	http.HandleFunc("/api/aud/dre/contas/lancamentos", gz(withAud(handlers.DREContaLancamentosHandler, est, "controladoria", "auditoria", "diretoria")))
-	http.HandleFunc("/api/aud/dre/fechamentos", withAud(handlers.DREFechamentoHandler, est))
-	http.HandleFunc("/api/aud/dre/fechamentos/reabrir", withAud(handlers.DREReabrirHandler, est, "controladoria"))
-	// Escrita do DRE: só controladoria (auditoria lê; não mexe no mapa).
-	http.HandleFunc("/api/aud/dre/mapa", withAud(handlers.DREMapaHandler, est))
-	http.HandleFunc("/api/aud/dre/orcado", withAud(handlers.DREOrcadoHandler, est, "controladoria"))
-	http.HandleFunc("/api/aud/dados/atualizar", withAud(handlers.DadosAtualizarHandler, est, "controladoria"))
-	http.HandleFunc("/api/aud/dre/lancamentos/importar", withAud(handlers.DREImportarHandler, est, "controladoria"))
+	http.HandleFunc("/api/aud/dre", gz(withAud(handlers.DREHandler, est, handlers.CapLerNoEscopo)))
+	http.HandleFunc("/api/aud/dre/filiais", withAud(handlers.DREFiliaisHandler, est, handlers.CapLerNoEscopo))
+	http.HandleFunc("/api/aud/dre/linhas", withAud(handlers.DRELinhasHandler, est, handlers.CapLerNoEscopo))
+	http.HandleFunc("/api/aud/dre/linhas/papel", withAud(handlers.DRELinhaPapelHandler, est, handlers.CapEditarEstrutura))
+	http.HandleFunc("/api/aud/dre/departamentos", gz(withAud(handlers.DREDepartamentosHandler, est, handlers.CapLer)))
+	http.HandleFunc("/api/aud/dre/lancamentos", gz(withAud(handlers.DRELancamentosHandler, est, handlers.CapLerNoEscopo)))
+	http.HandleFunc("/api/aud/dre/trimestres", gz(withAud(handlers.DRETrimestresHandler, est, handlers.CapLer)))
+	http.HandleFunc("/api/aud/dre/contas", gz(withAud(handlers.DREContasHandler, est, handlers.CapLer)))
+	http.HandleFunc("/api/aud/dre/contas/lancamentos", gz(withAud(handlers.DREContaLancamentosHandler, est, handlers.CapLer)))
+	http.HandleFunc("/api/aud/dre/fechamentos", withAud(handlers.DREFechamentoHandler, est, handlers.CapLerNoEscopo, handlers.CapFechar))
+	http.HandleFunc("/api/aud/dre/fechamentos/reabrir", withAud(handlers.DREReabrirHandler, est, handlers.CapReabrir))
+	// Escrita do DRE: cada rota declara a capacidade (perfis.go); diretoria e auditoria só leem.
+	http.HandleFunc("/api/aud/dre/mapa", withAud(handlers.DREMapaHandler, est, handlers.CapLerNoEscopo, handlers.CapEditarMapa))
+	http.HandleFunc("/api/aud/dre/orcado", withAud(handlers.DREOrcadoHandler, est, handlers.CapCarregar))
+	http.HandleFunc("/api/aud/dados/atualizar", withAud(handlers.DadosAtualizarHandler, est, handlers.CapCarregar))
+	http.HandleFunc("/api/aud/dre/lancamentos/importar", withAud(handlers.DREImportarHandler, est, handlers.CapCarregar))
 
 	// ── Frontend estático (SPA React) ─────────────────────────────────────────
 	staticDir := "./static"

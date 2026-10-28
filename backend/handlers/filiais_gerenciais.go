@@ -12,12 +12,12 @@ import (
 
 // FiliaisGerenciaisHandler — mapa de filiais (filial do ERP para filial gerencial).
 // GET lista (qualquer perfil da área); POST/PUT salvam {id?, codigo, nome, filiais[]};
-// DELETE ?id= exclui. Escrita só para controladoria.
+// DELETE ?id= exclui. Escrita exige editar_estrutura.
 func FiliaisGerenciaisHandler(db *sql.DB) http.HandlerFunc {
 	svc := &dre.Filiais{DB: db}
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
-		if r.Method != http.MethodGet && !c.Tem("controladoria") {
+		if r.Method != http.MethodGet && !c.Pode(CapEditarEstrutura) {
 			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
 			return
 		}

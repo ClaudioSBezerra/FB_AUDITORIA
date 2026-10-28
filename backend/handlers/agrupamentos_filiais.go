@@ -12,12 +12,12 @@ import (
 
 // AgrupamentosFiliaisHandler — agrupamentos de filiais gerenciais (Balcões, Distribuição).
 // GET lista (qualquer perfil da área); POST/PUT salvam {id?, codigo, nome, filiais[]}
-// (códigos de filiais gerenciais); DELETE ?id= exclui. Escrita só para controladoria.
+// (códigos de filiais gerenciais); DELETE ?id= exclui. Escrita exige editar_estrutura.
 func AgrupamentosFiliaisHandler(db *sql.DB) http.HandlerFunc {
 	svc := &dre.Agrupamentos{DB: db}
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
-		if r.Method != http.MethodGet && !c.Tem("controladoria") {
+		if r.Method != http.MethodGet && !c.Pode(CapEditarEstrutura) {
 			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
 			return
 		}

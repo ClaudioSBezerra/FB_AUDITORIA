@@ -380,7 +380,7 @@ func DREMapaHandler(db *sql.DB) http.HandlerFunc {
 		c := GetAudContext(r)
 		// Leitura: qualquer perfil da área. Escrita: só controladoria (auditoria
 		// confere o mapa, não altera).
-		if r.Method != http.MethodGet && !c.Tem("controladoria") {
+		if r.Method != http.MethodGet && !c.Pode(CapEditarMapa) {
 			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
 			return
 		}
@@ -557,7 +557,7 @@ func DREFechamentoHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		if !c.Tem("controladoria") {
+		if !c.Pode(CapFechar) {
 			http.Error(w, "Forbidden: só a controladoria fecha períodos", http.StatusForbidden)
 			return
 		}
@@ -613,7 +613,7 @@ func DREReabrirHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		c := GetAudContext(r)
-		if !c.Tem("controladoria") {
+		if !c.Pode(CapReabrir) {
 			http.Error(w, "Forbidden: só a controladoria reabre períodos", http.StatusForbidden)
 			return
 		}
@@ -658,7 +658,7 @@ func DRELinhaPapelHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		c := GetAudContext(r)
-		if !c.Tem("controladoria") {
+		if !c.Pode(CapEditarEstrutura) {
 			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
 			return
 		}
@@ -710,7 +710,7 @@ func DRELinhaPapelHandler(db *sql.DB) http.HandlerFunc {
 func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
-		if !c.Tem("controladoria", "auditoria", "diretoria") {
+		if !c.Pode(CapLer) {
 			writeAuditLog(db, c.EmpresaID, c.UserID, "dre_departamentos", "", "negado", map[string]any{"perfil": c.Perfil})
 			http.Error(w, "Forbidden: o perfil não tem acesso ao DRE por departamento", http.StatusForbidden)
 			return

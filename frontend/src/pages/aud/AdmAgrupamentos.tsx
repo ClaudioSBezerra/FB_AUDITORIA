@@ -13,7 +13,7 @@ const URL = '/api/aud/agrupamentos-filiais'
 
 export default function AdmAgrupamentos() {
   const { perfil, isAdmin } = useAuth()
-  const editar = isAdmin || perfil === 'controladoria'
+  const editar = isAdmin || ['analista', 'controladoria'].includes(perfil ?? '')
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['aud-agrupamentos'], queryFn: () => api<Agr[]>(URL) })
   const gerenciais = useQuery({ queryKey: ['aud-filiais-gerenciais'], queryFn: () => api<FG[]>('/api/aud/filiais-gerenciais') })

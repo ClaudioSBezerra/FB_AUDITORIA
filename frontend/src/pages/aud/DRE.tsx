@@ -51,7 +51,7 @@ export default function DRE() {
   const [atual, setAtual] = useState<Atualizacao | null>(null)
   const podeFechar = isAdmin || perfil === 'controladoria'
   // Gestor segue sem o detalhe por conta e lançamento até o escopo por departamento (4.7).
-  const podeDetalhar = isAdmin || ['controladoria', 'auditoria', 'diretoria'].includes(perfil ?? '')
+  const podeDetalhar = isAdmin || ['analista', 'controladoria', 'auditoria', 'diretoria'].includes(perfil ?? '')
 
   const q = `ano=${ano}&mes=${mes}&visao=${visao}&${paramRecorte}`
   // O detalhe antigo (gestor) só conhece filial: o seletor do gestor não oferece agrupamento.

@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-28",
-  "versao": "6ba4ae0",
+  "versao": "5f313a4",
   "historias": [
     {
       "id": "1.1",
@@ -690,7 +690,7 @@
         "nome": "Acesso seguro por perfil e departamento"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como Controller, quero que todas as rotas usem a matriz, para que não haja listas de perfil soltas e divergentes.",
       "criterios": [

@@ -12,7 +12,7 @@ const URL = '/api/aud/departamentos'
 
 export default function AdmDepartamentos() {
   const { perfil, isAdmin } = useAuth()
-  const editar = isAdmin || perfil === 'controladoria'
+  const editar = isAdmin || ['analista', 'controladoria'].includes(perfil ?? '')
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['aud-departamentos'], queryFn: () => api<Depto[]>(URL) })
   const [form, setForm] = useState<Depto | null>(null)

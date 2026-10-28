@@ -15,7 +15,7 @@ interface Mapa { conta_padrao: string; linha_codigo: string; sinal: number }
 export default function DREMapa() {
   const { perfil, isAdmin } = useAuth()
   const qc = useQueryClient()
-  const editar = isAdmin || perfil === 'controladoria'
+  const editar = isAdmin || ['analista', 'controladoria'].includes(perfil ?? '')
   const linhas = useQuery({ queryKey: ['dre-linhas'], queryFn: () => api<Linha[]>('/api/aud/dre/linhas') })
   const mapa = useQuery({ queryKey: ['dre-mapa'], queryFn: () => api<Mapa[]>('/api/aud/dre/mapa') })
   const [conta, setConta] = useState('')

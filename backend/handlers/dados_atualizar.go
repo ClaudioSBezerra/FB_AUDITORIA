@@ -26,9 +26,9 @@ func dadosAtualizar(db *sql.DB, reg *dre.Registro) http.HandlerFunc {
 			return
 		}
 		c := GetAudContext(r)
-		if !c.Tem("controladoria") {
+		if !c.Pode(CapCarregar) {
 			writeAuditLog(db, c.EmpresaID, c.UserID, "atualizacao_dados", "", "negado", map[string]any{"perfil": c.Perfil})
-			http.Error(w, "Forbidden: só a controladoria atualiza os dados", http.StatusForbidden)
+			http.Error(w, "Forbidden: perfil sem a capacidade de carregar dados", http.StatusForbidden)
 			return
 		}
 		res, err := at.Atualizar(r.Context(), dre.EscopoAtualizacao{EmpresaID: c.EmpresaID, UserID: c.UserID})

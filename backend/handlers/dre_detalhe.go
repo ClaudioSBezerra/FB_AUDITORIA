@@ -24,7 +24,7 @@ const (
 // exigeDetalhe aplica o mesmo fail-closed da 3.5: `gestor` (sem escopo por
 // departamento até a 4.7) não desce às contas e lançamentos. 403 registrado.
 func exigeDetalhe(w http.ResponseWriter, c *AudContext, db *sql.DB, entidade string) bool {
-	if c.Tem("controladoria", "auditoria", "diretoria") {
+	if c.Pode(CapLer) {
 		return true
 	}
 	writeAuditLog(db, c.EmpresaID, c.UserID, entidade, "", "negado", map[string]any{"perfil": c.Perfil})

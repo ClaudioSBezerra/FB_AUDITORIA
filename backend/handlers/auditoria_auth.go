@@ -62,39 +62,22 @@ func (c *AudContext) TemArea(area string) bool {
 	return false
 }
 
-// Tem retorna true se o perfil do usuário está entre os aceitos.
-func (c *AudContext) Tem(perfis ...string) bool {
-	if c.Admin {
-		return true
-	}
-	for _, p := range perfis {
-		if c.Perfil == p {
-			return true
-		}
-	}
-	return false
-}
-
 // PodeGerirUsuarios — só admin de plataforma e controladoria.
 func (c *AudContext) PodeGerirUsuarios() bool { return c.Pode(CapGerirUsuarios) }
 
-// AuditoriaAuthMiddleware: area == "" só exige autenticação; perfis vazio =
-// qualquer perfil com acesso à área. Forma legada, por lista de perfis; remanescente
-// até a 4.3 migrar as rotas para AuditoriaAuthCap.
-func AuditoriaAuthMiddleware(db *sql.DB, next http.HandlerFunc, area string, perfis ...string) http.HandlerFunc {
-	return autenticaAud(db, next, area, func(c *AudContext, _ *http.Request) bool {
-		return len(perfis) == 0 || c.Tem(perfis...)
-	})
-}
-
-// AuditoriaAuthCap protege a rota por capacidade (AD-11). `leitura` vale para GET,
-// HEAD e OPTIONS; `escrita`, se informada, vale para os demais métodos (sem ela,
-// `leitura` vale para todos). area == "" só exige autenticação.
-func AuditoriaAuthCap(db *sql.DB, next http.HandlerFunc, area string, leitura Capacidade, escrita ...Capacidade) http.HandlerFunc {
+// AuditoriaAuthMiddleware protege a rota por área e por capacidade (AD-11).
+// area == "" só exige autenticação. caps vazio = qualquer perfil com acesso à área;
+// caps[0] é a capacidade de leitura (GET, HEAD e OPTIONS) e vale para todos os
+// métodos se caps[1] faltar; caps[1] é a de escrita, para os demais métodos.
+// Não há versão por lista de perfis: o que cada perfil pode fica em perfis.go.
+func AuditoriaAuthMiddleware(db *sql.DB, next http.HandlerFunc, area string, caps ...Capacidade) http.HandlerFunc {
 	return autenticaAud(db, next, area, func(c *AudContext, r *http.Request) bool {
-		cap := leitura
-		if len(escrita) > 0 && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
-			cap = escrita[0]
+		if len(caps) == 0 {
+			return true
+		}
+		cap := caps[0]
+		if len(caps) > 1 && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
+			cap = caps[1]
 		}
 		return c.Pode(cap)
 	})

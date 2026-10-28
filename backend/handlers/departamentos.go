@@ -12,12 +12,12 @@ import (
 
 // DepartamentosHandler — cadastro de departamentos. GET lista (qualquer perfil da
 // área); POST/PUT salvam {id?, codigo, nome, grupo}; DELETE ?id= exclui.
-// Escrita só para controladoria.
+// Escrita exige editar_estrutura.
 func DepartamentosHandler(db *sql.DB) http.HandlerFunc {
 	svc := &dre.Dicionario{DB: db}
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
-		if r.Method != http.MethodGet && !c.Tem("controladoria") {
+		if r.Method != http.MethodGet && !c.Pode(CapEditarEstrutura) {
 			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
 			return
 		}

@@ -12,7 +12,7 @@ const URL = '/api/aud/filiais-gerenciais'
 
 export default function AdmFiliais() {
   const { perfil, isAdmin } = useAuth()
-  const editar = isAdmin || perfil === 'controladoria'
+  const editar = isAdmin || ['analista', 'controladoria'].includes(perfil ?? '')
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['aud-filiais-gerenciais'], queryFn: () => api<FG[]>(URL) })
   const [form, setForm] = useState<Form | null>(null)

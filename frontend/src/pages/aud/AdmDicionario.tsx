@@ -23,7 +23,7 @@ const headers = { 'Content-Type': 'application/json' }
 
 export default function AdmDicionario() {
   const { perfil, isAdmin } = useAuth()
-  const editar = isAdmin || perfil === 'controladoria'
+  const editar = isAdmin || ['analista', 'controladoria'].includes(perfil ?? '')
   const qc = useQueryClient()
   const [pagina, setPagina] = useState(1)
   const [busca, setBusca] = useState('')

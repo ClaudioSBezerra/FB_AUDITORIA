@@ -160,17 +160,17 @@ function AppLayout() {
               {/* Administrativo (área empresa) */}
               <Route path="/empresa" element={<Navigate to="/empresa/dre" replace />} />
               <Route path="/empresa/dre" element={<AreaRoute area="empresa"><DRE /></AreaRoute>} />
-              <Route path="/empresa/dre-departamentos" element={<AreaRoute area="empresa" perfis={['controladoria', 'auditoria', 'diretoria']}><DREDepartamentos /></AreaRoute>} />
+              <Route path="/empresa/dre-departamentos" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria', 'diretoria']}><DREDepartamentos /></AreaRoute>} />
               <Route path="/empresa/fechamentos" element={<AreaRoute area="empresa"><DREFechamentos /></AreaRoute>} />
-              <Route path="/empresa/mapa" element={<AreaRoute area="empresa" perfis={['controladoria', 'auditoria']}><DREMapa /></AreaRoute>} />
+              <Route path="/empresa/mapa" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria']}><DREMapa /></AreaRoute>} />
 
               {/* Configurações */}
               <Route path="/configuracoes" element={<AreaRoute area="configuracoes"><AreaHome moduleId="configuracoes" /></AreaRoute>} />
-              <Route path="/configuracoes/carga" element={<AreaRoute area="configuracoes" perfis={['controladoria']}><AdmCarga /></AreaRoute>} />
-              <Route path="/configuracoes/filiais" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmFiliais /></AreaRoute>} />
-              <Route path="/configuracoes/agrupamentos" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmAgrupamentos /></AreaRoute>} />
-              <Route path="/configuracoes/departamentos" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmDepartamentos /></AreaRoute>} />
-              <Route path="/configuracoes/dicionario" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmDicionario /></AreaRoute>} />
+              <Route path="/configuracoes/carga" element={<AreaRoute area="configuracoes" perfis={['analista', 'controladoria']}><AdmCarga /></AreaRoute>} />
+              <Route path="/configuracoes/filiais" element={<AreaRoute area="configuracoes" perfis={['analista', 'controladoria', 'auditoria']}><AdmFiliais /></AreaRoute>} />
+              <Route path="/configuracoes/agrupamentos" element={<AreaRoute area="configuracoes" perfis={['analista', 'controladoria', 'auditoria']}><AdmAgrupamentos /></AreaRoute>} />
+              <Route path="/configuracoes/departamentos" element={<AreaRoute area="configuracoes" perfis={['analista', 'controladoria', 'auditoria']}><AdmDepartamentos /></AreaRoute>} />
+              <Route path="/configuracoes/dicionario" element={<AreaRoute area="configuracoes" perfis={['analista', 'controladoria', 'auditoria']}><AdmDicionario /></AreaRoute>} />
               <Route path="/configuracoes/usuarios" element={<AreaRoute area="configuracoes" perfis={['controladoria']}><AdmUsuarios /></AreaRoute>} />
               <Route path="/configuracoes/trilha" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmTrilha /></AreaRoute>} />
 

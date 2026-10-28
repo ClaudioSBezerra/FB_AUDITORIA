@@ -15,9 +15,21 @@ import (
 
 // Quem tem só a área `acompanhamento` acessa apenas /api/aud/acompanhamento
 // (história 4.10). O teste lê as rotas /api/aud/ de main.go e passa cada uma pelo
-// AuditoriaAuthMiddleware real, com a área e os perfis com que foi registrada.
+// AuditoriaAuthMiddleware real, com a área e as capacidades com que foi registrada.
 
-var reRotaAud = regexp.MustCompile(`http\.HandleFunc\("(/api/aud/[^"]+)",\s*(?:gz\()?withAud\(handlers\.\w+,\s*([^,)]+)((?:,\s*"[^"]+")*)\)`)
+var reRotaAud = regexp.MustCompile(`http\.HandleFunc\("(/api/aud/[^"]+)",\s*(?:gz\()?withAud\(handlers\.\w+,\s*([^,)]+)((?:,\s*[^,)]+)*)\)`)
+
+// Capacidades pelo identificador usado em main.go (história 4.3).
+var capsPorNome = map[string]handlers.Capacidade{
+	"handlers.CapLer": handlers.CapLer, "handlers.CapLerNoEscopo": handlers.CapLerNoEscopo,
+	"handlers.CapLerTrilha": handlers.CapLerTrilha, "handlers.CapCarregar": handlers.CapCarregar,
+	"handlers.CapAjustar": handlers.CapAjustar, "handlers.CapEditarMapa": handlers.CapEditarMapa,
+	"handlers.CapEditarEstrutura": handlers.CapEditarEstrutura, "handlers.CapEditarDicionario": handlers.CapEditarDicionario,
+	"handlers.CapConfigurarRateio": handlers.CapConfigurarRateio, "handlers.CapAplicarRateio": handlers.CapAplicarRateio,
+	"handlers.CapDefinirLimite": handlers.CapDefinirLimite, "handlers.CapJustificar": handlers.CapJustificar,
+	"handlers.CapFechar": handlers.CapFechar, "handlers.CapReabrir": handlers.CapReabrir,
+	"handlers.CapGerirUsuarios": handlers.CapGerirUsuarios,
+}
 
 var areasPorNome = map[string]string{
 	"est":                         handlers.AreaEmpresa,
@@ -40,7 +52,10 @@ var rotasSemArea = map[string]bool{
 type rotaAud struct {
 	caminho string
 	area    string
-	perfis  []string
+	caps    []handlers.Capacidade
+	// invalidos: argumentos que não são capacidade (lista de perfis ou nome
+	// desconhecido). Deve ficar vazio.
+	invalidos []string
 }
 
 func rotasAud(t *testing.T) []rotaAud {
@@ -62,11 +77,19 @@ func rotasAud(t *testing.T) []rotaAud {
 		if !ok {
 			t.Fatalf("área %q de %s desconhecida: acrescente a areasPorNome", m[2], m[1])
 		}
-		var perfis []string
-		for _, p := range regexp.MustCompile(`"([^"]+)"`).FindAllStringSubmatch(m[3], -1) {
-			perfis = append(perfis, p[1])
+		rt := rotaAud{caminho: m[1], area: area}
+		for _, a := range strings.Split(m[3], ",") {
+			a = strings.TrimSpace(a)
+			if a == "" {
+				continue
+			}
+			if c, ok := capsPorNome[a]; ok {
+				rt.caps = append(rt.caps, c)
+			} else {
+				rt.invalidos = append(rt.invalidos, a)
+			}
 		}
-		out = append(out, rotaAud{m[1], area, perfis})
+		out = append(out, rt)
 	}
 	return out
 }
@@ -89,7 +112,7 @@ func TestAcompanhamento_SoEstaRota(t *testing.T) {
 		r := httptest.NewRequest(http.MethodGet, rt.caminho, nil)
 		r.Header.Set("Authorization", "Bearer "+tok)
 		w := httptest.NewRecorder()
-		handlers.AuditoriaAuthMiddleware(db, ok, rt.area, rt.perfis...)(w, r)
+		handlers.AuditoriaAuthMiddleware(db, ok, rt.area, rt.caps...)(w, r)
 		return w.Code
 	}
 	set := func(perfil string, areas ...string) {

@@ -45,7 +45,7 @@ func DicionarioCargaHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		c := GetAudContext(r)
-		if !c.Tem("controladoria") {
+		if !c.Pode(CapEditarDicionario) {
 			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
 			return
 		}
@@ -81,7 +81,7 @@ func DicionarioContaHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		c := GetAudContext(r)
-		if !c.Tem("controladoria") {
+		if !c.Pode(CapEditarDicionario) {
 			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
 			return
 		}
