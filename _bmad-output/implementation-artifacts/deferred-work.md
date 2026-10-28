@@ -97,3 +97,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-6-bloqueio-de-usuario.md`
   summary: A tela de plataforma (`AdminUsers`) só mostra o bloqueio; bloquear e desbloquear são feitos pela tela de usuários da empresa ativa (`/api/aud/usuarios/bloquear`). Um usuário fora da empresa ativa só é bloqueado trocando de empresa.
   evidence: `frontend/src/pages/AdminUsers.tsx`; `backend/handlers/aud_usuarios_bloqueio.go`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-7-escopo-por-departamento.md`
+  summary: Conta cujo departamento mudou no dicionário depois de um fechamento: o Gerente de qualquer um dos dois departamentos abre a conta (todos os meses). Se o cliente achar que dá vazamento, filtrar os lançamentos por mês/departamento do snapshot.
+  evidence: `backend/dre/escopo.go` (`ContaNoEscopo`); `backend/handlers/dre_detalhe.go`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-7-escopo-por-departamento.md`
+  summary: O dicionário (GET `/api/aud/dicionario`) mostra ao Gerente o departamento de todas as contas, sem valores. Decidir se o Gerente deve ver só as contas dos seus departamentos. O caminho `qLegado` de `DRE.tsx` (detalhe antigo do Gerente) ficou morto e sai com a 4.8. A pendência da 3.9 sobre o Gerente e `/dre/lancamentos` está resolvida (rota fechada, `ler`).
+  evidence: `backend/handlers/dicionario.go`; `frontend/src/pages/aud/DRE.tsx`.

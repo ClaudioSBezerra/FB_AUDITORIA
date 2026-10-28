@@ -142,15 +142,15 @@ var comportamentoDeHoje = map[string]esperado{
 	"/api/aud/dicionario/carga":         {soCtrl, soCtrl},
 	"/api/aud/dicionario/conta":         {soCtrl, soCtrl},
 	"/api/aud/audit-log":                {[]string{"controladoria", "auditoria"}, []string{"controladoria", "auditoria"}},
-	"/api/aud/dre":                      {todos4, todos4},
+	"/api/aud/dre":                      {leitoresSemGestor, leitoresSemGestor}, // 4.7: DRE do grupo, 403 ao Gerente
 	"/api/aud/dre/filiais":              {todos4, todos4},
 	"/api/aud/dre/linhas":               {todos4, todos4},
 	"/api/aud/dre/linhas/papel":         {soCtrl, soCtrl},
-	"/api/aud/dre/departamentos":        {leitoresSemGestor, leitoresSemGestor},
-	"/api/aud/dre/lancamentos":          {todos4, todos4},
+	"/api/aud/dre/departamentos":        {todos4, todos4},                       // 4.7: o Gerente entra com escopo
+	"/api/aud/dre/lancamentos":          {leitoresSemGestor, leitoresSemGestor}, // 4.7: rota antiga fechada ao Gerente
 	"/api/aud/dre/trimestres":           {leitoresSemGestor, leitoresSemGestor},
-	"/api/aud/dre/contas":               {leitoresSemGestor, leitoresSemGestor},
-	"/api/aud/dre/contas/lancamentos":   {leitoresSemGestor, leitoresSemGestor},
+	"/api/aud/dre/contas":               {todos4, todos4}, // 4.7: com escopo
+	"/api/aud/dre/contas/lancamentos":   {todos4, todos4}, // 4.7: com escopo
 	"/api/aud/dre/fechamentos":          {todos4, soCtrl},
 	"/api/aud/dre/fechamentos/reabrir":  {soCtrl, soCtrl},
 	"/api/aud/dre/mapa":                 {todos4, soCtrl},

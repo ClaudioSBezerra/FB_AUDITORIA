@@ -28,8 +28,8 @@ export const modules: Record<string, ModuleConfig> = {
     label: 'Administrativo',
     area: 'empresa',
     tabs: [
-      { label: 'DRE',         path: '/empresa/dre' },
-      { label: 'DRE por departamento', path: '/empresa/dre-departamentos', perfis: ['analista', 'controladoria', 'auditoria', 'diretoria'] },
+      { label: 'DRE',         path: '/empresa/dre', perfis: ['analista', 'controladoria', 'auditoria', 'diretoria'] },
+      { label: 'DRE por departamento', path: '/empresa/dre-departamentos', perfis: ['analista', 'controladoria', 'auditoria', 'diretoria', 'gestor'] },
       { label: 'Fechamentos', path: '/empresa/fechamentos' },
       { label: 'Mapa do DRE', path: '/empresa/mapa', perfis: ['analista', 'controladoria', 'auditoria'] },
     ],

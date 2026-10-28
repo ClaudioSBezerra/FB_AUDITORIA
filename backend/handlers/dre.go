@@ -116,6 +116,10 @@ func absf(f float64) float64 {
 func DREHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
+		// DRE do grupo (faturamento, margens): o escopo por departamento não a cobre.
+		if !exigeLer(w, c, db, "dre") {
+			return
+		}
 		p, visao, ok := parsePeriodo(r)
 		if !ok {
 			http.Error(w, "ano/mes inválidos", http.StatusBadRequest)
@@ -242,6 +246,11 @@ func DREFiliaisHandler(db *sql.DB) http.HandlerFunc {
 func DRELancamentosHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
+		// Rota antiga, sem departamento por lançamento: fechada ao Gerente na 4.7 (ele
+		// usa /dre/contas/lancamentos, que aplica o escopo).
+		if !exigeLer(w, c, db, "dre_lancamentos_legado") {
+			return
+		}
 		p, _, ok := parsePeriodo(r)
 		linha := r.URL.Query().Get("linha")
 		if !ok || linha == "" {
@@ -702,20 +711,34 @@ func DRELinhaPapelHandler(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// DREDepartamentosHandler — GET /api/aud/dre/departamentos?ano=&mes=&visao=&filial=|agrupamento=<codigo>|grupo=1
+// DREDepartamentosHandler — GET /api/aud/dre/departamentos?ano=&mes=&visao=&filial=|agrupamento=<codigo>|grupo=1&departamento=<codigo>
 // DRE por departamento (Comercial, Logística, Administrativo), com as contas, o
-// total e o percentual sobre o Faturamento Líquido. O perfil `gestor` (sem escopo
-// até o épico 4) não recebe dado de departamento: 403, fail closed. "Sem
-// departamento" só vai a quem não tem restrição (o mesmo conjunto de perfis).
+// total e o percentual sobre o Faturamento Líquido. Escopo (4.7): perfis com
+// `ler` veem tudo, inclusive "Sem departamento"; o Gerente recebe só as contas
+// dos seus departamentos, nunca "Sem departamento", e SEM a base do grupo
+// (faturamento líquido e percentuais ficam de fora). Gerente sem departamento
+// recebe resposta vazia. `departamento=` pede um só; fora do escopo, 403.
 func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
-		if !c.Pode(CapLer) {
+		esc, err := escopoDe(r.Context(), db, c)
+		if err != nil {
+			log.Printf("dre departamentos: escopo: %v", err)
+			http.Error(w, "Erro ao calcular o DRE por departamento", http.StatusInternalServerError)
+			return
+		}
+		if !c.Pode(CapLerNoEscopo) {
 			writeAuditLog(db, c.EmpresaID, c.UserID, "dre_departamentos", "", "negado", map[string]any{"perfil": c.Perfil})
 			http.Error(w, "Forbidden: o perfil não tem acesso ao DRE por departamento", http.StatusForbidden)
 			return
 		}
-		semRestricao := true // todos os perfis acima; vira checagem de escopo no épico 4
+		// Pedido direto de um departamento: fora do escopo é 403, mesmo que o escopo seja vazio.
+		pedido := r.URL.Query().Get("departamento")
+		if pedido != "" && !esc.Permite(pedido) {
+			writeAuditLog(db, c.EmpresaID, c.UserID, "dre_departamentos", pedido, "negado", map[string]any{"perfil": c.Perfil, "motivo": "departamento fora do escopo"})
+			http.Error(w, "Forbidden: o departamento não é do seu escopo", http.StatusForbidden)
+			return
+		}
 		p, visao, ok := parsePeriodo(r)
 		if !ok {
 			http.Error(w, "ano/mes inválidos", http.StatusBadRequest)
@@ -740,28 +763,50 @@ func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		leitor := dre.Leitor{Q: db}
-		lei, err := leitor.LerFiliais(r.Context(), c.EmpresaID, rec.Filiais, p, linhas, mapa)
+		// A base dos percentuais é o Faturamento Líquido do GRUPO: só quem tem escopo
+		// irrestrito a recebe. Para o Gerente nem é calculada.
+		var (
+			ativos map[string]dre.Ativo
+			codFat string
+			status = dre.PctRestrito
+			base   float64
+		)
+		if esc.Irrestrito {
+			lei, err := leitor.LerFiliais(r.Context(), c.EmpresaID, rec.Filiais, p, linhas, mapa)
+			if err != nil {
+				erro(err)
+				return
+			}
+			exibidas, congelada := linhas, false
+			if cong, ok, err := leitor.EstruturaCongelada(r.Context(), rec.Filiais[0], p, lei.Ativos); err != nil {
+				erro(err)
+				return
+			} else if ok {
+				exibidas, congelada = cong, true
+			}
+			codFat = dre.CodigoBase(exibidas, linhas, congelada)
+			_, status = dre.PercentuaisSobreFaturamento(exibidas, lei.Real, codFat)
+			if codFat != "" {
+				base = lei.Real[codFat]
+			}
+			ativos = lei.Ativos
+		} else if ativos, err = leitor.Ativos(r.Context(), c.EmpresaID, p); err != nil {
+			erro(err)
+			return
+		}
+		contas, semContas, err := leitor.ContasDoEscopo(r.Context(), c.EmpresaID, rec.Filiais, p, mapa, ativos, esc)
 		if err != nil {
 			erro(err)
 			return
 		}
-		exibidas, congelada := linhas, false
-		if cong, ok, err := leitor.EstruturaCongelada(r.Context(), rec.Filiais[0], p, lei.Ativos); err != nil {
-			erro(err)
-			return
-		} else if ok {
-			exibidas, congelada = cong, true
-		}
-		codFat := dre.CodigoBase(exibidas, linhas, congelada)
-		_, status := dre.PercentuaisSobreFaturamento(exibidas, lei.Real, codFat)
-		base := 0.0
-		if codFat != "" {
-			base = lei.Real[codFat]
-		}
-		contas, semContas, err := leitor.ContasPorDepartamentoFiliais(r.Context(), c.EmpresaID, rec.Filiais, p, mapa, lei.Ativos)
-		if err != nil {
-			erro(err)
-			return
+		if pedido != "" {
+			so := make([]dre.ContaDepto, 0, len(contas))
+			for _, x := range contas {
+				if x.Departamento == pedido {
+					so = append(so, x)
+				}
+			}
+			contas = so
 		}
 		deps, err := leitor.Departamentos(r.Context(), c.EmpresaID)
 		if err != nil {
@@ -773,7 +818,7 @@ func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 			erro(err)
 			return
 		}
-		visaoDeps := dre.MontarVisao(contas, deps, desc, base, semRestricao)
+		visaoDeps := dre.MontarVisao(contas, deps, desc, base, esc.Irrestrito && pedido == "")
 		avisos := []string{}
 		if status == dre.PctSemPapel {
 			avisos = append(avisos, "Nenhuma linha do DRE está marcada como Faturamento Líquido — marque uma em Mapa do DRE para ver os percentuais.")
@@ -784,7 +829,7 @@ func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 		writeAuditLog(db, c.EmpresaID, c.UserID, "dre_departamentos", p.Fim.Format("2006-01"), "visualizar", rec.comVisao(visao))
 		writeJSON(w, map[string]any{
 			"ini": p.Ini.Format("2006-01-02"), "fim": p.Fim.Format("2006-01-02"), "visao": visao,
-			"pct_status": status, "faturamento_liquido_linha": codFat, "faturamento_liquido": base,
+			"pct_status": status, "faturamento_liquido_linha": codFat, "faturamento_liquido": base, "escopo_restrito": !esc.Irrestrito,
 			"avisos": avisos, "grupos": visaoDeps.Grupos, "sem_departamento": visaoDeps.SemDepartamento,
 		})
 	}

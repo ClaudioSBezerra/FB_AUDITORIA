@@ -22,8 +22,11 @@ type ContaDaLinha struct {
 // fechado vem do snapshot das contas, mês aberto ao vivo (mesma leitura da visão
 // por departamento, sem expor o departamento). semContas traz os meses de
 // fechamento legado, que não têm contas congeladas.
-func (l Leitor) ContasDaLinha(ctx context.Context, empresaID string, filiais []string, p Periodo, mapa []MapaItem, ativos map[string]Ativo, alvo map[string]bool) ([]ContaDaLinha, []string, error) {
-	contas, semContas, err := l.ContasPorDepartamentoFiliais(ctx, empresaID, filiais, p, mapa, ativos)
+//
+// esc restringe às contas dos departamentos do escopo (4.7); o valor zero de
+// Escopo não devolve conta nenhuma.
+func (l Leitor) ContasDaLinha(ctx context.Context, empresaID string, filiais []string, p Periodo, mapa []MapaItem, ativos map[string]Ativo, alvo map[string]bool, esc EscopoDepto) ([]ContaDaLinha, []string, error) {
+	contas, semContas, err := l.ContasDoEscopo(ctx, empresaID, filiais, p, mapa, ativos, esc)
 	if err != nil {
 		return nil, nil, err
 	}

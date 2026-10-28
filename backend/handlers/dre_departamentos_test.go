@@ -125,16 +125,17 @@ func TestDepartamentos_ContasLigadasSemDepartamentoEPercentual(t *testing.T) {
 	}
 }
 
-func TestDepartamentos_GestorRecebe403(t *testing.T) {
+// Perfil sem nenhuma leitura recebe 403 (o Gerente tem escopo: ver escopo_test.go).
+func TestDepartamentos_PerfilSemLeituraRecebe403(t *testing.T) {
 	db := testdb.Open(t)
 	f := testdb.NovaEmpresa(t, db)
 	cenarioDep(t, f)
-	for _, perfil := range []string{"gestor", "", "qualquer"} {
+	for _, perfil := range []string{"", "qualquer"} {
 		if code, _ := chamarDep(t, f, perfil, "/x?ano=2026&mes=9&visao=mensal"); code != http.StatusForbidden {
 			t.Errorf("perfil %q: %d", perfil, code)
 		}
 	}
-	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.audit_log WHERE empresa_id=$1::uuid AND entidade='dre_departamentos' AND acao='negado'`, f.EmpresaID); n != 3 {
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.audit_log WHERE empresa_id=$1::uuid AND entidade='dre_departamentos' AND acao='negado'`, f.EmpresaID); n != 2 {
 		t.Errorf("negativas registradas = %d", n)
 	}
 }

@@ -169,12 +169,13 @@ func TestDetalheConta_AgrupamentoEPaginacao(t *testing.T) {
 	}
 }
 
-func TestDetalheConta_GestorRecebe403(t *testing.T) {
+// Perfil sem nenhuma leitura recebe 403 (o Gerente tem escopo: ver escopo_test.go).
+func TestDetalheConta_PerfilSemLeituraRecebe403(t *testing.T) {
 	db := testdb.Open(t)
 	f := testdb.NovaEmpresa(t, db)
 	estruturaPct(t, f, true)
 	lancDoc(t, f, "2026-09-01", "01", "3.1", "NF1", "h", 10)
-	for _, perfil := range []string{"gestor", "", "qualquer"} {
+	for _, perfil := range []string{"", "qualquer"} {
 		if code, d := chamarDet(t, f, perfil, urlDet); code != http.StatusForbidden || len(d.Lancamentos) != 0 {
 			t.Errorf("lançamentos, perfil %q: %d", perfil, code)
 		}
@@ -183,7 +184,7 @@ func TestDetalheConta_GestorRecebe403(t *testing.T) {
 			t.Errorf("contas, perfil %q: %d", perfil, w.Code)
 		}
 	}
-	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.audit_log WHERE empresa_id=$1::uuid AND entidade IN ('dre_contas','dre_lancamentos') AND acao='negado'`, f.EmpresaID); n != 6 {
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.audit_log WHERE empresa_id=$1::uuid AND entidade IN ('dre_contas','dre_lancamentos') AND acao='negado'`, f.EmpresaID); n != 4 {
 		t.Errorf("negativas registradas = %d", n)
 	}
 }

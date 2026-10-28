@@ -11,8 +11,8 @@ type Capacidade string
 
 const (
 	// Leitura.
-	CapLer         Capacidade = "ler"           // telas do DRE sem restrição de escopo (inclui detalhe e departamentos)
-	CapLerNoEscopo Capacidade = "ler_no_escopo" // leitura do que o escopo do perfil alcança (gestor: o escopo vem na 4.7)
+	CapLer         Capacidade = "ler"           // DRE do grupo e leitura sem restrição de escopo (escopo irrestrito)
+	CapLerNoEscopo Capacidade = "ler_no_escopo" // leitura do que o escopo do perfil alcança (gestor: seus departamentos, handlers/escopo.go)
 	CapLerTrilha   Capacidade = "ler_trilha"    // trilha de auditoria
 
 	// Escrita de dados e cadastros.
@@ -61,7 +61,7 @@ var matrizPerfis = map[string]map[Capacidade]bool{
 	"analista": conjunto(CapLer, CapLerNoEscopo, CapCarregar, CapEditarMapa, CapEditarEstrutura, CapEditarDicionario),
 	// Controller: tudo.
 	"controladoria": conjunto(TodasCapacidades...),
-	// Gerente: só o seu escopo (a 4.7 define o escopo por departamento) e justificar.
+	// Gerente: só o seu escopo por departamento (usuario_departamentos; 4.5/4.7) e justificar.
 	"gestor": conjunto(CapLerNoEscopo, CapJustificar),
 	// Somente leitura. A auditoria lê também a trilha.
 	"diretoria": conjunto(CapLer, CapLerNoEscopo),

@@ -71,9 +71,10 @@ function RedirecionaPrefixo({ para }: { para: string }) {
 
 // "/" leva para a primeira área liberada.
 function Landing() {
-  const { loading, acessoCarregado, isAuthenticated, hasArea } = useAuth()
+  const { loading, acessoCarregado, isAuthenticated, hasArea, perfil, isAdmin } = useAuth()
   if (loading || (isAuthenticated && !acessoCarregado)) return null
-  if (hasArea('empresa')) return <Navigate to="/empresa/dre" replace />
+  // O Gerente não recebe o DRE do grupo (403, 4.7): começa pelo DRE por departamento (escopo dele).
+  if (hasArea('empresa')) return <Navigate to={perfil === 'gestor' && !isAdmin ? '/empresa/dre-departamentos' : '/empresa/dre'} replace />
   if (hasArea('comercial')) return <Navigate to="/comercial" replace />
   if (hasArea('operacao')) return <Navigate to="/operacao" replace />
   if (hasArea('configuracoes')) return <Navigate to="/configuracoes" replace />
@@ -159,8 +160,8 @@ function AppLayout() {
 
               {/* Administrativo (área empresa) */}
               <Route path="/empresa" element={<Navigate to="/empresa/dre" replace />} />
-              <Route path="/empresa/dre" element={<AreaRoute area="empresa"><DRE /></AreaRoute>} />
-              <Route path="/empresa/dre-departamentos" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria', 'diretoria']}><DREDepartamentos /></AreaRoute>} />
+              <Route path="/empresa/dre" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria', 'diretoria']}><DRE /></AreaRoute>} />
+              <Route path="/empresa/dre-departamentos" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria', 'diretoria', 'gestor']}><DREDepartamentos /></AreaRoute>} />
               <Route path="/empresa/fechamentos" element={<AreaRoute area="empresa"><DREFechamentos /></AreaRoute>} />
               <Route path="/empresa/mapa" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria']}><DREMapa /></AreaRoute>} />
 

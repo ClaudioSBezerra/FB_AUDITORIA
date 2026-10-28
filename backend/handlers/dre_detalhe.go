@@ -21,24 +21,21 @@ const (
 	detalheLimiteMax    = 1000
 )
 
-// exigeDetalhe aplica o mesmo fail-closed da 3.5: `gestor` (sem escopo por
-// departamento até a 4.7) não desce às contas e lançamentos. 403 registrado.
-func exigeDetalhe(w http.ResponseWriter, c *AudContext, db *sql.DB, entidade string) bool {
-	if c.Pode(CapLer) {
-		return true
-	}
-	writeAuditLog(db, c.EmpresaID, c.UserID, entidade, "", "negado", map[string]any{"perfil": c.Perfil})
-	http.Error(w, "Forbidden: o perfil não tem acesso ao detalhe por conta e lançamento", http.StatusForbidden)
-	return false
-}
-
 // DREContasHandler — GET /api/aud/dre/contas?linha=&ano=&mes=&visao=&filial=|agrupamento=|grupo=1
 // Contas que compõem a linha (ou, num subtotal, as linhas que o compõem), com o
-// valor do DRE: mês fechado do snapshot, mês aberto ao vivo.
+// valor do DRE: mês fechado do snapshot, mês aberto ao vivo. Só as contas do
+// escopo do usuário (4.7): o Gerente recebe as dos seus departamentos; sem
+// departamento, lista vazia.
 func DREContasHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
-		if !exigeDetalhe(w, c, db, "dre_contas") {
+		if !exigeLerNoEscopo(w, c, db, "dre_contas") {
+			return
+		}
+		esc, err := escopoDe(r.Context(), db, c)
+		if err != nil {
+			log.Printf("dre contas: escopo: %v", err)
+			http.Error(w, "Erro ao listar as contas", http.StatusInternalServerError)
 			return
 		}
 		p, visao, ok := parsePeriodo(r)
@@ -76,7 +73,7 @@ func DREContasHandler(db *sql.DB) http.HandlerFunc {
 			erro(err)
 			return
 		}
-		contas, semContas, err := leitor.ContasDaLinha(r.Context(), c.EmpresaID, rec.Filiais, p, mapa, ativos, alvo)
+		contas, semContas, err := leitor.ContasDaLinha(r.Context(), c.EmpresaID, rec.Filiais, p, mapa, ativos, alvo, esc)
 		if err != nil {
 			erro(err)
 			return
@@ -112,10 +109,18 @@ func DREContasHandler(db *sql.DB) http.HandlerFunc {
 // Lançamentos da conta (data/competência, documento, histórico como veio, valor,
 // filial). O total é o do DRE (snapshot em mês fechado); os lançamentos são lidos
 // ao vivo e, se a soma de um mês fechado divergir do congelado, a resposta avisa.
+// O Gerente só abre conta dos seus departamentos (4.7); outra conta, ou o
+// Gerente sem departamento, recebe 403.
 func DREContaLancamentosHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
-		if !exigeDetalhe(w, c, db, "dre_lancamentos") {
+		if !exigeLerNoEscopo(w, c, db, "dre_lancamentos") {
+			return
+		}
+		esc, err := escopoDe(r.Context(), db, c)
+		if err != nil {
+			log.Printf("dre lancamentos da conta: escopo: %v", err)
+			http.Error(w, "Erro ao consultar lançamentos", http.StatusInternalServerError)
 			return
 		}
 		p, visao, ok := parsePeriodo(r)
@@ -151,7 +156,21 @@ func DREContaLancamentosHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Erro ao carregar mapa", http.StatusInternalServerError)
 			return
 		}
-		det, err := (dre.Leitor{Q: db}).DetalheConta(r.Context(), c.EmpresaID, rec.Filiais, p, conta, mapa, limite, offset)
+		leitor := dre.Leitor{Q: db}
+		if !esc.Irrestrito {
+			dentro, err := leitor.ContaNoEscopo(r.Context(), c.EmpresaID, rec.Filiais, p, mapa, conta, esc)
+			if err != nil {
+				log.Printf("dre lancamentos da conta: escopo: %v", err)
+				http.Error(w, "Erro ao consultar lançamentos", http.StatusInternalServerError)
+				return
+			}
+			if !dentro {
+				writeAuditLog(db, c.EmpresaID, c.UserID, "dre_lancamentos", conta, "negado", map[string]any{"perfil": c.Perfil, "motivo": "conta fora do escopo"})
+				http.Error(w, "Forbidden: a conta não é de um departamento do seu escopo", http.StatusForbidden)
+				return
+			}
+		}
+		det, err := leitor.DetalheConta(r.Context(), c.EmpresaID, rec.Filiais, p, conta, mapa, limite, offset)
 		var semMapa *dre.ErrContaSemMapa
 		if errors.As(err, &semMapa) {
 			http.Error(w, semMapa.Error(), http.StatusNotFound)
@@ -197,12 +216,12 @@ func DREContaLancamentosHandler(db *sql.DB) http.HandlerFunc {
 // DRE por trimestre (T1 a T4 e Ano): para cada linha, realizado, orçado, ano
 // anterior e percentual sobre o Faturamento Líquido do próprio trimestre. Cada
 // trimestre soma três meses lidos pelo Leitor (mês fechado do snapshot, mês
-// aberto ao vivo). `gestor` fica de fora (403, fail closed) até o escopo por
-// departamento da 4.7, como nas demais visões.
+// aberto ao vivo). É DRE do grupo (faturamento, margens): `gestor` recebe 403 sem
+// receber a base (4.7).
 func DRETrimestresHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
-		if !exigeDetalhe(w, c, db, "dre_trimestres") {
+		if !exigeLer(w, c, db, "dre_trimestres") {
 			return
 		}
 		ano, err := strconv.Atoi(r.URL.Query().Get("ano"))

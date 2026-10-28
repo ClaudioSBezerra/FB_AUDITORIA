@@ -10,7 +10,7 @@ interface ContaV { conta: string; descricao: string; linha: string; valor: numbe
 interface DeptoV { codigo: string; nome: string; total: number; pct_faturamento: number | null; contas: ContaV[] }
 interface GrupoV { grupo: string; total: number; pct_faturamento: number | null; departamentos: DeptoV[] }
 interface Resp {
-  pct_status: 'ok' | 'sem_papel' | 'zero'; avisos: string[]; faturamento_liquido: number
+  pct_status: 'ok' | 'sem_papel' | 'zero' | 'restrito'; avisos: string[]; faturamento_liquido: number
   grupos: GrupoV[]; sem_departamento: DeptoV | null
 }
 

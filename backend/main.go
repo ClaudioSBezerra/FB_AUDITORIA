@@ -437,16 +437,18 @@ func main() {
 	http.HandleFunc("/api/aud/audit-log", withAud(handlers.AuditLogHandler, handlers.AreaConfiguracoes, handlers.CapLerTrilha))
 
 	// ── Administrativo (área empresa) — DRE ────────────────────────────────────────────────────
+	// Escopo por departamento (4.7): rotas com valor por conta aceitam ler_no_escopo e aplicam
+	// o escopo calculado no servidor (handlers/escopo.go); as do grupo exigem ler.
 	est := handlers.AreaEmpresa
-	http.HandleFunc("/api/aud/dre", gz(withAud(handlers.DREHandler, est, handlers.CapLerNoEscopo)))
+	http.HandleFunc("/api/aud/dre", gz(withAud(handlers.DREHandler, est, handlers.CapLer)))
 	http.HandleFunc("/api/aud/dre/filiais", withAud(handlers.DREFiliaisHandler, est, handlers.CapLerNoEscopo))
 	http.HandleFunc("/api/aud/dre/linhas", withAud(handlers.DRELinhasHandler, est, handlers.CapLerNoEscopo))
 	http.HandleFunc("/api/aud/dre/linhas/papel", withAud(handlers.DRELinhaPapelHandler, est, handlers.CapEditarEstrutura))
-	http.HandleFunc("/api/aud/dre/departamentos", gz(withAud(handlers.DREDepartamentosHandler, est, handlers.CapLer)))
-	http.HandleFunc("/api/aud/dre/lancamentos", gz(withAud(handlers.DRELancamentosHandler, est, handlers.CapLerNoEscopo)))
+	http.HandleFunc("/api/aud/dre/departamentos", gz(withAud(handlers.DREDepartamentosHandler, est, handlers.CapLerNoEscopo)))
+	http.HandleFunc("/api/aud/dre/lancamentos", gz(withAud(handlers.DRELancamentosHandler, est, handlers.CapLer)))
 	http.HandleFunc("/api/aud/dre/trimestres", gz(withAud(handlers.DRETrimestresHandler, est, handlers.CapLer)))
-	http.HandleFunc("/api/aud/dre/contas", gz(withAud(handlers.DREContasHandler, est, handlers.CapLer)))
-	http.HandleFunc("/api/aud/dre/contas/lancamentos", gz(withAud(handlers.DREContaLancamentosHandler, est, handlers.CapLer)))
+	http.HandleFunc("/api/aud/dre/contas", gz(withAud(handlers.DREContasHandler, est, handlers.CapLerNoEscopo)))
+	http.HandleFunc("/api/aud/dre/contas/lancamentos", gz(withAud(handlers.DREContaLancamentosHandler, est, handlers.CapLerNoEscopo)))
 	http.HandleFunc("/api/aud/dre/fechamentos", withAud(handlers.DREFechamentoHandler, est, handlers.CapLerNoEscopo, handlers.CapFechar))
 	http.HandleFunc("/api/aud/dre/fechamentos/reabrir", withAud(handlers.DREReabrirHandler, est, handlers.CapReabrir))
 	// Escrita do DRE: cada rota declara a capacidade (perfis.go); diretoria e auditoria só leem.

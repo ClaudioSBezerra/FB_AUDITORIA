@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-28",
-  "versao": "a87fdf4",
+  "versao": "489a454",
   "historias": [
     {
       "id": "1.1",
@@ -765,7 +765,7 @@
         "nome": "Acesso seguro por perfil e departamento"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como Controller, quero que o Gerente nunca receba dado de outro departamento, para que a confidencialidade não dependa da tela.",
       "criterios": [

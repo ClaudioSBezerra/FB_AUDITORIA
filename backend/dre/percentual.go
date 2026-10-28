@@ -8,6 +8,7 @@ const (
 	PctOK       = "ok"
 	PctSemPapel = "sem_papel" // nenhuma linha com o papel: não se calcula
 	PctZero     = "zero"      // Faturamento Líquido zero: "não calculável"
+	PctRestrito = "restrito"  // escopo por departamento: a base do grupo não é entregue
 )
 
 // CodigoComPapel devolve o código da linha ativa com o papel ('' se não houver).
