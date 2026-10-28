@@ -27,9 +27,10 @@ const AudContextKey audCtxKey = "aud_context"
 
 // Áreas do menu. Cada rota declara a área a que pertence.
 const (
-	AreaEstrategico    = "estrategico"
-	AreaOperacional    = "operacional"
-	AreaAdministrativo = "administrativo"
+	AreaEmpresa       = "empresa" // rótulo "Administrativo"
+	AreaConfiguracoes = "configuracoes"
+	AreaComercial     = "comercial"
+	AreaOperacao      = "operacao"
 )
 
 type AudContext struct {
@@ -145,7 +146,7 @@ func AudMeHandler(db *sql.DB) http.HandlerFunc {
 		}
 		areas := c.Areas
 		if c.Admin {
-			areas = []string{AreaEstrategico, AreaOperacional, AreaAdministrativo}
+			areas = []string{AreaEmpresa, AreaConfiguracoes, AreaComercial, AreaOperacao}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{

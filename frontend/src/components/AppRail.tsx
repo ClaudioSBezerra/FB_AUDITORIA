@@ -1,4 +1,4 @@
-import { Settings, LogOut, KeyRound, Compass, Activity, ClipboardList } from 'lucide-react'
+import { Settings, LogOut, KeyRound, ClipboardList, Briefcase, Activity, SlidersHorizontal } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import {
@@ -26,7 +26,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/contexts/AuthContext'
-import { getActiveModule } from '@/lib/navigation'
+import { getActiveModule, type AreaId } from '@/lib/navigation'
 import { CompanySwitcher } from '@/components/CompanySwitcher'
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
@@ -36,14 +36,15 @@ interface RailItem {
   icon: React.ElementType
   label: string
   path: string
-  area: 'estrategico' | 'operacional' | 'administrativo'
+  area: AreaId
 }
 
-// Três áreas de gestão. A primeira aba de cada área é o destino do clique.
+// Quatro áreas de gestão. A primeira aba de cada área é o destino do clique.
 const mainItems: RailItem[] = [
-  { id: 'estrategico',    icon: Compass,       label: 'Estratégico',    path: '/estrategico/dre',            area: 'estrategico' },
-  { id: 'operacional',    icon: Activity,      label: 'Operacional',    path: '/operacional',                area: 'operacional' },
-  { id: 'administrativo', icon: ClipboardList, label: 'Administrativo', path: '/administrativo',             area: 'administrativo' },
+  { id: 'empresa',       icon: ClipboardList,    label: 'Administrativo', path: '/empresa/dre',  area: 'empresa' },
+  { id: 'comercial',     icon: Briefcase,        label: 'Comercial',      path: '/comercial',    area: 'comercial' },
+  { id: 'operacao',      icon: Activity,         label: 'Operação',       path: '/operacao',     area: 'operacao' },
+  { id: 'configuracoes', icon: SlidersHorizontal, label: 'Configurações',  path: '/configuracoes', area: 'configuracoes' },
 ]
 
 export function AppRail() {
@@ -180,7 +181,7 @@ export function AppRail() {
                 <Settings className="h-5 w-5" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right" className="text-xs">Configurações</TooltipContent>
+            <TooltipContent side="right" className="text-xs">Plataforma</TooltipContent>
           </Tooltip>
           )}
 

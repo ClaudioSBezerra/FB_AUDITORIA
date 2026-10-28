@@ -1,7 +1,8 @@
-// Menu do FB_AUDITORIA — três áreas de gestão (pedido 27/10/2026):
-//   Estratégico    → visão da diretoria/controladoria (DRE, fechamento, briefing)
-//   Operacional    → acompanhamento do dia a dia (verbas, pagamentos a terceiros)
-//   Administrativo → cadastros, carga de dados, usuários, trilha de auditoria
+// Menu do FB_AUDITORIA — quatro áreas de gestão (AD-12) mais o módulo "Plataforma":
+//   Administrativo (id empresa) → DRE, fechamentos, Mapa do DRE
+//   Configurações               → carga de dados, usuários, trilha de auditoria
+//   Comercial / Operação        → em breve
+//   Plataforma (config)         → ambiente e usuários da plataforma (só admin de plataforma)
 // Cada área é um item no rail (AppRail) e tem a sua barra de abas (ModuleTabs).
 // Acesso: users.areas (+ admin de plataforma vê tudo); abas podem exigir perfil.
 
@@ -13,43 +14,45 @@ export interface ModuleTab {
   masterOnly?: boolean     // só admin de plataforma
 }
 
+export type AreaId = 'empresa' | 'configuracoes' | 'comercial' | 'operacao'
+
 export interface ModuleConfig {
   label: string
-  area?: 'estrategico' | 'operacional' | 'administrativo'
+  area?: AreaId
   tabs: ModuleTab[]
 }
 
 export const modules: Record<string, ModuleConfig> = {
-  estrategico: {
-    label: 'Estratégico',
-    area: 'estrategico',
-    tabs: [
-      { label: 'DRE',               path: '/estrategico/dre' },
-      { label: 'Fechamentos',       path: '/estrategico/fechamentos' },
-      { label: 'Mapa do DRE',       path: '/estrategico/mapa', perfis: ['controladoria', 'auditoria'] },
-      { label: 'Briefing diário',   path: '/estrategico/briefing', disabled: true },
-    ],
-  },
-  operacional: {
-    label: 'Operacional',
-    area: 'operacional',
-    tabs: [
-      { label: 'Verbas de indústria',   path: '/operacional/verbas', disabled: true },
-      { label: 'Pagamentos a terceiros', path: '/operacional/pagamentos', disabled: true },
-      { label: 'Exceções',              path: '/operacional/excecoes', disabled: true },
-    ],
-  },
-  administrativo: {
+  empresa: {
     label: 'Administrativo',
-    area: 'administrativo',
+    area: 'empresa',
     tabs: [
-      { label: 'Carga de lançamentos', path: '/administrativo/carga', perfis: ['controladoria'] },
-      { label: 'Usuários e perfis',    path: '/administrativo/usuarios', perfis: ['controladoria'] },
-      { label: 'Trilha de auditoria',  path: '/administrativo/trilha', perfis: ['controladoria', 'auditoria'] },
+      { label: 'DRE',         path: '/empresa/dre' },
+      { label: 'Fechamentos', path: '/empresa/fechamentos' },
+      { label: 'Mapa do DRE', path: '/empresa/mapa', perfis: ['controladoria', 'auditoria'] },
     ],
+  },
+  configuracoes: {
+    label: 'Configurações',
+    area: 'configuracoes',
+    tabs: [
+      { label: 'Carga de lançamentos', path: '/configuracoes/carga', perfis: ['controladoria'] },
+      { label: 'Usuários e perfis',    path: '/configuracoes/usuarios', perfis: ['controladoria'] },
+      { label: 'Trilha de auditoria',  path: '/configuracoes/trilha', perfis: ['controladoria', 'auditoria'] },
+    ],
+  },
+  comercial: {
+    label: 'Comercial',
+    area: 'comercial',
+    tabs: [{ label: 'Em breve', path: '/comercial/em-breve', disabled: true }],
+  },
+  operacao: {
+    label: 'Operação',
+    area: 'operacao',
+    tabs: [{ label: 'Em breve', path: '/operacao/em-breve', disabled: true }],
   },
   config: {
-    label: 'Configurações',
+    label: 'Plataforma',
     tabs: [
       { label: 'Ambiente',               path: '/config/ambiente', masterOnly: true },
       { label: 'Dados e ambiente',       path: '/config/dados', masterOnly: true },
@@ -59,8 +62,9 @@ export const modules: Record<string, ModuleConfig> = {
 }
 
 export function getActiveModule(pathname: string): string {
-  if (pathname.startsWith('/operacional'))    return 'operacional'
-  if (pathname.startsWith('/administrativo')) return 'administrativo'
+  if (pathname.startsWith('/comercial'))      return 'comercial'
+  if (pathname.startsWith('/operacao'))       return 'operacao'
+  if (pathname.startsWith('/configuracoes'))  return 'configuracoes'
   if (pathname.startsWith('/config'))         return 'config'
-  return 'estrategico'
+  return 'empresa'
 }

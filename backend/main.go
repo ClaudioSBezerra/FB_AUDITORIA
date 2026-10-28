@@ -422,11 +422,11 @@ func main() {
 	http.HandleFunc("/api/aud/me", withAud(handlers.AudMeHandler, ""))
 	http.HandleFunc("/api/aud/ambiente/limpar", withAud(handlers.AmbienteLimparHandler, ""))
 	http.HandleFunc("/api/aud/ambiente/virar", withAud(handlers.AmbienteVirarHandler, ""))
-	http.HandleFunc("/api/aud/usuarios", withAud(handlers.AudUsuariosHandler, handlers.AreaAdministrativo, "controladoria"))
-	http.HandleFunc("/api/aud/audit-log", withAud(handlers.AuditLogHandler, handlers.AreaAdministrativo, "controladoria", "auditoria"))
+	http.HandleFunc("/api/aud/usuarios", withAud(handlers.AudUsuariosHandler, handlers.AreaConfiguracoes, "controladoria"))
+	http.HandleFunc("/api/aud/audit-log", withAud(handlers.AuditLogHandler, handlers.AreaConfiguracoes, "controladoria", "auditoria"))
 
-	// ── Estratégico — DRE ────────────────────────────────────────────────────
-	est := handlers.AreaEstrategico
+	// ── Administrativo (área empresa) — DRE ────────────────────────────────────────────────────
+	est := handlers.AreaEmpresa
 	http.HandleFunc("/api/aud/dre", gz(withAud(handlers.DREHandler, est)))
 	http.HandleFunc("/api/aud/dre/filiais", withAud(handlers.DREFiliaisHandler, est))
 	http.HandleFunc("/api/aud/dre/linhas", withAud(handlers.DRELinhasHandler, est))

@@ -2,7 +2,8 @@
 title: 'Story 4.4: Ids de área novos e menu (AD-12)'
 type: 'feature'
 created: '2026-10-28'
-status: 'draft'
+status: 'done'
+baseline_commit: '0f0438f0dd3bf13dfff1d606d592089bd6bfd15a'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -74,3 +75,19 @@ context:
 ## Implementation Notes
 
 Tamanho: acima de 1600 tokens, porque a história cruza banco, backend e frontend; sem divisão proposta. A migration é irreversível depois de aplicada em produção. Usuários existentes não recebem `comercial`; para ver Comercial (em breve) é preciso o admin de plataforma ou liberar a área na tela de usuários.
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| Rail e landing de Configurações levam a `/configuracoes/carga` (exige `controladoria`) e o perfil `auditoria` cai em página negada | medium | patch | rota `/configuracoes` com `AreaHome`; rail e landing apontam para ela |
+| Redirecionamento perde query string e hash | low | patch | `RedirecionaPrefixo` preserva `search` e `hash` |
+| `updateMigracao` fatia antes de checar `i < 0` | low | patch | checagem antes do fatiamento |
+| Nenhum teste envia os quatro ids novos pelo `PUT` | medium | patch | `TestAreas_PutComIdsNovos` |
+| Migration pode duplicar id se o usuário tiver id antigo e novo ao mesmo tempo | low | rejeitado | impossível antes desta versão |
+| `PUT` aceita ids duplicados | low | rejeitado | comportamento anterior; sem dano |
+| Default inclui `comercial` e `configuracoes` | low | rejeitado | é o que o AD-12 e a spec definem |
+| API antiga recebe só ids novos durante o deploy (403 breve) | low | defer | troca de container curta; observar no push |
+| Migration sem registro na trilha | low | rejeitado | migrations não passam pela trilha de aplicação |
+| Rotas `em-breve` sem página; `/estrategico/briefing` sem destino; ordem de áreas do admin; renomear componentes `Adm*` | low | rejeitado | abas desabilitadas; ajuste cosmético ou fora da spec |
+| Sem testes de frontend | low | defer | o repositório não tem harness de frontend |

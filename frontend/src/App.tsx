@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams, Link } from 'react-router-dom'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClient } from '@/lib/queryClient'
 import { Toaster } from '@/components/ui/sonner'
@@ -56,13 +56,21 @@ function PlatformAdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Caminho antigo -> novo, preservando o restante (/estrategico/dre -> /empresa/dre).
+function RedirecionaPrefixo({ para }: { para: string }) {
+  const resto = useParams()['*'] ?? ''
+  const { search, hash } = useLocation()
+  return <Navigate to={(resto ? `${para}/${resto}` : para) + search + hash} replace />
+}
+
 // "/" leva para a primeira área liberada.
 function Landing() {
   const { loading, acessoCarregado, isAuthenticated, hasArea } = useAuth()
   if (loading || (isAuthenticated && !acessoCarregado)) return null
-  if (hasArea('estrategico')) return <Navigate to="/estrategico/dre" replace />
-  if (hasArea('operacional')) return <Navigate to="/operacional" replace />
-  if (hasArea('administrativo')) return <Navigate to="/administrativo" replace />
+  if (hasArea('empresa')) return <Navigate to="/empresa/dre" replace />
+  if (hasArea('comercial')) return <Navigate to="/comercial" replace />
+  if (hasArea('operacao')) return <Navigate to="/operacao" replace />
+  if (hasArea('configuracoes')) return <Navigate to="/configuracoes" replace />
   return <p className="text-sm text-muted-foreground">Seu usuário ainda não tem nenhuma área liberada. Fale com a controladoria.</p>
 }
 
@@ -142,22 +150,28 @@ function AppLayout() {
             <Routes>
               <Route path="/" element={<Landing />} />
 
-              {/* Estratégico */}
-              <Route path="/estrategico" element={<Navigate to="/estrategico/dre" replace />} />
-              <Route path="/estrategico/dre" element={<AreaRoute area="estrategico"><DRE /></AreaRoute>} />
-              <Route path="/estrategico/fechamentos" element={<AreaRoute area="estrategico"><DREFechamentos /></AreaRoute>} />
-              <Route path="/estrategico/mapa" element={<AreaRoute area="estrategico" perfis={['controladoria', 'auditoria']}><DREMapa /></AreaRoute>} />
+              {/* Administrativo (área empresa) */}
+              <Route path="/empresa" element={<Navigate to="/empresa/dre" replace />} />
+              <Route path="/empresa/dre" element={<AreaRoute area="empresa"><DRE /></AreaRoute>} />
+              <Route path="/empresa/fechamentos" element={<AreaRoute area="empresa"><DREFechamentos /></AreaRoute>} />
+              <Route path="/empresa/mapa" element={<AreaRoute area="empresa" perfis={['controladoria', 'auditoria']}><DREMapa /></AreaRoute>} />
 
-              {/* Operacional */}
-              <Route path="/operacional" element={<AreaRoute area="operacional"><AreaHome moduleId="operacional" /></AreaRoute>} />
+              {/* Configurações */}
+              <Route path="/configuracoes" element={<AreaRoute area="configuracoes"><AreaHome moduleId="configuracoes" /></AreaRoute>} />
+              <Route path="/configuracoes/carga" element={<AreaRoute area="configuracoes" perfis={['controladoria']}><AdmCarga /></AreaRoute>} />
+              <Route path="/configuracoes/usuarios" element={<AreaRoute area="configuracoes" perfis={['controladoria']}><AdmUsuarios /></AreaRoute>} />
+              <Route path="/configuracoes/trilha" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmTrilha /></AreaRoute>} />
 
-              {/* Administrativo */}
-              <Route path="/administrativo" element={<AreaRoute area="administrativo"><AreaHome moduleId="administrativo" /></AreaRoute>} />
-              <Route path="/administrativo/carga" element={<AreaRoute area="administrativo" perfis={['controladoria']}><AdmCarga /></AreaRoute>} />
-              <Route path="/administrativo/usuarios" element={<AreaRoute area="administrativo" perfis={['controladoria']}><AdmUsuarios /></AreaRoute>} />
-              <Route path="/administrativo/trilha" element={<AreaRoute area="administrativo" perfis={['controladoria', 'auditoria']}><AdmTrilha /></AreaRoute>} />
+              {/* Comercial e Operação (em breve) */}
+              <Route path="/comercial" element={<AreaRoute area="comercial"><AreaHome moduleId="comercial" /></AreaRoute>} />
+              <Route path="/operacao" element={<AreaRoute area="operacao"><AreaHome moduleId="operacao" /></AreaRoute>} />
 
-              {/* Configurações (admin de plataforma) */}
+              {/* Caminhos antigos (ids de área anteriores) */}
+              <Route path="/estrategico/*" element={<RedirecionaPrefixo para="/empresa" />} />
+              <Route path="/administrativo/*" element={<RedirecionaPrefixo para="/configuracoes" />} />
+              <Route path="/operacional" element={<Navigate to="/operacao" replace />} />
+
+              {/* Plataforma (admin de plataforma) */}
               <Route path="/config" element={<Navigate to="/config/ambiente" replace />} />
               <Route path="/config/ambiente" element={<PlatformAdminRoute><GestaoAmbiente /></PlatformAdminRoute>} />
               <Route path="/config/dados" element={<PlatformAdminRoute><ConfigAmbienteEmpresa /></PlatformAdminRoute>} />

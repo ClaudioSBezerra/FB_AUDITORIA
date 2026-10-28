@@ -25,3 +25,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-3-virar-producao-faixa-ambiente.md`
   summary: A tela reconhece o 409 da virada pelo texto "já está em Produção", porque o helper `api` não expõe o status.
   evidence: `ConfigAmbienteEmpresa.tsx`; mudar a mensagem do backend quebra esse tratamento.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-4-ids-de-area-novos-e-menu.md`
+  summary: Durante o deploy, o container antigo pode atender por instantes com os ids de área novos já gravados e responder 403.
+  evidence: a migration 005 roda no boot do container novo, e o antigo só valida os ids antigos.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-4-ids-de-area-novos-e-menu.md`
+  summary: O frontend não tem testes; redirecionamentos, landing e módulo ativo só se verificam abrindo o app.
+  evidence: não há harness de teste em `frontend/`; só `typecheck`.

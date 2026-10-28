@@ -18,7 +18,7 @@ interface AuthContextType {
   cnpj: string | null;
   /** perfil funcional: auditoria | controladoria | diretoria | gestor */
   perfil: string | null;
-  /** áreas do menu liberadas: administrativo | operacional | estrategico */
+  /** áreas do menu liberadas: empresa | configuracoes | comercial | operacao */
   areas: string[];
   /** admin de plataforma (role=admin) */
   isAdmin: boolean;

@@ -12,7 +12,7 @@ import (
 )
 
 var perfisValidos = map[string]bool{"auditoria": true, "controladoria": true, "diretoria": true, "gestor": true}
-var areasValidas = map[string]bool{AreaEstrategico: true, AreaOperacional: true, AreaAdministrativo: true}
+var areasValidas = map[string]bool{AreaEmpresa: true, AreaConfiguracoes: true, AreaComercial: true, AreaOperacao: true}
 
 // AudUsuariosHandler — GET lista | PUT {user_id, perfil, areas}.
 func AudUsuariosHandler(db *sql.DB) http.HandlerFunc {

@@ -4,7 +4,7 @@ import { api } from './util'
 
 interface U { id: string; full_name: string; email: string; perfil: string; areas: string[] }
 const PERFIS = [['auditoria', 'Auditoria'], ['controladoria', 'Controladoria'], ['diretoria', 'Diretoria'], ['gestor', 'Gestor']]
-const AREAS = [['estrategico', 'Estratégico'], ['operacional', 'Operacional'], ['administrativo', 'Administrativo']]
+const AREAS = [['empresa', 'Administrativo'], ['configuracoes', 'Configurações'], ['comercial', 'Comercial'], ['operacao', 'Operação']]
 
 export default function AdmUsuarios() {
   const qc = useQueryClient()

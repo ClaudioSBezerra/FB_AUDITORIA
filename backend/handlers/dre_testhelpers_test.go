@@ -12,7 +12,7 @@ import (
 
 // reqComCtx monta a requisição com AudContext direto, sem passar pelo JWT.
 func reqComCtx(r *http.Request, f testdb.Fixture) *http.Request {
-	c := &AudContext{UserID: f.UserID, EmpresaID: f.EmpresaID, Perfil: "controladoria", Areas: []string{"administrativo"}}
+	c := &AudContext{UserID: f.UserID, EmpresaID: f.EmpresaID, Perfil: "controladoria", Areas: []string{AreaConfiguracoes}}
 	return r.WithContext(context.WithValue(r.Context(), AudContextKey, c))
 }
 
