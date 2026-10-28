@@ -2,7 +2,8 @@
 title: 'Story 1.9: Nenhum endereço do banco do cliente no repositório (NFR7)'
 type: 'chore'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'in-progress'
+baseline_commit: '26ef050b2c16b9ce76305d65ab40153e7f80c624'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -64,6 +65,10 @@ _Nenhuma._
 ## Implementation Notes
 
 Tamanho do plano: cerca de 2000 tokens (estimativa), acima de 1600, porque a história cruza banco, backend e testes; sem divisão proposta.
+
+Variáveis a cadastrar no Coolify antes do push (sem valores): `JC_ORACLE_HOST`, `JC_ORACLE_SERVICE`, `JC_ORACLE_DRE_VIEWS` (agora obrigatórias no compose), `JC_ORACLE_USER`, `JC_ORACLE_PASS`, `JC_EMPRESA_ID`. `JC_ORACLE_PORT` segue com padrão 1521. O `jc-probe` exige as cinco primeiras (host, service, views, usuário, senha).
+
+Fora do escopo, deixado como está: as consultas do modo `-resumo` do `jc-probe` ainda citam por nome as views e o schema do cliente (literais em SQL, não valores padrão); entram na revisão de privacidade.
 
 ## Design Notes
 

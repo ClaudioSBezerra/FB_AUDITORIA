@@ -9,4 +9,4 @@ require (
 	golang.org/x/crypto v0.49.0
 )
 
-require github.com/sijms/go-ora/v2 v2.9.0 // indirect
+require github.com/sijms/go-ora/v2 v2.9.0

@@ -7,12 +7,12 @@
 //
 // Env (mesmos do FB_FAROL; credencial nunca vai para o repositório):
 //
-//	JC_ORACLE_HOST     default 201.48.119.197
-//	JC_ORACLE_PORT     default 1521
-//	JC_ORACLE_SERVICE  default cdb1
-//	JC_ORACLE_USER     obrigatório
-//	JC_ORACLE_PASS     obrigatório
-//	JC_ORACLE_DRE_VIEWS  default VW_DRE_CONSOLIDADO,VW_DRE_ORCAMENTO
+//	JC_ORACLE_HOST       obrigatório
+//	JC_ORACLE_PORT       default 1521
+//	JC_ORACLE_SERVICE    obrigatório
+//	JC_ORACLE_USER       obrigatório
+//	JC_ORACLE_PASS       obrigatório
+//	JC_ORACLE_DRE_VIEWS  obrigatório (lista separada por vírgula)
 //
 // Rodar: cd backend && set -a && . ./.env && set +a && go run ./cmd/jc-probe [-amostra]
 package main
@@ -42,16 +42,22 @@ func main() {
 	resumoF := flag.Bool("resumo", false, "contagens e períodos das views + outras views do mesmo schema (sem valores financeiros)")
 	flag.Parse()
 
-	user, pass := env("JC_ORACLE_USER", ""), env("JC_ORACLE_PASS", "")
-	if user == "" || pass == "" {
-		fail("JC_ORACLE_USER/JC_ORACLE_PASS não configurados (backend/.env)")
+	var faltam []string
+	for _, k := range []string{"JC_ORACLE_HOST", "JC_ORACLE_SERVICE", "JC_ORACLE_USER", "JC_ORACLE_PASS", "JC_ORACLE_DRE_VIEWS"} {
+		if env(k, "") == "" {
+			faltam = append(faltam, k)
+		}
 	}
+	if len(faltam) > 0 {
+		fail("variáveis obrigatórias não configuradas (backend/.env): %s", strings.Join(faltam, ", "))
+	}
+	user, pass := env("JC_ORACLE_USER", ""), env("JC_ORACLE_PASS", "")
 	porta, err := strconv.Atoi(env("JC_ORACLE_PORT", "1521"))
 	if err != nil {
 		porta = 1521
 	}
-	dsn := go_ora.BuildUrl(env("JC_ORACLE_HOST", "201.48.119.197"), porta,
-		env("JC_ORACLE_SERVICE", "cdb1"), user, pass, map[string]string{"PREFETCH_ROWS": "2000"})
+	dsn := go_ora.BuildUrl(env("JC_ORACLE_HOST", ""), porta,
+		env("JC_ORACLE_SERVICE", ""), user, pass, map[string]string{"PREFETCH_ROWS": "2000"})
 
 	db, err := sql.Open("oracle", dsn)
 	if err != nil {
@@ -71,7 +77,7 @@ func main() {
 		fmt.Println("conectado (v$version sem permissão)")
 	}
 
-	views := strings.Split(env("JC_ORACLE_DRE_VIEWS", "VW_DRE_CONSOLIDADO,VW_DRE_ORCAMENTO"), ",")
+	views := strings.Split(env("JC_ORACLE_DRE_VIEWS", ""), ",")
 	for _, v := range views {
 		sonda(db, strings.ToUpper(strings.TrimSpace(v)), *amostra)
 	}
