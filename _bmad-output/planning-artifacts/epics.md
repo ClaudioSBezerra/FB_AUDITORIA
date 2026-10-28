@@ -582,15 +582,15 @@ So that a mesma conta vinda do Oracle e do arquivo nunca seja somada em dobro.
 **When** é registrada
 **Then** ela vai à trilha
 
-### Story 2.2: CSV no formato da planilha atual (FR-3)
+### Story 2.2: CSV e XLSX no formato da planilha atual (FR-3)
 
 As a analista,
-I want carregar o bloco de contas da planilha atual sem reformatar,
+I want carregar o bloco de contas da planilha atual (CSV ou XLSX) sem reformatar,
 So that eu valide o ambiente com os mesmos dados que o Excel usa.
 
 **Acceptance Criteria:**
 
-**Given** um arquivo com `CONTA, DESCRIÇÃO, VL. Realizado, Ajustes, Saldo, Grupo, Mês, Loja`
+**Given** um arquivo CSV ou XLSX (decisão do dono do produto, 28/10/2026) com `CONTA, DESCRIÇÃO, VL. Realizado, Ajustes, Saldo, Grupo, Mês, Loja`
 **When** importa
 **Then** `Mês` (AAAAMM) vira competência, `Loja` vira filial e `VL. Realizado` vira o valor, com origem `csv.contas`
 
