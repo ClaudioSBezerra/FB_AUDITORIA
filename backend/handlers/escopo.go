@@ -67,3 +67,34 @@ func exigeLerNoEscopo(w http.ResponseWriter, c *AudContext, db *sql.DB, entidade
 	http.Error(w, "Forbidden: o perfil não tem acesso a este detalhe", http.StatusForbidden)
 	return false
 }
+
+// baseFL é a base dos percentuais (Faturamento Líquido) do recorte e a situação do
+// cálculo. Valor nunca vai para quem tem escopo restrito: só o percentual.
+type baseFL struct {
+	Codigo string
+	Status string
+	Valor  float64
+	Ativos map[string]dre.Ativo
+}
+
+// baseFaturamentoLiquido lê o recorte (mês fechado do snapshot, aberto ao vivo) e
+// devolve a linha-base, a situação do percentual e o valor da base.
+func baseFaturamentoLiquido(ctx context.Context, leitor dre.Leitor, empresaID string, filiais []string, p dre.Periodo, linhas []dre.Linha, mapa []dre.MapaItem) (baseFL, error) {
+	lei, err := leitor.LerFiliais(ctx, empresaID, filiais, p, linhas, mapa)
+	if err != nil {
+		return baseFL{}, err
+	}
+	exibidas, congelada := linhas, false
+	if cong, ok, err := leitor.EstruturaCongelada(ctx, filiais[0], p, lei.Ativos); err != nil {
+		return baseFL{}, err
+	} else if ok {
+		exibidas, congelada = cong, true
+	}
+	b := baseFL{Ativos: lei.Ativos}
+	b.Codigo = dre.CodigoBase(exibidas, linhas, congelada)
+	_, b.Status = dre.PercentuaisSobreFaturamento(exibidas, lei.Real, b.Codigo)
+	if b.Codigo != "" {
+		b.Valor = lei.Real[b.Codigo]
+	}
+	return b, nil
+}

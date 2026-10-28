@@ -62,7 +62,7 @@ func TestEscopo_RotasDoGerenteAplicamOEscopoOuNaoTemValor(t *testing.T) {
 }
 
 // Chamadas que leem valor (por conta ou de linha) do DRE e dos lançamentos.
-var leValor = regexp.MustCompile(`\.LerFiliais\(|\.Ler\(|\.LerTrimestres\(|\.ContasDoEscopo\(|\.ContasPorDepartamento|\.ContasDaLinha\(|\.DetalheConta\(|\.ContasCongeladas\(|FROM auditoria\.lancamentos|dre_fechamento_contas`)
+var leValor = regexp.MustCompile(`\.LerFiliais\(|\.Ler\(|\.LerTrimestres\(|\.ContasDoEscopo\(|\.ContasComparativo\(|\.ContasPorDepartamento|\.ContasDaLinha\(|\.DetalheConta\(|\.ContasCongeladas\(|FROM auditoria\.lancamentos|dre_fechamento_contas`)
 
 // Handlers que tocam essas fontes sem devolver valor ao usuário.
 var leSemDevolverValor = map[string]string{
@@ -110,7 +110,7 @@ func TestEscopo_HandlerQueLeValorUsaEscopoOuExigeLer(t *testing.T) {
 		}
 	}
 	sort.Strings(achados)
-	for _, esperado := range []string{"DREHandler", "DREDepartamentosHandler", "DREContasHandler", "DREContaLancamentosHandler", "DRETrimestresHandler", "DRELancamentosHandler"} {
+	for _, esperado := range []string{"DREHandler", "DREDepartamentosHandler", "DREContasHandler", "DREContaLancamentosHandler", "DRETrimestresHandler", "DRELancamentosHandler", "MeuDepartamentoHandler"} {
 		i := sort.SearchStrings(achados, esperado)
 		if i >= len(achados) || achados[i] != esperado {
 			t.Errorf("a varredura não encontrou %s; o teste perdeu o alvo (achados: %v)", esperado, achados)

@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-28",
-  "versao": "489a454",
+  "versao": "b904978",
   "historias": [
     {
       "id": "1.1",
@@ -785,7 +785,7 @@
         "nome": "Acesso seguro por perfil e departamento"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como Gerente, quero ver as contas do meu departamento com Realizado, Orçado, Ano anterior e variação, para que eu entenda o meu resultado.",
       "criterios": [

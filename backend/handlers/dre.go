@@ -772,24 +772,12 @@ func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 			base   float64
 		)
 		if esc.Irrestrito {
-			lei, err := leitor.LerFiliais(r.Context(), c.EmpresaID, rec.Filiais, p, linhas, mapa)
+			b, err := baseFaturamentoLiquido(r.Context(), leitor, c.EmpresaID, rec.Filiais, p, linhas, mapa)
 			if err != nil {
 				erro(err)
 				return
 			}
-			exibidas, congelada := linhas, false
-			if cong, ok, err := leitor.EstruturaCongelada(r.Context(), rec.Filiais[0], p, lei.Ativos); err != nil {
-				erro(err)
-				return
-			} else if ok {
-				exibidas, congelada = cong, true
-			}
-			codFat = dre.CodigoBase(exibidas, linhas, congelada)
-			_, status = dre.PercentuaisSobreFaturamento(exibidas, lei.Real, codFat)
-			if codFat != "" {
-				base = lei.Real[codFat]
-			}
-			ativos = lei.Ativos
+			codFat, status, base, ativos = b.Codigo, b.Status, b.Valor, b.Ativos
 		} else if ativos, err = leitor.Ativos(r.Context(), c.EmpresaID, p); err != nil {
 			erro(err)
 			return

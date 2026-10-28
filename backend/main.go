@@ -445,6 +445,8 @@ func main() {
 	http.HandleFunc("/api/aud/dre/linhas", withAud(handlers.DRELinhasHandler, est, handlers.CapLerNoEscopo))
 	http.HandleFunc("/api/aud/dre/linhas/papel", withAud(handlers.DRELinhaPapelHandler, est, handlers.CapEditarEstrutura))
 	http.HandleFunc("/api/aud/dre/departamentos", gz(withAud(handlers.DREDepartamentosHandler, est, handlers.CapLerNoEscopo)))
+	// 4.8: visão pessoal do Gerente; o handler recusa quem não é gestor (403).
+	http.HandleFunc("/api/aud/meu-departamento", gz(withAud(handlers.MeuDepartamentoHandler, est, handlers.CapLerNoEscopo)))
 	http.HandleFunc("/api/aud/dre/lancamentos", gz(withAud(handlers.DRELancamentosHandler, est, handlers.CapLer)))
 	http.HandleFunc("/api/aud/dre/trimestres", gz(withAud(handlers.DRETrimestresHandler, est, handlers.CapLer)))
 	http.HandleFunc("/api/aud/dre/contas", gz(withAud(handlers.DREContasHandler, est, handlers.CapLerNoEscopo)))

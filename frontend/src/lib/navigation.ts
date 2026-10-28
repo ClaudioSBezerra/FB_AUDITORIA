@@ -13,6 +13,7 @@ export interface ModuleTab {
   disabled?: boolean       // "em breve" — aparece, mas não navega
   perfis?: string[]        // só estes perfis (admin de plataforma sempre vê)
   masterOnly?: boolean     // só admin de plataforma
+  gerenteOnly?: boolean    // só o perfil gestor (nem o admin de plataforma): visão pessoal
 }
 
 export type AreaId = 'empresa' | 'configuracoes' | 'comercial' | 'operacao' | 'acompanhamento'
@@ -29,7 +30,8 @@ export const modules: Record<string, ModuleConfig> = {
     area: 'empresa',
     tabs: [
       { label: 'DRE',         path: '/empresa/dre', perfis: ['analista', 'controladoria', 'auditoria', 'diretoria'] },
-      { label: 'DRE por departamento', path: '/empresa/dre-departamentos', perfis: ['analista', 'controladoria', 'auditoria', 'diretoria', 'gestor'] },
+      { label: 'Meu departamento', path: '/empresa/meu-departamento', gerenteOnly: true },
+      { label: 'DRE por departamento', path: '/empresa/dre-departamentos', perfis: ['analista', 'controladoria', 'auditoria', 'diretoria'] },
       { label: 'Fechamentos', path: '/empresa/fechamentos' },
       { label: 'Mapa do DRE', path: '/empresa/mapa', perfis: ['analista', 'controladoria', 'auditoria'] },
     ],

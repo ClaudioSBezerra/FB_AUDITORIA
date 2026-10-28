@@ -4,7 +4,6 @@ import { toast } from 'sonner'
 import { Lock, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { api, brl, pctFmt, MESES } from './util'
 import { DetalheLinhaDialog } from './DetalheDRE'
@@ -25,12 +24,6 @@ interface Atualizacao {
   hora: string; status: 'ok' | 'sem_fonte' | 'recusada' | 'erro' | 'parcial'; mensagem: string
   fontes: { fonte: string; status: string; linhas: number; mensagem?: string }[]
 }
-interface Lanc {
-  id: number; competencia: string; filial: string; centro_custo: string; canal: string
-  conta: string; conta_desc: string; valor: number; linha: string
-  tipo_doc: string; doc_ref: string; historico: string
-}
-
 const hoje = new Date()
 
 function Var({ v }: { v: number | null }) {
@@ -50,18 +43,11 @@ export default function DRE() {
   const [atualizando, setAtualizando] = useState(false)
   const [atual, setAtual] = useState<Atualizacao | null>(null)
   const podeFechar = isAdmin || perfil === 'controladoria'
-  // Gestor segue sem o detalhe por conta e lançamento até o escopo por departamento (4.7).
+  // O Gerente não chega a esta tela (403 no DRE do grupo, 4.7); o detalhe é dos perfis com leitura sem restrição.
   const podeDetalhar = isAdmin || ['analista', 'controladoria', 'auditoria', 'diretoria'].includes(perfil ?? '')
 
   const q = `ano=${ano}&mes=${mes}&visao=${visao}&${paramRecorte}`
-  // O detalhe antigo (gestor) só conhece filial: o seletor do gestor não oferece agrupamento.
-  const qLegado = `ano=${ano}&mes=${mes}&visao=${visao}&filial=${encodeURIComponent(recorte.startsWith('f:') ? recorte.slice(2) : '')}`
   const dre = useQuery({ queryKey: ['dre', q], queryFn: () => api<DreResp>(`/api/aud/dre?${q}`) })
-  const lancs = useQuery({
-    queryKey: ['dre-lanc', qLegado, drill?.codigo],
-    enabled: !!drill && !podeDetalhar,
-    queryFn: () => api<{ lancamentos: Lanc[]; truncado: boolean; aviso?: string }>(`/api/aud/dre/lancamentos?${qLegado}&linha=${drill!.codigo}`),
-  })
 
   async function fechar() {
     const observacao = window.prompt(`Fechar ${MESES[mes - 1]}/${ano} para o grupo inteiro (todas as filiais, independentemente do filtro de filial)? Observação (opcional):`)
@@ -224,47 +210,6 @@ export default function DRE() {
       </>}
 
       {podeDetalhar && <DetalheLinhaDialog q={q} linha={drill} onClose={() => setDrill(null)} />}
-      <Dialog open={!!drill && !podeDetalhar} onOpenChange={o => !o && setDrill(null)}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader><DialogTitle>{drill?.descricao} — lançamentos</DialogTitle></DialogHeader>
-          {d?.congelado && (
-            <p className="text-xs text-sky-800 bg-sky-50 border border-sky-200 rounded px-2.5 py-1.5">
-              Período fechado: valores e contas do fechamento v{d.versao}.
-            </p>
-          )}
-          {lancs.data?.aviso && (
-            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">{lancs.data.aviso}</p>
-          )}
-          <div className="overflow-auto">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-white">
-                <tr className="border-b text-muted-foreground">
-                  <th className="text-left p-2">Comp.</th><th className="text-left p-2">Filial</th>
-                  <th className="text-left p-2">Conta</th><th className="text-left p-2">Linha</th>
-                  <th className="text-left p-2">Documento</th><th className="text-left p-2">Histórico</th>
-                  <th className="text-right p-2">Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(lancs.data?.lancamentos ?? []).map(l => (
-                  <tr key={`${l.competencia}|${l.conta}|${l.filial}|${l.id}`} className="border-b last:border-0">
-                    <td className="p-2 whitespace-nowrap">{l.competencia}</td>
-                    <td className="p-2">{l.filial}</td>
-                    <td className="p-2 whitespace-nowrap">{l.conta}{l.conta_desc ? ` · ${l.conta_desc}` : ''}</td>
-                    <td className="p-2">{l.linha}</td>
-                    <td className="p-2 whitespace-nowrap">{[l.tipo_doc, l.doc_ref].filter(Boolean).join(' ')}</td>
-                    <td className="p-2">{l.historico}</td>
-                    <td className="p-2 text-right tabular-nums">{brl(l.valor)}</td>
-                  </tr>
-                ))}
-                {lancs.isLoading && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Carregando…</td></tr>}
-                {lancs.data && lancs.data.lancamentos.length === 0 && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Sem lançamentos no período.</td></tr>}
-              </tbody>
-            </table>
-            {lancs.data?.truncado && <p className="text-xs text-amber-700 p-2">Mostrando os primeiros 2.000 lançamentos — refine por filial.</p>}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

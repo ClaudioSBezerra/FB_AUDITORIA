@@ -149,6 +149,7 @@ var comportamentoDeHoje = map[string]esperado{
 	"/api/aud/dre/departamentos":        {todos4, todos4},                       // 4.7: o Gerente entra com escopo
 	"/api/aud/dre/lancamentos":          {leitoresSemGestor, leitoresSemGestor}, // 4.7: rota antiga fechada ao Gerente
 	"/api/aud/dre/trimestres":           {leitoresSemGestor, leitoresSemGestor},
+	"/api/aud/meu-departamento":         {todos4, todos4}, // 4.8: passa no portão; o handler só aceita o gestor
 	"/api/aud/dre/contas":               {todos4, todos4}, // 4.7: com escopo
 	"/api/aud/dre/contas/lancamentos":   {todos4, todos4}, // 4.7: com escopo
 	"/api/aud/dre/fechamentos":          {todos4, soCtrl},
@@ -168,13 +169,13 @@ var analistaEscreve = map[string]bool{
 	// rotas só de leitura em que escrita == leitura
 	"/api/aud/dicionario": true, "/api/aud/dre": true, "/api/aud/dre/filiais": true, "/api/aud/dre/linhas": true,
 	"/api/aud/dre/departamentos": true, "/api/aud/dre/lancamentos": true, "/api/aud/dre/trimestres": true,
-	"/api/aud/dre/contas": true, "/api/aud/dre/contas/lancamentos": true,
+	"/api/aud/dre/contas": true, "/api/aud/dre/contas/lancamentos": true, "/api/aud/meu-departamento": true,
 }
 var analistaLeSim = map[string]bool{
 	"/api/aud/filiais-gerenciais": true, "/api/aud/agrupamentos-filiais": true, "/api/aud/departamentos": true,
 	"/api/aud/dicionario": true, "/api/aud/dre": true, "/api/aud/dre/filiais": true, "/api/aud/dre/linhas": true,
 	"/api/aud/dre/departamentos": true, "/api/aud/dre/lancamentos": true, "/api/aud/dre/trimestres": true,
-	"/api/aud/dre/contas": true, "/api/aud/dre/contas/lancamentos": true, "/api/aud/dre/fechamentos": true,
+	"/api/aud/dre/contas": true, "/api/aud/dre/contas/lancamentos": true, "/api/aud/dre/fechamentos": true, "/api/aud/meu-departamento": true,
 	"/api/aud/dre/mapa": true,
 }
 

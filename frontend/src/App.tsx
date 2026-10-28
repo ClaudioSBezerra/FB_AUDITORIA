@@ -19,6 +19,7 @@ const AdminUsers = lazy(() => import('./pages/AdminUsers'))
 const AreaHome = lazy(() => import('./pages/aud/AreaHome'))
 const DRE = lazy(() => import('./pages/aud/DRE'))
 const DREDepartamentos = lazy(() => import('./pages/aud/DREDepartamentos'))
+const MeuDepartamento = lazy(() => import('./pages/aud/MeuDepartamento'))
 const Acompanhamento = lazy(() => import('./pages/aud/Acompanhamento'))
 const DREMapa = lazy(() => import('./pages/aud/DREMapa'))
 const DREFechamentos = lazy(() => import('./pages/aud/DREFechamentos'))
@@ -52,6 +53,17 @@ function AreaRoute({ area, perfis, children }: { area: string; perfis?: string[]
   return <>{children}</>
 }
 
+// "Meu departamento" é pessoal: só o Gerente (o servidor recusa os demais, inclusive o admin de plataforma).
+function GerenteRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading, hasArea, acessoCarregado, perfil, isAdmin } = useAuth()
+  const location = useLocation()
+  if (loading) return null
+  if (!isAuthenticated) return <Navigate to="/login" state={{ from: location }} replace />
+  if (!acessoCarregado) return null
+  if (!hasArea('empresa') || isAdmin || perfil !== 'gestor') return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
 function PlatformAdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, isAdmin, acessoCarregado } = useAuth()
   const location = useLocation()
@@ -73,8 +85,8 @@ function RedirecionaPrefixo({ para }: { para: string }) {
 function Landing() {
   const { loading, acessoCarregado, isAuthenticated, hasArea, perfil, isAdmin } = useAuth()
   if (loading || (isAuthenticated && !acessoCarregado)) return null
-  // O Gerente não recebe o DRE do grupo (403, 4.7): começa pelo DRE por departamento (escopo dele).
-  if (hasArea('empresa')) return <Navigate to={perfil === 'gestor' && !isAdmin ? '/empresa/dre-departamentos' : '/empresa/dre'} replace />
+  // O Gerente não recebe o DRE do grupo (403, 4.7): começa por "Meu departamento" (4.8).
+  if (hasArea('empresa')) return <Navigate to={perfil === 'gestor' && !isAdmin ? '/empresa/meu-departamento' : '/empresa/dre'} replace />
   if (hasArea('comercial')) return <Navigate to="/comercial" replace />
   if (hasArea('operacao')) return <Navigate to="/operacao" replace />
   if (hasArea('configuracoes')) return <Navigate to="/configuracoes" replace />
@@ -91,6 +103,7 @@ function ModuleTabs() {
 
   const visibleTabs = moduleCfg.tabs.filter(t =>
     (!t.masterOnly || isAdmin) &&
+    (!t.gerenteOnly || (perfil === 'gestor' && !isAdmin)) &&
     (!t.perfis || isAdmin || (perfil != null && t.perfis.includes(perfil)))
   )
   if (visibleTabs.length === 0) return null
@@ -161,7 +174,8 @@ function AppLayout() {
               {/* Administrativo (área empresa) */}
               <Route path="/empresa" element={<Navigate to="/empresa/dre" replace />} />
               <Route path="/empresa/dre" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria', 'diretoria']}><DRE /></AreaRoute>} />
-              <Route path="/empresa/dre-departamentos" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria', 'diretoria', 'gestor']}><DREDepartamentos /></AreaRoute>} />
+              <Route path="/empresa/dre-departamentos" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria', 'diretoria']}><DREDepartamentos /></AreaRoute>} />
+              <Route path="/empresa/meu-departamento" element={<GerenteRoute><MeuDepartamento /></GerenteRoute>} />
               <Route path="/empresa/fechamentos" element={<AreaRoute area="empresa"><DREFechamentos /></AreaRoute>} />
               <Route path="/empresa/mapa" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria']}><DREMapa /></AreaRoute>} />
 

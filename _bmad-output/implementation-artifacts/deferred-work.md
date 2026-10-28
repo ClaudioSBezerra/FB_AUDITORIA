@@ -103,3 +103,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-7-escopo-por-departamento.md`
   summary: O dicionário (GET `/api/aud/dicionario`) mostra ao Gerente o departamento de todas as contas, sem valores. Decidir se o Gerente deve ver só as contas dos seus departamentos. O caminho `qLegado` de `DRE.tsx` (detalhe antigo do Gerente) ficou morto e sai com a 4.8. A pendência da 3.9 sobre o Gerente e `/dre/lancamentos` está resolvida (rota fechada, `ler`).
   evidence: `backend/handlers/dicionario.go`; `frontend/src/pages/aud/DRE.tsx`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-8-meu-departamento.md`
+  summary: "Meu departamento" não tem Orçado por conta (mostra "sem orçado" em tudo): `dre_orcado` é por linha e filial. Para o dado por conta falta a história 2.7 (`orcado_conta` lido pelo Mapa), o orçado por conta no snapshot (`dre_fechamento_contas.orcado`, nulo quando não houver) e preencher `ContaComparativo.Orcado`; a variação sobre o orçado já está pronta na montagem e na tela.
+  evidence: `backend/dre/meu_departamento.go` (`orcado_por_conta: false`); `backend/dre/leitura.go`, `OrcadoPorLinha`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-8-meu-departamento.md`
+  summary: O Gerente recebe o percentual sobre o Faturamento Líquido por conta e total sem a base, mas valor / percentual devolve a base. Se o cliente tratar o faturamento como sigiloso para o Gerente, é preciso ocultar ou arredondar o percentual.
+  evidence: `backend/handlers/meu_departamento.go`; critério "calculado no servidor, sem devolver a base".
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-8-meu-departamento.md`
+  summary: A rota `/api/aud/dre/departamentos` ainda atende o Gerente (restrita, sem percentuais) embora o menu e a tela dele sejam só "Meu departamento"; fechar a rota ao Gerente quando nada mais depender dela.
+  evidence: `backend/main.go`; `frontend/src/App.tsx` (rota sem `gestor`).
