@@ -142,7 +142,9 @@ func TestAmbiente_CascataLinhasFechamento(t *testing.T) {
 // salvo as que se mantêm de propósito.
 func TestAmbiente_LimpezaCobreTodaTabelaDeDominio(t *testing.T) {
 	db := testdb.Open(t)
-	mantidas := map[string]bool{"dre_linhas": true, "dre_mapa": true, "audit_log": true}
+	// usuario_departamentos (4.5) é configuração: não é apagada diretamente; sai por
+	// cascata junto com o departamento, que a limpeza apaga.
+	mantidas := map[string]bool{"dre_linhas": true, "dre_mapa": true, "audit_log": true, "usuario_departamentos": true}
 	cascata := map[string]bool{"dre_fechamento_linhas": true}
 	rows, err := db.Query(`SELECT DISTINCT table_name FROM information_schema.columns
 		WHERE table_schema='auditoria' AND column_name='empresa_id' ORDER BY 1`)
