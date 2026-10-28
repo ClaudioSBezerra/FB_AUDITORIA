@@ -120,7 +120,42 @@ O analista importa o realizado consolidado e o orçado do banco do cliente com u
 **FRs covered:** FR-1, FR-2, FR-3, FR-20
 **Notas:** "Importar agora" manual primeiro; agendador é opcional e a última história (AD-15); guardar a UF no lançamento (AD-3); orçado por conta (AD-5); dono da conta (AD-16); dicionário inicial derivado da planilha e validado com a área de negócio; história de paridade com a planilha e de Oracle × planilha.
 
-### Epic 3: DRE por departamento, com orçado e ano anterior
+#### Story 2.14: Mapa de filiais (filial do ERP para filial gerencial)
+
+As a analista,
+I want cadastrar quais filiais do ERP compõem cada filial gerencial,
+So that o realizado, o orçado e o rateio sejam lidos por filial gerencial.
+
+**Nota:** requisito do cliente de 28/10/2026 (ver `respostas-cliente-2026-10-28.md`). Deve sair **antes** da ingestão (2.3 e 2.6). Os códigos reais entram pela tela, nunca no repositório ou em seed.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `auditoria.filiais_gerenciais (id, empresa_id, codigo, nome)` e `auditoria.filiais_gerenciais_erp (empresa_id, filial_gerencial_id, filial_erp)`, com `filial_erp` única por empresa
+**And** ela entra em `limpar_dados_teste` se a regra de limpeza (1.2) exigir
+
+**Given** o analista ou o Controller
+**When** cria, edita, lista ou exclui uma filial gerencial e as filiais do ERP que a compõem
+**Then** grava e registra na trilha
+**And** gestor e diretoria recebem `403` na escrita
+
+**Given** uma filial do ERP já ligada a outra filial gerencial
+**When** se tenta ligá-la de novo
+**Then** recusa com `409` e diz a qual filial gerencial ela pertence
+
+**Given** uma filial do ERP sem ligação
+**When** o realizado é lido
+**Then** ela vale por si (filial solta), sem precisar de cadastro
+
+**Given** uma filial gerencial usada por lançamento, orçado ou fechamento
+**When** se tenta excluí-la
+**Then** recusa com `409`
+
+**Given** um mês fechado
+**When** o mapa é alterado depois
+**Then** o fechamento não muda (o snapshot da 1.8 guarda a filial gerencial do momento)
+
+## Epic 3: DRE por departamento, com orçado e ano anterior
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
 **FRs covered:** FR-5, FR-6, FR-7, FR-8
 **Notas:** Mapa e estrutura iniciais derivados da planilha; paridade completa com o DRE da planilha; o perfil `gestor` não vê dado de departamento até o épico 4; o fim deste épico é a primeira demonstração ao cliente.
