@@ -42,7 +42,7 @@ development_status:
   1-4-importação-csv-passa-pelo-ingestor-ad-1-ad-2-ad-3: review
   1-5-fechamento-passa-pelo-serviço-dre-ad-1: review
   1-6-guarda-de-período-e-bloqueio-de-escrita-em-mês-fechado-fr-11: review
-  1-7-um-fechamento-ativo-por-mês-e-reabertura-com-motivo-fr-9-fr: backlog
+  1-7-um-fechamento-ativo-por-mês-e-reabertura-com-motivo-fr-9-fr: review
   1-8-mês-fechado-lido-do-que-foi-congelado-ad-17: backlog
   1-9-nenhum-endereço-do-banco-do-cliente-no-repositório-nfr7: backlog
   epic-1-retrospective: optional
@@ -97,6 +97,7 @@ development_status:
   5-7-aviso-de-ajuste-por-e-mail-fr-4: backlog
   5-8-e-mail-do-dre-por-departamento-no-fechamento-fr-14: backlog
   5-9-painel-de-envios-fr-14: backlog
+  5-10-disparo-semanal-do-acumulado-do-mês-fr-14: backlog
   epic-5-retrospective: optional
 
   epic-6: backlog

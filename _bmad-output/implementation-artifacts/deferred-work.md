@@ -43,3 +43,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-6-guarda-de-periodo.md`
   summary: Quem espera o lock do período (Fechar ou outra importação) fica bloqueado sem limite enquanto uma importação longa não termina; falta `lock_timeout` com resposta 409 ou 503.
   evidence: `Periodo.Guardar` e `travar` tomam `pg_advisory_xact_lock` e o mantêm até o commit.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-7-fechamento-unico-reabertura.md`
+  summary: Excluir um usuário que já fechou ou reabriu um mês falha fora de Teste (o gatilho de imutabilidade bloqueia o `SET NULL`); o `DeleteUserHandler` precisa tratar isso ou a rota deve bloquear.
+  evidence: `fechado_por` tem `ON DELETE SET NULL`, que é um UPDATE; `006_fechamento_reabertura.sql` o bloqueia.

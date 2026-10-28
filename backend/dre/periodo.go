@@ -46,7 +46,7 @@ func travar(ctx context.Context, tx *sql.Tx, empresa string, competencia time.Ti
 }
 
 // Guardar toma o lock da (empresa, competência) e só então confere se existe
-// fechamento (de qualquer filial/versão); se existir, devolve *ErrPeriodoFechado.
+// fechamento ativo (não reaberto; de qualquer filial); se existir, devolve *ErrPeriodoFechado.
 // Lock primeiro, conferência depois: em READ COMMITTED o SELECT novo enxerga o
 // Commit de um Fechar que acabou de soltar o lock. Método de Periodo apenas por
 // nome (AD-8); não usa os campos Ini/Fim.
@@ -56,7 +56,7 @@ func (Periodo) Guardar(ctx context.Context, tx *sql.Tx, empresa string, competen
 		return err
 	}
 	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT COALESCE(filial,'') AS filial FROM auditoria.dre_fechamentos
-		WHERE empresa_id=$1::uuid AND competencia=$2 ORDER BY 1`, empresa, competencia.Format("2006-01-02"))
+		WHERE empresa_id=$1::uuid AND competencia=$2 AND reaberto_em IS NULL ORDER BY 1`, empresa, competencia.Format("2006-01-02"))
 	if err != nil {
 		return err
 	}

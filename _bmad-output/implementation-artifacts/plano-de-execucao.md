@@ -22,7 +22,7 @@ Opcionais (só se sobrar tempo e nada mais estiver pendente): 2.13, 6.6, 8.7.
 
 ## Histórias suspensas por mudança de requisito (28/10/2026)
 
-5.4, 5.5 e 5.7: o ajuste vem do ERP, sem lançamento manual. Não executar até reescrever. Novo requisito sem história: disparo semanal (sexta) do acumulado do mês por e-mail. O Épico 7 (rateio) deixou de depender do cliente: regras em `respostas-cliente-2026-10-28.md`.
+O ajuste vem do ERP, sem lançamento manual: as histórias 5.4, 5.5 e 5.7 foram reescritas (28/10/2026). A 5.4 só é executável quando o dono dos dados disser como o ajuste aparece na view; a 5.7 espera a definição de quem recebe o aviso. Nova história 5.10: disparo semanal (sexta) do acumulado do mês por e-mail, que depende de a fonte atualizar com essa frequência. O Épico 7 (rateio) deixou de depender do cliente: regras em `respostas-cliente-2026-10-28.md`.
 
 ## Histórias que dependem de decisão humana ou de ação fora do repositório (não executar)
 

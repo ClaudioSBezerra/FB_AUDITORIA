@@ -2,7 +2,8 @@
 title: 'Story 1.7: Um fechamento ativo por mês e reabertura com motivo (FR-9, FR-10, AD-9)'
 type: 'feature'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: '82edc76f1b25410f7b3c2f78cc97edd80d042d8d'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -84,3 +85,22 @@ O índice parcial é por `(empresa, competência)` e não inclui `filial`: um fe
 
 **Manual checks (if no CLI):**
 - No banco local de teste com duas versões do mesmo mês, subir a API e ver o aborto da migration; antes do push, o dono do produto confere a tabela de produção.
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| Consolidação em `teste` deixa o mês aberto quando só há fechamentos por filial | medium | patch | mantém ativa a linha de maior versão como reserva; teste "só filiais" |
+| Gatilho aceita reabertura sem `reaberto_por` | low | patch | exige `reaberto_por` não nulo |
+| Com filtro de filial a tela oferece "Fechar" (409) e esconde "Reabrir" | medium | patch | `fechamento_ativo` e `fechamento_versao` por empresa e mês; botões dependem deles |
+| `DREHandler` sem teste nos estados fechado, reaberto e refechado | medium | patch | `TestDRE_EstadosFechadoReabertoRefechado` |
+| Teste de aborto em produção grava `ambiente` fora da transação | low | patch | feito dentro da transação com rollback |
+| `TestGatilhoFechamentoImutavel` sem asserção e com erro ignorado | low | patch | corrigido |
+| Motivo da reabertura sem limite | low | patch | 500 caracteres, `ErroEntrada` e checagem na tela |
+| `fechar()` invalida só `['dre']` | low | patch | invalida também `['dre-fechamentos']` |
+| Outros valores de `ambiente` na migração | false | rejeitado | `ambiente` é NOT NULL com CHECK (`teste` ou `producao`) |
+| Autorização duplicada no handler e no `withAud` | low | rejeitado | padrão dos demais handlers |
+| ALTERs ficam se a migração abortar em produção | low | rejeitado | aditivos e com `IF NOT EXISTS` |
+| `LIMIT 200` da listagem; corrida de fechar com índice único; coluna futura mutável no gatilho | low | rejeitado | sem falha demonstrada |
+| Excluir usuário que fechou um mês falha fora de teste | low | defer | coerente com "usuário nunca é apagado"; o `DeleteUserHandler` precisa tratar |
+| Versão reaberta e fechamento por filial não são legíveis no DRE | low | defer | a leitura do snapshot é a 1.8 |

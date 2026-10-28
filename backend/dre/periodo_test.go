@@ -204,11 +204,26 @@ func TestGuardaNormalizaDiaENullFilial(t *testing.T) {
 	if _, err := db.Exec(`ALTER TABLE auditoria.dre_fechamentos ALTER COLUMN filial DROP NOT NULL`); err != nil {
 		t.Skipf("coluna filial não aceita NULL: %v", err)
 	}
+	// o gatilho de 1.7 recusa UPDATE; em teste só passa com a sessão de limpeza aberta
+	liberado := func(q string, args ...any) error {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if _, err := tx.Exec(`SELECT set_config('auditoria.limpando_teste', $1, true)`, f.EmpresaID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(q, args...); err != nil {
+			return err
+		}
+		return tx.Commit()
+	}
 	t.Cleanup(func() {
-		db.Exec(`UPDATE auditoria.dre_fechamentos SET filial='' WHERE filial IS NULL`)
+		liberado(`UPDATE auditoria.dre_fechamentos SET filial='' WHERE filial IS NULL`)
 		db.Exec(`ALTER TABLE auditoria.dre_fechamentos ALTER COLUMN filial SET NOT NULL`)
 	})
-	if _, err := db.Exec(`UPDATE auditoria.dre_fechamentos SET filial=NULL WHERE empresa_id=$1::uuid`, f.EmpresaID); err != nil {
+	if err := liberado(`UPDATE auditoria.dre_fechamentos SET filial=NULL WHERE empresa_id=$1::uuid`, f.EmpresaID); err != nil {
 		t.Fatal(err)
 	}
 	if err := guardar("2026-09-01"); !errors.As(err, &pf) || pf.Escopos[0].Filial != "" {

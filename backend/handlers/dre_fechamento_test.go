@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -110,9 +111,8 @@ func TestFechamento_ContaSemMapa_409_NadaGravado(t *testing.T) {
 	}
 }
 
-// Hoje o segundo fechamento do mesmo mês é aceito e vira versão 2 (muda na 1.7:
-// um só fechamento ativo por mês, reabertura com motivo).
-func TestFechamento_FecharDeNovo_Versao2_MudaNa1_7(t *testing.T) {
+// Fechar de novo com fechamento ativo é recusado (409) e nada é gravado (1.7).
+func TestFechamento_FecharDeNovo_409(t *testing.T) {
 	db := testdb.Open(t)
 	f := testdb.NovaEmpresa(t, db)
 	semearMapaELancamentos(t, f, false)
@@ -120,15 +120,11 @@ func TestFechamento_FecharDeNovo_Versao2_MudaNa1_7(t *testing.T) {
 	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
 		t.Fatalf("1º fechamento: %d %s", w.Code, w.Body.String())
 	}
-	w := fechar(t, f, corpoSetembro)
-	if w.Code != http.StatusCreated {
-		t.Fatalf("2º fechamento: esperava 201 (hoje permite), veio %d: %s", w.Code, w.Body.String())
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusConflict {
+		t.Fatalf("2º fechamento: esperava 409, veio %d: %s", w.Code, w.Body.String())
 	}
-	if versaoDaResposta(t, w.Body.Bytes()) != 2 {
-		t.Errorf("esperava versao 2: %s", w.Body.String())
-	}
-	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.dre_fechamentos WHERE empresa_id=$1::uuid AND competencia='2026-09-01'`, f.EmpresaID); n != 2 {
-		t.Errorf("esperava 2 fechamentos, vieram %d", n)
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.dre_fechamentos WHERE empresa_id=$1::uuid AND competencia='2026-09-01'`, f.EmpresaID); n != 1 {
+		t.Errorf("esperava 1 fechamento, vieram %d", n)
 	}
 }
 
@@ -210,5 +206,177 @@ func TestDRE_ExibidoIgualAoCongelado(t *testing.T) {
 		if l.Realizado != congelado[l.Codigo] {
 			t.Errorf("%s: exibido %v, congelado %v", l.Codigo, l.Realizado, congelado[l.Codigo])
 		}
+	}
+}
+
+func reabrir(t *testing.T, f testdb.Fixture, perfil, corpo string) *httptest.ResponseRecorder {
+	t.Helper()
+	db := testdb.Open(t)
+	r := httptest.NewRequest(http.MethodPost, "/api/aud/dre/fechamentos/reabrir", strings.NewReader(corpo))
+	c := &AudContext{UserID: f.UserID, EmpresaID: f.EmpresaID, Perfil: perfil}
+	r = r.WithContext(context.WithValue(r.Context(), AudContextKey, c))
+	return chamar(DREReabrirHandler(db), r)
+}
+
+func TestFechamento_ReabrirEFecharDeNovo(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d %s", w.Code, w.Body.String())
+	}
+	// sem motivo / só espaços: 400, nada muda
+	for _, corpo := range []string{`{"ano":2026,"mes":9}`, `{"ano":2026,"mes":9,"motivo":"   "}`} {
+		if w := reabrir(t, f, "controladoria", corpo); w.Code != http.StatusBadRequest {
+			t.Fatalf("sem motivo: esperava 400, veio %d", w.Code)
+		}
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.dre_fechamentos WHERE empresa_id=$1::uuid AND reaberto_em IS NULL`, f.EmpresaID); n != 1 {
+		t.Fatalf("ativos: %d", n)
+	}
+	// perfil sem permissão: 403, nada muda
+	if w := reabrir(t, f, "diretoria", `{"ano":2026,"mes":9,"motivo":"x"}`); w.Code != http.StatusForbidden {
+		t.Fatalf("diretoria: esperava 403, veio %d", w.Code)
+	}
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusConflict {
+		t.Fatalf("ainda ativo: %d", w.Code)
+	}
+	if w := reabrir(t, f, "controladoria", `{"ano":2026,"mes":9,"motivo":"  correção de rateio "}`); w.Code != http.StatusOK {
+		t.Fatalf("reabrir: %d %s", w.Code, w.Body.String())
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.dre_fechamentos WHERE empresa_id=$1::uuid AND reaberto_em IS NOT NULL AND reaberto_por=$2::uuid AND motivo_reabertura='correção de rateio'`, f.EmpresaID, f.UserID); n != 1 {
+		t.Errorf("reabertura não gravada: %d", n)
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.audit_log WHERE empresa_id=$1::uuid AND entidade='dre_fechamento' AND acao='reabrir'`, f.EmpresaID); n != 1 {
+		t.Errorf("trilha reabrir: %d", n)
+	}
+	// reabrir o que não está fechado: 409
+	if w := reabrir(t, f, "controladoria", `{"ano":2026,"mes":9,"motivo":"de novo"}`); w.Code != http.StatusConflict {
+		t.Fatalf("sem ativo: esperava 409, veio %d", w.Code)
+	}
+	// fechar de novo: versão 2, a 1 continua legível
+	w := fechar(t, f, corpoSetembro)
+	if w.Code != http.StatusCreated || versaoDaResposta(t, w.Body.Bytes()) != 2 {
+		t.Fatalf("refechar: %d %s", w.Code, w.Body.String())
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.dre_fechamento_linhas l JOIN auditoria.dre_fechamentos c ON c.id=l.fechamento_id WHERE c.empresa_id=$1::uuid AND c.versao=1`, f.EmpresaID); n == 0 {
+		t.Error("versão 1 deveria continuar legível")
+	}
+	// listagem mostra situação
+	rl := httptest.NewRequest(http.MethodGet, "/api/aud/dre/fechamentos", nil)
+	wl := chamar(DREFechamentoHandler(db), reqComCtx(rl, f))
+	var lista []struct {
+		Versao int    `json:"versao"`
+		Ativo  bool   `json:"ativo"`
+		Motivo string `json:"motivo_reabertura"`
+	}
+	if err := json.Unmarshal(wl.Body.Bytes(), &lista); err != nil || len(lista) != 2 {
+		t.Fatalf("listagem: %v %s", err, wl.Body.String())
+	}
+	if lista[0].Versao != 2 || !lista[0].Ativo || lista[1].Versao != 1 || lista[1].Ativo || lista[1].Motivo != "correção de rateio" {
+		t.Errorf("situação inesperada: %+v", lista)
+	}
+}
+
+func TestFechamento_FilialRecusada400(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	if w := fechar(t, f, `{"ano":2026,"mes":9,"filial":"01"}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("esperava 400, veio %d: %s", w.Code, w.Body.String())
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.dre_fechamentos WHERE empresa_id=$1::uuid`, f.EmpresaID); n != 0 {
+		t.Errorf("gravou %d", n)
+	}
+}
+
+func TestFechamento_DiretoriaNaoFecha403(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	r := httptest.NewRequest(http.MethodPost, "/api/aud/dre/fechamentos", strings.NewReader(corpoSetembro))
+	c := &AudContext{UserID: f.UserID, EmpresaID: f.EmpresaID, Perfil: "diretoria"}
+	r = r.WithContext(context.WithValue(r.Context(), AudContextKey, c))
+	if w := chamar(DREFechamentoHandler(db), r); w.Code != http.StatusForbidden {
+		t.Fatalf("esperava 403, veio %d", w.Code)
+	}
+}
+
+func estadoDRE(t *testing.T, f testdb.Fixture, query string) (congelado, ativo bool, versao, fechVersao int, rb float64) {
+	t.Helper()
+	db := testdb.Open(t)
+	r := httptest.NewRequest(http.MethodGet, "/api/aud/dre?visao=mensal&ano=2026&mes=9"+query, nil)
+	w := chamar(DREHandler(db), reqComCtx(r, f))
+	if w.Code != http.StatusOK {
+		t.Fatalf("DRE: %d %s", w.Code, w.Body.String())
+	}
+	var o struct {
+		Congelado  bool `json:"congelado"`
+		Ativo      bool `json:"fechamento_ativo"`
+		Versao     int  `json:"versao"`
+		FechVersao int  `json:"fechamento_versao"`
+		Linhas     []struct {
+			Codigo    string  `json:"codigo"`
+			Realizado float64 `json:"realizado"`
+		} `json:"linhas"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &o); err != nil {
+		t.Fatal(err)
+	}
+	for _, l := range o.Linhas {
+		if l.Codigo == "RB" {
+			rb = l.Realizado
+		}
+	}
+	return o.Congelado, o.Ativo, o.Versao, o.FechVersao, rb
+}
+
+func TestDRE_EstadosFechadoReabertoRefechado(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+
+	if c, a, _, _, _ := estadoDRE(t, f, ""); c || a {
+		t.Fatalf("aberto: congelado=%v ativo=%v", c, a)
+	}
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d", w.Code)
+	}
+	if c, a, v, fv, _ := estadoDRE(t, f, ""); !c || !a || v != 1 || fv != 1 {
+		t.Fatalf("fechado: %v %v %d %d", c, a, v, fv)
+	}
+	// filtro de filial sobre mês fechado: o fechamento ativo continua visível
+	if _, a, _, fv, _ := estadoDRE(t, f, "&filial=01"); !a || fv != 1 {
+		t.Errorf("filtro de filial: ativo=%v versao=%d", a, fv)
+	}
+	if w := reabrir(t, f, "controladoria", `{"ano":2026,"mes":9,"motivo":"ajuste"}`); w.Code != http.StatusOK {
+		t.Fatalf("reabrir: %d", w.Code)
+	}
+	// lançamento novo aparece ao vivo
+	if _, err := db.Exec(`INSERT INTO auditoria.lancamentos (empresa_id, competencia, conta, valor) VALUES ($1::uuid,'2026-09-01','3.1',500)`, f.EmpresaID); err != nil {
+		t.Fatal(err)
+	}
+	if c, a, _, _, rb := estadoDRE(t, f, ""); c || a || rb != 1500 {
+		t.Fatalf("reaberto: congelado=%v ativo=%v RB=%v", c, a, rb)
+	}
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("refechar: %d %s", w.Code, w.Body.String())
+	}
+	if c, a, v, fv, rb := estadoDRE(t, f, ""); !c || !a || v != 2 || fv != 2 || rb != 1500 {
+		t.Fatalf("refechado: %v %v %d %d %v", c, a, v, fv, rb)
+	}
+}
+
+func TestReabrir_MotivoLongoRecusado(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d", w.Code)
+	}
+	if w := reabrir(t, f, "controladoria", `{"ano":2026,"mes":9,"motivo":"`+strings.Repeat("é", 501)+`"}`); w.Code != http.StatusBadRequest {
+		t.Fatalf("501 runas: esperava 400, veio %d", w.Code)
+	}
+	if w := reabrir(t, f, "controladoria", `{"ano":2026,"mes":9,"motivo":"`+strings.Repeat("é", 500)+`"}`); w.Code != http.StatusOK {
+		t.Fatalf("500 runas: esperava 200, veio %d", w.Code)
 	}
 }

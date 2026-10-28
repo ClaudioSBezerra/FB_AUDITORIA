@@ -3,11 +3,13 @@ package dre
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"fb_auditoria/trilha"
 )
@@ -15,7 +17,8 @@ import (
 // Fechamento congela o realizado de um mês numa nova versão.
 type Fechamento struct{ DB *sql.DB }
 
-// FecharIn é a entrada de Fechar.
+// FecharIn é a entrada de Fechar. O fechamento é sempre do grupo inteiro:
+// Filial preenchida é recusada.
 type FecharIn struct {
 	EmpresaID  string
 	UserID     string
@@ -44,13 +47,33 @@ func (e *ErrContasSemMapa) Error() string {
 	return msg
 }
 
+// ErrJaFechado recusa fechar competência que já tem fechamento ativo.
+type ErrJaFechado struct{ Competencia string }
+
+func (e *ErrJaFechado) Error() string {
+	return "Competência " + e.Competencia + " já está fechada — reabra o fechamento (com motivo) antes de fechar de novo"
+}
+
+// ErrNaoFechado recusa reabrir competência sem fechamento ativo.
+type ErrNaoFechado struct{ Competencia string }
+
+func (e *ErrNaoFechado) Error() string {
+	return "Competência " + e.Competencia + " não tem fechamento ativo para reabrir"
+}
+
 const maxContasListadas = 20
+
+// MaxMotivoReabertura é o limite do motivo, em caracteres (runas).
+const MaxMotivoReabertura = 500
 
 // Fechar calcula o snapshot dentro da transação (via Realizado), grava o
 // fechamento, as linhas e a trilha no mesmo Commit. Tudo ou nada.
 func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error) {
 	if in.Mes < 1 || in.Mes > 12 || in.Ano < 2000 || in.Ano > 2100 {
 		return FecharOut{}, &ErroEntrada{Msg: "ano/mes inválidos"}
+	}
+	if strings.TrimSpace(in.Filial) != "" {
+		return FecharOut{}, &ErroEntrada{Msg: "o fechamento é do grupo inteiro: não informe filial"}
 	}
 	comp := time.Date(in.Ano, time.Month(in.Mes), 1, 0, 0, 0, 0, time.UTC)
 	tx, err := f.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
@@ -63,6 +86,15 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 		return FecharOut{}, err
 	}
 
+	var ativos int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM auditoria.dre_fechamentos
+		WHERE empresa_id=$1::uuid AND competencia=$2 AND reaberto_em IS NULL`, in.EmpresaID, comp).Scan(&ativos); err != nil {
+		return FecharOut{}, err
+	}
+	if ativos > 0 {
+		return FecharOut{}, &ErrJaFechado{Competencia: comp.Format("2006-01")}
+	}
+
 	linhas, err := CarregarLinhas(ctx, tx, in.EmpresaID)
 	if err != nil {
 		return FecharOut{}, err
@@ -71,7 +103,7 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 	if err != nil {
 		return FecharOut{}, err
 	}
-	real, sem, err := Realizado(ctx, tx, in.EmpresaID, in.Filial, Periodo{Ini: comp, Fim: comp}, mapa)
+	real, sem, err := Realizado(ctx, tx, in.EmpresaID, "", Periodo{Ini: comp, Fim: comp}, mapa)
 	if err != nil {
 		return FecharOut{}, err
 	}
@@ -91,12 +123,12 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 
 	var versao int
 	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(versao),0)+1 FROM auditoria.dre_fechamentos
-		WHERE empresa_id=$1::uuid AND competencia=$2 AND filial=$3`, in.EmpresaID, comp, in.Filial).Scan(&versao); err != nil {
+		WHERE empresa_id=$1::uuid AND competencia=$2`, in.EmpresaID, comp).Scan(&versao); err != nil {
 		return FecharOut{}, err
 	}
 	var id int64
 	if err := tx.QueryRowContext(ctx, `INSERT INTO auditoria.dre_fechamentos (empresa_id, competencia, versao, filial, fechado_por, observacao)
-		VALUES ($1::uuid,$2,$3,$4,$5::uuid,$6) RETURNING id`, in.EmpresaID, comp, versao, in.Filial, in.UserID, in.Observacao).Scan(&id); err != nil {
+		VALUES ($1::uuid,$2,$3,'',$4::uuid,$5) RETURNING id`, in.EmpresaID, comp, versao, in.UserID, in.Observacao).Scan(&id); err != nil {
 		return FecharOut{}, err
 	}
 	for _, l := range linhas {
@@ -106,11 +138,72 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 		}
 	}
 	if err := trilha.Gravar(tx, in.EmpresaID, in.UserID, "dre_fechamento", strconv.FormatInt(id, 10), "fechar",
-		map[string]any{"competencia": comp.Format("2006-01"), "versao": versao, "filial": in.Filial}); err != nil {
+		map[string]any{"competencia": comp.Format("2006-01"), "versao": versao}); err != nil {
 		return FecharOut{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return FecharOut{}, err
 	}
 	return FecharOut{ID: id, Versao: versao}, nil
+}
+
+// ReabrirIn é a entrada de Reabrir.
+type ReabrirIn struct {
+	EmpresaID string
+	UserID    string
+	Ano, Mes  int
+	Motivo    string
+}
+
+// ReabrirOut é o resultado de Reabrir.
+type ReabrirOut struct {
+	ID     int64
+	Versao int
+}
+
+// Reabrir marca o fechamento ativo da competência como reaberto (motivo
+// obrigatório), com o mesmo lock de Guardar e Fechar; a versão anterior
+// permanece legível e o próximo Fechar cria MAX+1. Tudo ou nada, com a trilha.
+func (f *Fechamento) Reabrir(ctx context.Context, in ReabrirIn) (ReabrirOut, error) {
+	if in.Mes < 1 || in.Mes > 12 || in.Ano < 2000 || in.Ano > 2100 {
+		return ReabrirOut{}, &ErroEntrada{Msg: "ano/mes inválidos"}
+	}
+	motivo := strings.TrimSpace(in.Motivo)
+	if motivo == "" {
+		return ReabrirOut{}, &ErroEntrada{Msg: "informe o motivo da reabertura"}
+	}
+	if utf8.RuneCountInString(motivo) > MaxMotivoReabertura {
+		return ReabrirOut{}, &ErroEntrada{Msg: "motivo da reabertura: no máximo 500 caracteres"}
+	}
+	comp := time.Date(in.Ano, time.Month(in.Mes), 1, 0, 0, 0, 0, time.UTC)
+	tx, err := f.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return ReabrirOut{}, err
+	}
+	defer tx.Rollback()
+	if err := travar(ctx, tx, in.EmpresaID, comp); err != nil {
+		return ReabrirOut{}, err
+	}
+	var id int64
+	var versao int
+	err = tx.QueryRowContext(ctx, `SELECT id, versao FROM auditoria.dre_fechamentos
+		WHERE empresa_id=$1::uuid AND competencia=$2 AND reaberto_em IS NULL`, in.EmpresaID, comp).Scan(&id, &versao)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ReabrirOut{}, &ErrNaoFechado{Competencia: comp.Format("2006-01")}
+	}
+	if err != nil {
+		return ReabrirOut{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE auditoria.dre_fechamentos
+		SET reaberto_em=now(), reaberto_por=$2::uuid, motivo_reabertura=$3 WHERE id=$1`, id, in.UserID, motivo); err != nil {
+		return ReabrirOut{}, err
+	}
+	if err := trilha.Gravar(tx, in.EmpresaID, in.UserID, "dre_fechamento", strconv.FormatInt(id, 10), "reabrir",
+		map[string]any{"competencia": comp.Format("2006-01"), "versao": versao, "motivo": motivo}); err != nil {
+		return ReabrirOut{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return ReabrirOut{}, err
+	}
+	return ReabrirOut{ID: id, Versao: versao}, nil
 }

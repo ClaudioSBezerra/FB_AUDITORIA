@@ -154,13 +154,14 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Período congelado (só mensal): serve o snapshot da última versão.
+		// Período congelado (só mensal): serve o snapshot do fechamento ativo
+		// (a leitura completa do snapshot é a história 1.8).
 		var real map[string]float64
 		congelado, versao := false, 0
 		var fechID int64
 		if visao == "mensal" {
 			err := db.QueryRow(`SELECT id, versao FROM auditoria.dre_fechamentos
-				WHERE empresa_id = $1::uuid AND competencia = $2 AND filial = $3
+				WHERE empresa_id = $1::uuid AND competencia = $2 AND filial = $3 AND reaberto_em IS NULL
 				ORDER BY versao DESC LIMIT 1`, c.EmpresaID, p.Fim, filial).Scan(&fechID, &versao)
 			if err == nil {
 				if rows, err := db.Query(`SELECT linha_codigo, valor FROM auditoria.dre_fechamento_linhas WHERE fechamento_id = $1`, fechID); err == nil {
@@ -175,6 +176,15 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 					rows.Close()
 					congelado = true
 				}
+			}
+		}
+		// Existe fechamento ativo do mês (qualquer filial)? Independe do filtro de filial.
+		fechAtivo, fechVersao := false, 0
+		if visao == "mensal" {
+			if err := db.QueryRow(`SELECT versao FROM auditoria.dre_fechamentos
+				WHERE empresa_id = $1::uuid AND competencia = $2 AND reaberto_em IS NULL
+				ORDER BY versao DESC LIMIT 1`, c.EmpresaID, p.Fim).Scan(&fechVersao); err == nil {
+				fechAtivo = true
 			}
 		}
 		var sem map[string]float64
@@ -231,7 +241,8 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 		writeAuditLog(db, c.EmpresaID, c.UserID, "dre", p.Fim.Format("2006-01"), "visualizar", map[string]any{"visao": visao, "filial": filial})
 		writeJSON(w, map[string]any{
 			"ini": p.Ini.Format("2006-01-02"), "fim": p.Fim.Format("2006-01-02"), "visao": visao,
-			"congelado": congelado, "versao": versao, "linhas": res, "nao_mapeado": naoMapeado,
+			"congelado": congelado, "versao": versao,
+			"fechamento_ativo": fechAtivo, "fechamento_versao": fechVersao, "linhas": res, "nao_mapeado": naoMapeado,
 		})
 	}
 }
@@ -492,14 +503,16 @@ func DREOrcadoHandler(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// DREFechamentoHandler — GET lista fechamentos / POST {ano, mes, filial, observacao} congela
-// o realizado do mês numa NOVA versão (as anteriores permanecem).
+// DREFechamentoHandler — GET lista fechamentos (com situação) / POST {ano, mes, observacao}
+// congela o realizado do mês, do grupo inteiro, numa NOVA versão (as anteriores permanecem).
+// 409 se a competência já tem fechamento ativo; 400 se vier filial.
 func DREFechamentoHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
 		if r.Method == http.MethodGet {
-			rows, err := db.Query(`SELECT f.id, f.competencia, f.versao, f.filial, COALESCE(u.full_name,''), f.fechado_em, f.observacao
-				FROM auditoria.dre_fechamentos f LEFT JOIN users u ON u.id = f.fechado_por
+			rows, err := db.Query(`SELECT f.id, f.competencia, f.versao, f.filial, COALESCE(u.full_name,''), f.fechado_em, f.observacao,
+					f.reaberto_em, COALESCE(ur.full_name,''), COALESCE(f.motivo_reabertura,'')
+				FROM auditoria.dre_fechamentos f LEFT JOIN users u ON u.id = f.fechado_por LEFT JOIN users ur ON ur.id = f.reaberto_por
 				WHERE f.empresa_id = $1::uuid ORDER BY f.competencia DESC, f.versao DESC LIMIT 200`, c.EmpresaID)
 			if err != nil {
 				http.Error(w, "Erro", http.StatusInternalServerError)
@@ -514,14 +527,23 @@ func DREFechamentoHandler(db *sql.DB) http.HandlerFunc {
 				FechadoPor  string `json:"fechado_por"`
 				FechadoEm   string `json:"fechado_em"`
 				Observacao  string `json:"observacao"`
+				Ativo       bool   `json:"ativo"`
+				ReabertoEm  string `json:"reaberto_em"`
+				ReabertoPor string `json:"reaberto_por"`
+				MotivoReab  string `json:"motivo_reabertura"`
 			}
 			out := []f{}
 			for rows.Next() {
 				var x f
 				var comp time.Time
 				var em time.Time
-				if rows.Scan(&x.ID, &comp, &x.Versao, &x.Filial, &x.FechadoPor, &em, &x.Observacao) == nil {
+				var reab sql.NullTime
+				if rows.Scan(&x.ID, &comp, &x.Versao, &x.Filial, &x.FechadoPor, &em, &x.Observacao, &reab, &x.ReabertoPor, &x.MotivoReab) == nil {
 					x.Competencia, x.FechadoEm = comp.Format("2006-01"), em.Format(time.RFC3339)
+					x.Ativo = !reab.Valid
+					if reab.Valid {
+						x.ReabertoEm = reab.Time.Format(time.RFC3339)
+					}
 					out = append(out, x)
 				}
 			}
@@ -559,6 +581,11 @@ func DREFechamentoHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, semMapa.Error(), http.StatusConflict)
 			return
 		}
+		var jaFechado *dre.ErrJaFechado
+		if errors.As(err, &jaFechado) {
+			http.Error(w, jaFechado.Error(), http.StatusConflict)
+			return
+		}
 		var entrada *dre.ErroEntrada
 		if errors.As(err, &entrada) {
 			http.Error(w, entrada.Msg, http.StatusBadRequest)
@@ -570,6 +597,50 @@ func DREFechamentoHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
+		writeJSON(w, map[string]any{"id": out.ID, "versao": out.Versao})
+	}
+}
+
+// DREReabrirHandler — POST {ano, mes, motivo} reabre o fechamento ativo do mês.
+// Só controladoria (403); motivo obrigatório (400); sem ativo, 409.
+func DREReabrirHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		c := GetAudContext(r)
+		if !c.Tem("controladoria") {
+			http.Error(w, "Forbidden: só a controladoria reabre períodos", http.StatusForbidden)
+			return
+		}
+		var req struct {
+			Ano    int    `json:"ano"`
+			Mes    int    `json:"mes"`
+			Motivo string `json:"motivo"`
+		}
+		if json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req) != nil {
+			http.Error(w, "corpo inválido", http.StatusBadRequest)
+			return
+		}
+		out, err := (&dre.Fechamento{DB: db}).Reabrir(r.Context(), dre.ReabrirIn{
+			EmpresaID: c.EmpresaID, UserID: c.UserID, Ano: req.Ano, Mes: req.Mes, Motivo: req.Motivo,
+		})
+		var naoFechado *dre.ErrNaoFechado
+		if errors.As(err, &naoFechado) {
+			http.Error(w, naoFechado.Error(), http.StatusConflict)
+			return
+		}
+		var entrada *dre.ErroEntrada
+		if errors.As(err, &entrada) {
+			http.Error(w, entrada.Msg, http.StatusBadRequest)
+			return
+		}
+		if err != nil {
+			log.Printf("dre reabrir: %v", err)
+			http.Error(w, "Erro ao reabrir período", http.StatusInternalServerError)
+			return
+		}
 		writeJSON(w, map[string]any{"id": out.ID, "versao": out.Versao})
 	}
 }

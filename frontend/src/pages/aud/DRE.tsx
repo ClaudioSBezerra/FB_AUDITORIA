@@ -14,7 +14,7 @@ interface Linha {
   var_orcado_pct: number | null; var_ano_pct: number | null
 }
 interface DreResp {
-  congelado: boolean; versao: number; visao: string; linhas: Linha[]
+  congelado: boolean; versao: number; fechamento_ativo: boolean; fechamento_versao: number; visao: string; linhas: Linha[]
   nao_mapeado: { conta: string; valor: number }[]
 }
 interface Lanc {
@@ -50,15 +50,32 @@ export default function DRE() {
   })
 
   async function fechar() {
-    const observacao = window.prompt(`Fechar ${MESES[mes - 1]}/${ano}${filial ? ` (filial ${filial})` : ' (consolidado)'}? Observação (opcional):`)
+    const observacao = window.prompt(`Fechar ${MESES[mes - 1]}/${ano} para o grupo inteiro (todas as filiais, independentemente do filtro de filial)? Observação (opcional):`)
     if (observacao === null) return
     try {
       const r = await api<{ versao: number }>('/api/aud/dre/fechamentos', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ano, mes, filial, observacao }),
+        body: JSON.stringify({ ano, mes, observacao }),
       })
       toast.success(`Período fechado — versão ${r.versao}`)
       qc.invalidateQueries({ queryKey: ['dre'] })
+      qc.invalidateQueries({ queryKey: ['dre-fechamentos'] })
+    } catch (e: any) { toast.error(e.message) }
+  }
+
+  async function reabrir() {
+    const motivo = window.prompt(`Reabrir ${MESES[mes - 1]}/${ano}? Informe o motivo (obrigatório, até 500 caracteres):`)
+    if (motivo === null) return
+    if (motivo.length > 500) { toast.error('Motivo: no máximo 500 caracteres'); return }
+    if (!motivo.trim()) { toast.error('Informe o motivo da reabertura'); return }
+    try {
+      await api('/api/aud/dre/fechamentos/reabrir', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ano, mes, motivo }),
+      })
+      toast.success('Período reaberto — o próximo fechamento cria nova versão')
+      qc.invalidateQueries({ queryKey: ['dre'] })
+      qc.invalidateQueries({ queryKey: ['dre-fechamentos'] })
     } catch (e: any) { toast.error(e.message) }
   }
 
@@ -96,7 +113,8 @@ export default function DRE() {
               <Lock className="h-3 w-3" /> Fechado — versão {d.versao}
             </span>
           )}
-          {podeFechar && visao === 'mensal' && <Button size="sm" variant="outline" onClick={fechar}>Fechar período</Button>}
+          {podeFechar && visao === 'mensal' && !d?.fechamento_ativo && <Button size="sm" variant="outline" onClick={fechar}>Fechar período (grupo inteiro)</Button>}
+          {podeFechar && visao === 'mensal' && d?.fechamento_ativo && <Button size="sm" variant="outline" onClick={reabrir}>Reabrir período</Button>}
         </div>
       </div>
 

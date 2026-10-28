@@ -191,3 +191,14 @@ func NovaEmpresa(t testing.TB, db *sql.DB) Fixture {
 	}
 	return f
 }
+
+// SQLMigration devolve o texto de uma migration (para reaplicá-la sobre dados
+// preparados pelo teste, normalmente dentro de uma transação revertida).
+func SQLMigration(t testing.TB, nome string) string {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(dirMigrations(), nome))
+	if err != nil {
+		t.Fatalf("testdb: %v", err)
+	}
+	return string(b)
+}

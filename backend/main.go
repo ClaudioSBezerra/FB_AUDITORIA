@@ -432,6 +432,7 @@ func main() {
 	http.HandleFunc("/api/aud/dre/linhas", withAud(handlers.DRELinhasHandler, est))
 	http.HandleFunc("/api/aud/dre/lancamentos", gz(withAud(handlers.DRELancamentosHandler, est)))
 	http.HandleFunc("/api/aud/dre/fechamentos", withAud(handlers.DREFechamentoHandler, est))
+	http.HandleFunc("/api/aud/dre/fechamentos/reabrir", withAud(handlers.DREReabrirHandler, est, "controladoria"))
 	// Escrita do DRE: só controladoria (auditoria lê; não mexe no mapa).
 	http.HandleFunc("/api/aud/dre/mapa", withAud(handlers.DREMapaHandler, est))
 	http.HandleFunc("/api/aud/dre/orcado", withAud(handlers.DREOrcadoHandler, est, "controladoria"))
