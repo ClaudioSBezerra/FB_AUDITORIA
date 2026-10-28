@@ -10,3 +10,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-1-testes-fechamento-importacao.md`
   summary: Nenhum teste de handler passa pelo `AuditoriaAuthMiddleware` nem verifica isolamento entre empresas (perfil e área negados, dado da empresa A invisível à B).
   evidence: os testes da 1.1 injetam `AudContext` direto na requisição; a política do projeto exige validação de perfil e áreas no backend.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-ambiente-teste-producao-apagar.md`
+  summary: Toda empresa existente fica em `teste` após a migration 004; antes de o cliente lançar dado real é preciso virar para Produção (1.3), senão uma senha de admin apaga o dado.
+  evidence: `004_ambiente.sql` define o padrão `teste` e a rota `/api/aud/ambiente/limpar` apaga lançamentos, orçado, fechamentos e cargas em `teste`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-ambiente-teste-producao-apagar.md`
+  summary: O marcador de sessão `auditoria.limpando_teste` pode ser ligado por qualquer sessão; os gatilhos de imutabilidade das 1.7 e 1.8 não devem tratá-lo como prova de que a limpeza oficial está rodando.
+  evidence: `imutavel_salvo_em_teste` só compara o valor da configuração com o id da empresa.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-2-ambiente-teste-producao-apagar.md`
+  summary: A rota de limpar dados de teste não limita tentativas de senha nem registra tentativas falhas na trilha.
+  evidence: `ambiente.go` só grava trilha no caminho de sucesso.

@@ -2,7 +2,8 @@
 title: 'Story 1.2: Marcador Teste/Produção e apagar os dados de teste (FR-21, AD-18)'
 type: 'feature'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: '45d8fb4e248f69bd33f6c3d389c44a152c33baf2'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -82,3 +83,18 @@ Toda história futura com tabela de domínio inclui a tabela em `limpar_dados_te
 
 **Manual checks (if no CLI):**
 - Aplicar a migration duas vezes no banco de teste (`fb_auditoria_test`): a segunda não falha.
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| Erro de banco vira 404/403 e `Unmarshal` ignorado (trilha com `apagadas` nulo) | medium | patch | `ambiente.go` corrigido: 404 só para no-rows, 500 para o resto, rollback se as contagens não decodificam; corpo limitado a 1 KiB |
+| Sem prova de isolamento entre empresas | medium | patch | `TestAmbiente_IsolamentoEntreEmpresas` |
+| Cascata das linhas do fechamento sem prova | low | patch | `TestAmbiente_CascataLinhasFechamento` |
+| Lista de `limpar_dados_teste` sem teste de cobertura de tabelas | medium | patch | `TestAmbiente_LimpezaCobreTodaTabelaDeDominio` |
+| `imutavel_salvo_em_teste` sem gatilho que a use | low | rejeitado | a spec declara que os gatilhos vêm nas 1.7 e 1.8 |
+| Empresas existentes viram `teste` e podem ser limpas | medium | defer | é o padrão decidido pelo dono do produto (produção hoje é Teste); a virada para Produção é a 1.3 |
+| Marcador `limpando_teste` pode ser ligado por qualquer sessão | low | defer | exige desenho de gatilho; tratar ao criar os gatilhos da 1.7 |
+| Sem limite de tentativas nem trilha de senha errada | low | defer | rota só para admin de plataforma; vai para o Épico 4 |
+| Sem tela, banner nem rota para ler/virar ambiente | false | rejeitado | são a história 1.3 |
+| Confirmação pelo nome da empresa, `REVOKE EXECUTE`, `TRUNCATE`, lock de tabelas, `search_path` | low | rejeitado | fora da spec, sem dano demonstrado; migrations existentes usam o mesmo padrão |

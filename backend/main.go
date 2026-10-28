@@ -420,6 +420,7 @@ func main() {
 
 	// ── Auditoria — acesso, usuários da empresa, trilha ──────────────────────
 	http.HandleFunc("/api/aud/me", withAud(func(*sql.DB) http.HandlerFunc { return handlers.AudMeHandler }, ""))
+	http.HandleFunc("/api/aud/ambiente/limpar", withAud(handlers.AmbienteLimparHandler, ""))
 	http.HandleFunc("/api/aud/usuarios", withAud(handlers.AudUsuariosHandler, handlers.AreaAdministrativo, "controladoria"))
 	http.HandleFunc("/api/aud/audit-log", withAud(handlers.AuditLogHandler, handlers.AreaAdministrativo, "controladoria", "auditoria"))
 
