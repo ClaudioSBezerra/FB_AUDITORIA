@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useAuth } from '@/contexts/AuthContext'
 import { api, brl, pctFmt, MESES } from './util'
+import { DetalheLinhaDialog } from './DetalheDRE'
 
 interface Linha {
   codigo: string; descricao: string; nivel: number; tipo: 'conta' | 'subtotal'
@@ -46,13 +47,15 @@ export default function DRE() {
   const [atualizando, setAtualizando] = useState(false)
   const [atual, setAtual] = useState<Atualizacao | null>(null)
   const podeFechar = isAdmin || perfil === 'controladoria'
+  // Gestor segue sem o detalhe por conta e lançamento até o escopo por departamento (4.7).
+  const podeDetalhar = isAdmin || ['controladoria', 'auditoria', 'diretoria'].includes(perfil ?? '')
 
   const q = `ano=${ano}&mes=${mes}&visao=${visao}&filial=${encodeURIComponent(filial)}`
   const dre = useQuery({ queryKey: ['dre', q], queryFn: () => api<DreResp>(`/api/aud/dre?${q}`) })
   const filiais = useQuery({ queryKey: ['dre-filiais'], queryFn: () => api<string[]>('/api/aud/dre/filiais') })
   const lancs = useQuery({
     queryKey: ['dre-lanc', q, drill?.codigo],
-    enabled: !!drill,
+    enabled: !!drill && !podeDetalhar,
     queryFn: () => api<{ lancamentos: Lanc[]; truncado: boolean; aviso?: string }>(`/api/aud/dre/lancamentos?${q}&linha=${drill!.codigo}`),
   })
 
@@ -206,9 +209,10 @@ export default function DRE() {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-muted-foreground">Clique numa linha para ver os lançamentos que a compõem.</p>
+      <p className="text-xs text-muted-foreground">Clique numa linha para ver as contas e, nelas, os lançamentos.</p>
 
-      <Dialog open={!!drill} onOpenChange={o => !o && setDrill(null)}>
+      {podeDetalhar && <DetalheLinhaDialog q={q} linha={drill} onClose={() => setDrill(null)} />}
+      <Dialog open={!!drill && !podeDetalhar} onOpenChange={o => !o && setDrill(null)}>
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader><DialogTitle>{drill?.descricao} — lançamentos</DialogTitle></DialogHeader>
           {d?.congelado && (

@@ -75,7 +75,7 @@ development_status:
   3-6-orçado-e-ano-anterior-sem-orçado-e-detalhe-até-a-filial-fr-8: backlog
   3-7-paridade-do-dre-com-a-planilha: backlog
   3-8-primeira-demonstração-ao-cliente-marco: backlog
-  3-9-detalhe-até-o-lançamento-em-mês-fechado: backlog
+  3-9-detalhe-até-o-lançamento-em-mês-fechado: review
   3-10-visão-por-trimestre-fr-7: backlog
   epic-3-retrospective: optional
 

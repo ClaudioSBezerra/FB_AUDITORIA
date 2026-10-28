@@ -76,3 +76,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-16-atualizar-dados.md`
   summary: Sem trava contra dois pedidos simultâneos de atualização nem timeout por fonte; definir ao entrar a fonte real (por exemplo, advisory lock por empresa e `context.WithTimeout`).
   evidence: `dre.Atualizador.Atualizar` roda as fontes na requisição.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-9-detalhe-ate-o-lancamento.md`
+  summary: `lancamentos` não tem data de pagamento nem fornecedor; o detalhe usa competência, `tipo_doc`/`doc_ref` e histórico. Para a fonte Oracle: migration com `data_pagamento DATE` e `fornecedor TEXT` (e, se vier, código/nome separados), preenchidas pelo Ingestor, e as colunas de data e fornecedor na tabela de lançamentos.
+  evidence: `backend/migrations/003_dre.sql`; `backend/dre/fonte.go` (`Lancamento`); `backend/dre/detalhe.go`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-9-detalhe-ate-o-lancamento.md`
+  summary: Gestor fica sem as rotas de contas e lançamentos (403, fail closed) e ainda alcança `/api/aud/dre/lancamentos`; o escopo por departamento (4.7) deve fechar o endpoint antigo ou unificá-lo aos novos.
+  evidence: `backend/handlers/dre_detalhe.go` (`exigeDetalhe`); `backend/handlers/dre.go` (`DRELancamentosHandler`).

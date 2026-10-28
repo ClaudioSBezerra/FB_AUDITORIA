@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-28",
-  "versao": "9ff2146",
+  "versao": "475ce61",
   "historias": [
     {
       "id": "1.1",
@@ -616,7 +616,7 @@
         "nome": "DRE por departamento, com orçado e ano anterior"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como Gerente, quero descer do grupo à conta e da conta ao lançamento, também em mês fechado, para que eu veja data, fornecedor, nota, valor e filial de cada lançamento.",
       "criterios": [

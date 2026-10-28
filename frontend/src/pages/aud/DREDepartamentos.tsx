@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { api, brl, pctFmt, MESES } from './util'
+import { DetalheContaDialog } from './DetalheDRE'
 
 interface ContaV { conta: string; descricao: string; linha: string; valor: number; pct_faturamento: number | null }
 interface DeptoV { codigo: string; nome: string; total: number; pct_faturamento: number | null; contas: ContaV[] }
@@ -19,6 +20,7 @@ export default function DREDepartamentos() {
   const [mes, setMes] = useState(hoje.getMonth() + 1)
   const [visao, setVisao] = useState<'mensal' | 'acumulada'>('mensal')
   const [filial, setFilial] = useState('')
+  const [conta, setConta] = useState<string | null>(null)
   const q = `ano=${ano}&mes=${mes}&visao=${visao}&filial=${encodeURIComponent(filial)}`
   const dados = useQuery({ queryKey: ['dre-departamentos', q], queryFn: () => api<Resp>(`/api/aud/dre/departamentos?${q}`) })
   const filiais = useQuery({ queryKey: ['dre-filiais'], queryFn: () => api<string[]>('/api/aud/dre/filiais') })
@@ -35,7 +37,7 @@ export default function DREDepartamentos() {
         <td className="p-2.5 text-right tabular-nums text-muted-foreground">{pct(x.pct_faturamento)}</td>
       </tr>
       {x.contas.map(c => (
-        <tr key={`${chave}|${c.conta}`} className="border-b last:border-0">
+        <tr key={`${chave}|${c.conta}`} className="border-b last:border-0 cursor-pointer hover:bg-sky-50/50" onClick={() => setConta(c.conta)}>
           <td className="p-2 pl-12 text-xs">{c.conta}{c.descricao ? ` · ${c.descricao}` : ''}</td>
           <td className="p-2 text-right tabular-nums text-xs">{brl(c.valor)}</td>
           <td className="p-2 text-right tabular-nums text-xs text-muted-foreground">{pct(c.pct_faturamento)}</td>
@@ -111,7 +113,7 @@ export default function DREDepartamentos() {
                   <td className="p-2.5 text-right tabular-nums text-muted-foreground">{pct(d.sem_departamento.pct_faturamento)}</td>
                 </tr>
                 {d.sem_departamento.contas.map(c => (
-                  <tr key={`sem|${c.conta}`} className="border-b last:border-0">
+                  <tr key={`sem|${c.conta}`} className="border-b last:border-0 cursor-pointer hover:bg-sky-50/50" onClick={() => setConta(c.conta)}>
                     <td className="p-2 pl-12 text-xs">{c.conta}{c.descricao ? ` · ${c.descricao}` : ''}</td>
                     <td className="p-2 text-right tabular-nums text-xs">{brl(c.valor)}</td>
                     <td className="p-2 text-right tabular-nums text-xs text-muted-foreground">{pct(c.pct_faturamento)}</td>
@@ -124,8 +126,9 @@ export default function DREDepartamentos() {
         </table>
       </div>
       <p className="text-xs text-muted-foreground">
-        Valores com o sinal do Mapa do DRE. Mês fechado vem do fechamento (departamento gravado ao fechar); mês aberto usa o dicionário atual.
+        Clique numa conta para ver os lançamentos. Valores com o sinal do Mapa do DRE. Mês fechado vem do fechamento (departamento gravado ao fechar); mês aberto usa o dicionário atual.
       </p>
+      <DetalheContaDialog q={q} conta={conta} onClose={() => setConta(null)} />
     </div>
   )
 }
