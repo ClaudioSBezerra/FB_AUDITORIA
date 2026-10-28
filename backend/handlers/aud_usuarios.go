@@ -174,24 +174,10 @@ func salvarUsuario(w http.ResponseWriter, r *http.Request, db *sql.DB, c *AudCon
 		http.Error(w, "usuário não encontrado nesta empresa", http.StatusNotFound)
 		return
 	}
-	// Ids dos departamentos pedidos, sem repetição.
-	var pedidos []string
-	if req.Departamentos != nil {
-		vistos := map[string]bool{}
-		for _, id := range *req.Departamentos {
-			if !reUUIDHandler.MatchString(id) {
-				http.Error(w, "departamento inválido: "+id, http.StatusBadRequest)
-				return
-			}
-			if !vistos[id] {
-				vistos[id] = true
-				pedidos = append(pedidos, id)
-			}
-		}
-		if len(pedidos) > 0 && req.Perfil != "gestor" {
-			http.Error(w, "departamentos só podem ser ligados ao perfil Gerente (gestor)", http.StatusBadRequest)
-			return
-		}
+	pedidos, msg := departamentosPedidos(req.Perfil, req.Departamentos)
+	if msg != "" {
+		http.Error(w, msg, http.StatusBadRequest)
+		return
 	}
 
 	tx, err := db.Begin()
@@ -237,17 +223,12 @@ func salvarUsuario(w http.ResponseWriter, r *http.Request, db *sql.DB, c *AudCon
 			return
 		}
 	case req.Departamentos != nil:
-		if len(pedidos) > 0 {
-			var n int
-			if err := tx.QueryRow(`SELECT COUNT(*) FROM auditoria.departamentos WHERE empresa_id = $1::uuid AND id::text = ANY($2)`,
-				c.EmpresaID, pq.Array(lower(pedidos))).Scan(&n); err != nil {
-				http.Error(w, "Erro ao salvar", http.StatusInternalServerError)
-				return
-			}
-			if n != len(pedidos) {
-				http.Error(w, "departamento não encontrado nesta empresa", http.StatusBadRequest)
-				return
-			}
+		if ok, err := departamentosSaoDaEmpresa(tx, c.EmpresaID, pedidos); err != nil {
+			http.Error(w, "Erro ao salvar", http.StatusInternalServerError)
+			return
+		} else if !ok {
+			http.Error(w, "departamento não encontrado nesta empresa", http.StatusBadRequest)
+			return
 		}
 		if _, err := tx.Exec(`DELETE FROM auditoria.usuario_departamentos WHERE user_id = $1::uuid AND empresa_id = $2::uuid`,
 			req.UserID, c.EmpresaID); err != nil {
@@ -281,6 +262,42 @@ func salvarUsuario(w http.ResponseWriter, r *http.Request, db *sql.DB, c *AudCon
 		return
 	}
 	writeJSON(w, map[string]any{"user_id": req.UserID, "perfil": req.Perfil, "areas": req.Areas, "departamentos": deptosDepois})
+}
+
+// departamentosPedidos valida a lista de ids de departamento do pedido (sem repetição).
+// msg não vazia = erro 400. Só o perfil gestor tem departamentos. Regra única da 4.5,
+// usada também na criação de usuário (4.9).
+func departamentosPedidos(perfil string, ids *[]string) (pedidos []string, msg string) {
+	if ids == nil {
+		return nil, ""
+	}
+	vistos := map[string]bool{}
+	for _, id := range *ids {
+		if !reUUIDHandler.MatchString(id) {
+			return nil, "departamento inválido: " + id
+		}
+		if !vistos[id] {
+			vistos[id] = true
+			pedidos = append(pedidos, id)
+		}
+	}
+	if len(pedidos) > 0 && perfil != "gestor" {
+		return nil, "departamentos só podem ser ligados ao perfil Gerente (gestor)"
+	}
+	return pedidos, ""
+}
+
+// departamentosSaoDaEmpresa confere que todos os ids existem na empresa.
+func departamentosSaoDaEmpresa(tx *sql.Tx, empresaID string, pedidos []string) (bool, error) {
+	if len(pedidos) == 0 {
+		return true, nil
+	}
+	var n int
+	if err := tx.QueryRow(`SELECT COUNT(*) FROM auditoria.departamentos WHERE empresa_id = $1::uuid AND id::text = ANY($2)`,
+		empresaID, pq.Array(lower(pedidos))).Scan(&n); err != nil {
+		return false, err
+	}
+	return n == len(pedidos), nil
 }
 
 func lower(ids []string) []string {

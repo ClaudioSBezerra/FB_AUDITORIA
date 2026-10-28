@@ -984,3 +984,50 @@ func getTimeBrasil() string {
 	loc := time.FixedZone("BRT", -3*3600)
 	return time.Now().In(loc).Format("02/01/2006 as 15:04")
 }
+
+// SMTPConfigurado diz se há credenciais de SMTP para enviar e-mail.
+func SMTPConfigurado() bool {
+	c := GetEmailConfig()
+	return c.Username != "" && c.Password != ""
+}
+
+// LinkDefinirSenha monta o link de definição de senha com APP_URL; vazio se APP_URL não está definido.
+func LinkDefinirSenha(token string) string {
+	base := strings.TrimRight(strings.TrimSpace(os.Getenv("APP_URL")), "/")
+	if base == "" {
+		return ""
+	}
+	return base + CaminhoDefinirSenha(token)
+}
+
+// CaminhoDefinirSenha é a parte do link que não depende do domínio.
+func CaminhoDefinirSenha(token string) string { return "/reset-senha?token=" + token }
+
+// SendInviteEmail envia ao usuário recém-criado o link para definir a própria senha (história 4.9).
+func SendInviteEmail(email, nome, link string, validadeHoras int) error {
+	config := GetEmailConfig()
+	if config.Username == "" || config.Password == "" {
+		return fmt.Errorf("SMTP não configurado (SMTP_USER/SMTP_PASSWORD ausentes)")
+	}
+	corpo := fmt.Sprintf(`<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family: Arial, sans-serif; color: #333;">
+<p>Olá, %s.</p>
+<p>Foi criado um acesso para você. Defina a sua senha pelo link abaixo:</p>
+<p><a href="%s">Definir minha senha</a></p>
+<p>Ou copie e cole no navegador:<br>%s</p>
+<p style="font-size: 12px; color: #999;">O link vale por %d horas e só pode ser usado uma vez.</p>
+</body></html>`, html.EscapeString(nome), html.EscapeString(link), html.EscapeString(link), validadeHoras)
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: =?UTF-8?B?%s?=\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
+		config.From, email, base64.StdEncoding.EncodeToString([]byte("Seu acesso - defina a sua senha")), corpo)
+	var err error
+	if config.Port == 465 {
+		err = sendMailSSL(config, []string{email}, []byte(msg))
+	} else {
+		addr := fmt.Sprintf("%s:%d", config.Host, config.Port)
+		err = smtp.SendMail(addr, smtp.PlainAuth("", config.Username, config.Password, config.Host), config.Username, []string{email}, []byte(msg))
+	}
+	if err != nil {
+		log.Printf("[Email Service] Falha ao enviar o convite: %v", err)
+		return fmt.Errorf("falha ao enviar e-mail: %w", err)
+	}
+	return nil
+}

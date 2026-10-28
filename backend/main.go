@@ -356,6 +356,7 @@ func main() {
 	// ── Admin de plataforma — usuários ───────────────────────────────────────
 	http.HandleFunc("/api/admin/users", withAuth(handlers.ListUsersHandler, "admin"))
 	http.HandleFunc("/api/admin/users/create", withAuth(handlers.CreateUserHandler, "admin"))
+	http.HandleFunc("/api/admin/users/empresa", withAuth(handlers.AdminUsuarioEmpresaHandler, "admin"))
 	http.HandleFunc("/api/admin/users/promote", withAuth(handlers.PromoteUserHandler, "admin"))
 	http.HandleFunc("/api/admin/users/delete", withAuth(handlers.DeleteUserHandler, "admin"))
 	http.HandleFunc("/api/admin/users/reassign", withAuth(handlers.ReassignUserHandler, "admin"))

@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 import { Check, Trash2, UserCheck, Building2, ArrowRightLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import NovoUsuarioEmpresa from "./NovoUsuarioEmpresa";
 
 interface User {
   id: string;
@@ -48,7 +49,7 @@ interface HierarchyItem {
   name: string;
 }
 
-function HierarchyCascadeSelects({
+export function HierarchyCascadeSelects({
   token,
   envId,
   groupId,
@@ -142,6 +143,7 @@ export default function AdminUsers() {
   const queryClient = useQueryClient();
   const [promoteDialogOpen, setPromoteDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [empresaDialogOpen, setEmpresaDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // State for Promote/Edit
@@ -332,9 +334,14 @@ export default function AdminUsers() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold tracking-tight">Gestão de Usuários</h2>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Check className="mr-2 h-4 w-4" /> Novo Usuário
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setEmpresaDialogOpen(true)}>
+            <Check className="mr-2 h-4 w-4" /> Novo usuário da empresa
+          </Button>
+          <Button variant="outline" onClick={() => setCreateDialogOpen(true)} title="Cria com senha informada pelo administrador (administradores e novos ambientes)">
+            Novo usuário com senha
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-md border overflow-x-auto">
@@ -405,6 +412,8 @@ export default function AdminUsers() {
           </TableBody>
         </Table>
       </div>
+
+      <NovoUsuarioEmpresa open={empresaDialogOpen} onClose={() => setEmpresaDialogOpen(false)} />
 
       {/* Create User Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>

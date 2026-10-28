@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-28",
-  "versao": "b904978",
+  "versao": "d67fcc2",
   "historias": [
     {
       "id": "1.1",
@@ -803,7 +803,7 @@
         "nome": "Acesso seguro por perfil e departamento"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como administrador de plataforma, quero criar o usuário da empresa com perfil e departamentos, para que o gerente entre sem cadastro público.",
       "criterios": [

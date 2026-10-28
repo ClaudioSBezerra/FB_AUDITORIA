@@ -112,3 +112,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-8-meu-departamento.md`
   summary: A rota `/api/aud/dre/departamentos` ainda atende o Gerente (restrita, sem percentuais) embora o menu e a tela dele sejam só "Meu departamento"; fechar a rota ao Gerente quando nada mais depender dela.
   evidence: `backend/main.go`; `frontend/src/App.tsx` (rota sem `gestor`).
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-9-criar-usuario-da-empresa.md`
+  summary: O auto-provisionamento do `LoginHandler` (ambiente "Ambiente de Testes") segue ligado: o usuário criado pela 4.9 sempre tem ambiente e empresa e não o alcança, mas quem entra sem vínculo ainda cai nele. Desligar quando se confirmar que o administrador de plataforma não depende dele.
+  evidence: `backend/handlers/auth.go`, `LoginHandler`; `backend/public_routes_test.go`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-9-criar-usuario-da-empresa.md`
+  summary: Não há reenvio do convite nem aposentadoria do `CreateUserHandler` (senha informada pelo administrador, também usado para criar administradores e ambientes); o token de primeiro acesso fica em claro em `verification_tokens`, como o de recuperação de senha.
+  evidence: `backend/handlers/admin_usuario_empresa.go`; `backend/handlers/admin.go`.
