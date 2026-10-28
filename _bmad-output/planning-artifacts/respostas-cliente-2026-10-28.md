@@ -49,3 +49,29 @@ O arquivo de exemplo (um grupo de despesas, quinzena de janeiro) não vai para o
 - Isso provavelmente resolve a lacuna das filiais sem orçado (elas entram no consolidado da filial gerencial); confirmar com o cliente.
 - O snapshot por filial da 1.8 e a matriz do rateio (Épico 7) passam a usar a filial gerencial como chave.
 - Competência pelo **pagamento**: a coluna de data da ingestão é a data de pagamento; a pergunta de competência fica encerrada.
+
+## Respostas do dono dos dados (Keslley) às perguntas do PRD, 28/10/2026
+
+Só estrutura e regras; nomes de views, host e credenciais ficam fora do repositório.
+
+**Realizado por conta gerencial**
+- Existe view (ou tabela) com o realizado por conta gerencial, por filial e mês. A forma de apresentar está sendo alinhada com o Marcos. Ainda não temos o nome nem as colunas.
+- CMV e "Outros Faturamentos": as colunas correspondentes às rotinas 8103 e 124 foram adicionadas ao consolidado. "Outros Faturamentos" **não deve aparecer** no DRE (Marcos). Como o CMV entra continua em aberto com o Marcos.
+- O orçamento inclui venda bruta e devoluções; o CMV orçado depende do Marcos.
+- A folha é controlada em outro sistema (RM); o ERP guarda só o consolidado das contas salariais por departamento e conta (combina com a regra da folha só consolidada).
+
+**Dicionário e filiais**
+- O cadastro de contas tem descrição, grupo e tipo, mas **não existe vínculo entre conta e departamento, nem entre conta e filial**. O departamento vem do grupo da conta. O vínculo conta-departamento que o PRD supunha precisa ser decidido (provavelmente pelo grupo da conta, a validar).
+- Foram criadas duas views novas: uma de contas, grupos e tipo de conta, e outra com as filiais cadastradas. O SELECT para o usuário de integração é concedido sempre que o dono dos dados cria uma view do projeto. O IP do servidor de produção já está liberado; a máquina de desenvolvimento não.
+- A UF do consolidado é a **UF de destino da venda**, não a da filial. Ela é uma dimensão à parte; a chave do DRE por filial continua sendo a filial gerencial.
+- As filiais 13, 18 e 29 não têm orçado só porque não estavam na planilha usada para subir o orçado; a fonte do orçamento é a mesma. O orçado delas será carregado: resolve a lacuna.
+
+**Sinais e atualização**
+- Sinal das colunas: o entendimento do dono dos dados é "negativo" para devoluções e custos, mas precisa da confirmação do Marcos antes de fixar em `dre_mapa.sinal`.
+- Hoje as views atualizam no início de cada mês, consolidando o mês anterior. Isso **conflita** com o disparo semanal de sexta (acumulado do mês) pedido pelo cliente: é preciso alinhar a frequência e o formato da atualização com o dono dos dados. Pergunta aberta: lançamentos retroativos em mês fechado.
+
+**Ainda em aberto com o Marcos:** significado de AC e GRUPO nas bases; CMV e sinais; se a view por lançamento (nota, título) pode ser exposta, já que o dono dos dados não sabe se é dado sensível para esta finalidade.
+
+### Impacto no planejamento
+- A ingestão do Oracle (Épico 2) ainda não pode ser construída por completo: faltam o nome e as colunas da view de realizado por conta e a definição de CMV e sinais. Dá para construir o adaptador do que já existe (consolidado e orçado) e as duas views novas (contas e filiais), e provar a conexão a partir do servidor de produção, não daqui.
+- O vínculo conta-departamento precisa de decisão (a regra por grupo da conta é uma hipótese a validar com o Marcos).
