@@ -58,3 +58,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-9-sem-endereco-do-cliente.md`
   summary: O modo `-resumo` do `jc-probe` mantém nomes de views e do schema do cliente como literais nas consultas; revisar na limpeza de privacidade do Git, junto do `review-rubric.md` e do histórico.
   evidence: `backend/cmd/jc-probe/main.go`; fora do alcance da 1.9 por decisão da spec.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-14-mapa-de-filiais.md`
+  summary: `dre.FilialGerencialDe` não tem chamador e faz uma consulta por filial; a história que trocar a chave do snapshot e do realizado para a filial gerencial deve criar uma leitura em lote (`map[filialERP]codigo`).
+  evidence: `backend/dre/filiais.go`; nenhum caminho do DRE usa o mapa ainda.

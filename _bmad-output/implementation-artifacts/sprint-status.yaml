@@ -47,7 +47,7 @@ development_status:
   1-9-nenhum-endereço-do-banco-do-cliente-no-repositório-nfr7: review
   epic-1-retrospective: optional
 
-  epic-2: backlog
+  epic-2: in-progress
   2-1-uma-conta-uma-fonte-ad-16: backlog
   2-2-csv-no-formato-da-planilha-atual-fr-3: backlog
   2-3-ler-o-realizado-consolidado-do-oracle-fr-1-ad-2-ad-4: backlog
@@ -61,7 +61,7 @@ development_status:
   2-11-dicionário-inicial-validado-com-o-cliente-tarefa-de-dados: backlog
   2-12-conferir-o-oracle-contra-a-planilha: backlog
   2-13-importação-automática-diária-opcional-ad-15: backlog
-  2-14-mapa-de-filiais-filial-do-erp-para-filial-gerencial: backlog
+  2-14-mapa-de-filiais-filial-do-erp-para-filial-gerencial: review
   epic-2-retrospective: optional
 
   epic-3: backlog

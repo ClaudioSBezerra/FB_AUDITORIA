@@ -2,7 +2,8 @@
 title: 'Story 2.14: Mapa de filiais (filial do ERP para filial gerencial)'
 type: 'feature'
 created: '2026-10-28'
-status: 'draft'
+status: 'done'
+baseline_commit: 'f22b5614949c2505a2a2f47cf371aa715ef74589'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -74,3 +75,20 @@ context:
 ## Implementation Notes
 
 Tamanho acima de 1600 tokens: cruza banco, backend e frontend; sem divisão proposta. A migration é irreversível em produção. A chave do snapshot (1.8) segue sendo a filial do ERP até uma história própria usar `FilialGerencialDe`.
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| `Excluir` não olha `dre_fechamentos.filial` (a spec lista essa tabela) | medium | patch | acrescentado; quatro casos de teste (cabeçalho, linhas, contas, tudo) com `Onde == "fechamentos"` |
+| Trilha de `editar` sem o estado anterior; `excluir` sem `nome` | medium | patch | `antes` na trilha; `nome` e `filiais` em `excluir` |
+| `PUT` sem `filiais` apaga todas as ligações | medium | patch | `*[]string`; 400 se faltar |
+| Sem limites de entrada; `id` inválido cai em erro de cast | low | patch | limites e 404 cedo |
+| Código de grupo igual a filial do ERP de outro grupo | low | patch | `ErrCodigoIgualFilial` (409) |
+| Ligação sem garantia de mesma empresa; comparação `id::text` | low | patch | FK composta, índice e `$n::uuid` |
+| Tela sem carregamento, erro, rótulos nem proteção contra clique duplo | low | patch | corrigido |
+| Testes de renomear para código existente, `PUT`/`DELETE` sem id, 405 e trilha na recusa | low | patch | testes novos |
+| Edição de grupo em uso muda como o histórico agrupa | low | rejeitado | o snapshot guarda a filial do ERP; o mês fechado não muda |
+| Resolvedor sem forma em lote (N+1) e sem uso no DRE | low | defer | a história que trocar a chave do snapshot cria `MapaFiliais` |
+| Corrida na exclusão e no conflito (409 sem o código do dono) | low | defer | caminho raro; coberto pela chave primária |
+| `GET` aberto a qualquer perfil da área; `DisallowUnknownFields`; `limpar_dados_teste` copiada a mão | low | rejeitado | segue a spec; sem dano demonstrado |
