@@ -155,12 +155,90 @@ So that o realizado, o orçado e o rateio sejam lidos por filial gerencial.
 **When** o mapa é alterado depois
 **Then** o fechamento não muda (o snapshot da 1.8 guarda a filial gerencial do momento)
 
+### Story 2.15: Agrupamentos de filiais gerenciais (Balcões, Distribuição)
+
+As a analista,
+I want agrupar filiais gerenciais em visões nomeadas (por exemplo, Balcões e Distribuição),
+So that o DRE possa mostrar a soma do agrupamento, como a planilha atual.
+
+**Nota:** resposta do cliente (28/10/2026): na planilha, `Grupo` é a soma de todas as filiais e há visões nomeadas que somam algumas filiais gerenciais (Balcões, Distribuição). `AC` pede o acumulado do ano (`AC` com filial, com agrupamento ou com o grupo todo). A composição real entra pela tela, nunca no repositório.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `auditoria.agrupamentos_filiais (id, empresa_id, codigo, nome)` e `auditoria.agrupamentos_filiais_membros (empresa_id, agrupamento_id, filial_gerencial_id)`, com membros da mesma empresa
+**And** uma filial gerencial pode estar em mais de um agrupamento
+
+**Given** o analista ou o Controller
+**When** cria, edita ou exclui um agrupamento
+**Then** grava e registra na trilha, e os demais perfis recebem `403` na escrita
+
+**Given** um agrupamento
+**When** o resolvedor recebe seu código
+**Then** devolve as filiais gerenciais (e, por elas, as filiais do ERP)
+
+**Given** a visão "Grupo" (todas as filiais)
+**When** o DRE a pede
+**Then** é a soma de todas as filiais gerenciais, sem precisar de cadastro
+
+### Story 2.16: Botão "Atualizar dados" para a gestão
+
+As a Controller,
+I want buscar de novo os dados do ERP depois de uma correção,
+So that o DRE reflita lançamentos corrigidos sem esperar a próxima carga.
+
+**Nota:** resposta do cliente (28/10/2026): a carga é semanal; não existe lançamento com data retroativa, mas pode haver correção de lançamento no primeiro dia útil do mês e estorno de pagamento do mês anterior (que entra no mês atual). Só a gestão da área pede a atualização. Corrigir um mês já fechado exige reabrir (1.7), atualizar e fechar de novo.
+
+**Acceptance Criteria:**
+
+**Given** o Controller (ou admin de plataforma)
+**When** aciona "Atualizar dados"
+**Then** dispara as importações de realizado e de orçado e mostra o resultado e a hora
+
+**Given** um mês com fechamento ativo
+**When** a atualização o atinge
+**Then** é recusada pela guarda de período (1.6), com a orientação de reabrir antes
+
+**Given** qualquer outro perfil
+**When** tenta atualizar
+**Then** `403`
+
+**Given** uma atualização
+**When** termina
+**Then** a trilha registra quem pediu, o escopo e o resultado
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
 **FRs covered:** FR-5, FR-6, FR-7, FR-8
 **Notas:** Mapa e estrutura iniciais derivados da planilha; paridade completa com o DRE da planilha; o perfil `gestor` não vê dado de departamento até o épico 4; o fim deste épico é a primeira demonstração ao cliente.
 
-### Epic 4: Acesso seguro por perfil e departamento
+#### Story 3.9: Detalhe até o lançamento em mês fechado
+
+As a Gerente,
+I want descer do grupo à conta e da conta ao lançamento, também em mês fechado,
+So that eu veja data, fornecedor, nota, valor e filial de cada lançamento.
+
+**Nota:** resposta do cliente (28/10/2026): o DRE mostra por grupo; clicar no grupo abre as contas; clicar na conta abre os lançamentos (data, fornecedor, nota, valor, filial). O histórico com nome de pessoa pode aparecer na tela e no e-mail. A 1.8 deixou o detalhe de mês fechado só até a conta; como a guarda de período (1.6) impede escrita em mês fechado, ler os lançamentos ao vivo é consistente com o snapshot.
+
+**Acceptance Criteria:**
+
+**Given** a migration
+**Then** `lancamentos` ganha data de pagamento e fornecedor (e documento, se ainda não houver), preenchidos pelo Ingestor a partir da fonte
+
+**Given** um mês fechado
+**When** o gerente abre a conta
+**Then** lista os lançamentos da conta, da filial e da competência (data, fornecedor, nota, valor, filial)
+**And** a soma bate com o valor congelado da conta; se não bater, a tela avisa
+
+**Given** um mês reaberto e atualizado
+**When** o gerente abre a conta
+**Then** vê os lançamentos novos
+
+**Given** um gerente
+**When** abre contas fora do seu departamento
+**Then** `403` (escopo da 4.7)
+
+## Epic 4: Acesso seguro por perfil e departamento
 Cada pessoa vê e faz só o que cabe ao seu papel, o Gerente enxerga apenas o seu departamento, e o cadastro público deixa de existir.
 **FRs covered:** FR-18, FR-19, FR-22
 **Notas:** a história do FR-19 sai antes de todas as outras (o site já é público); `perfis.go` e middleware por capacidade (AD-11); escopo que nega por padrão (AD-10); migração dos ids de área (AD-12).
@@ -722,7 +800,7 @@ So that contas e gerentes tenham a quem se ligar.
 
 ### Story 2.10: Dicionário de contas por arquivo (FR-20, AD-2)
 
-> **Regra provisória (decisão do dono do produto, 28/10/2026):** o departamento de uma conta é o do **grupo da conta** (por exemplo, o grupo 402 é Centro de Distribuição), até o cliente confirmar. O dicionário guarda o grupo; o vínculo conta-departamento (2.9) deriva dele e pode ser corrigido conta a conta.
+> **Regra confirmada pelo cliente (28/10/2026):** o departamento de uma conta é o do **grupo da conta** (por exemplo, o grupo 402 é Centro de Distribuição). O dicionário guarda o grupo; o vínculo conta-departamento (2.9) deriva dele e pode ser corrigido conta a conta.
 
 As a analista,
 I want carregar o dicionário (conta, descrição, grupo, departamento) por arquivo,
@@ -1298,6 +1376,8 @@ Os ajustes vêm do ERP, os gerentes justificam (com log), e cada gerente recebe 
 
 ### Story 5.1: Limite de desvio e Lista de aviso (FR-13)
 
+> **REVISÃO 28/10/2026 (resposta do cliente):** não há limite de desvio: todo desvio tem a linha de justificativa, **não obrigatória**. A parte de limite fica sem efeito (nenhum desvio fica "pendente" por regra); a Lista de aviso continua configurável.
+
 As a Controller,
 I want definir o limite de desvio e a Lista de aviso,
 So that o sistema saiba o que exige justificativa e quem avisar.
@@ -1328,6 +1408,8 @@ So that o sistema saiba o que exige justificativa e quem avisar.
 **And** mudar o limite depois não altera a classificação de um mês fechado
 
 ### Story 5.2: Ver os desvios que exigem justificativa (FR-12)
+
+> **REVISÃO 28/10/2026 (resposta do cliente):** a lista mostra **todos** os desvios (não só os acima de um limite), e a justificativa é opcional.
 
 As a Gerente,
 I want ver as contas do meu departamento cujo desvio passou do limite,
@@ -1427,6 +1509,8 @@ So that o gerente veja o que foi ajustado sem que o sistema aceite ajuste manual
 
 ### Story 5.5: Justificar os ajustes e registrar o log (FR-4, FR-12)
 
+> **REVISÃO 28/10/2026 (resposta do cliente):** **descartada.** O gerente justifica só o desvio (5.3), nunca o ajuste. Ajuste e alteração de conta são feitos só pela controladoria; se houver lançamento em conta incorreta, o gerente pede à controladoria que realoque. Não implementar.
+
 As a Gerente,
 I want ver os ajustes das contas do meu departamento e justificá-los,
 So that nenhum ajuste fique sem explicação e fique registrado quem explicou.
@@ -1488,6 +1572,8 @@ So that nenhum e-mail se perca nem saia duplicado.
 **Then** vão à trilha
 
 ### Story 5.7: Aviso dos ajustes pendentes por e-mail (FR-4)
+
+> **REVISÃO 28/10/2026 (resposta do cliente):** **descartada**, pelo mesmo motivo da 5.5: o gerente não justifica ajuste, então não há aviso de ajuste a ele. Não implementar.
 
 As a Controller,
 I want que os gerentes sejam avisados quando chegam ajustes a justificar,
@@ -1747,6 +1833,8 @@ O DRE por filial mostra o custo real, com as despesas dos departamentos centrali
 **Nota:** este épico só começa depois de o cliente responder quais departamentos são centralizados e se o critério é fixo ou mensal (perguntas 4 e 5 do PRD). Cada regra vale a partir de uma competência até surgir a seguinte, o que cobre os dois casos.
 
 ### Story 7.1: Regras de rateio (FR-15)
+
+> **REVISÃO 28/10/2026 (resposta do cliente):** o rateio é gravado **mês a mês**, tanto na visão por faturamento quanto por percentual manual; mudar o percentual de um mês não altera os outros meses.
 
 As a analista,
 I want definir para cada departamento centralizado o critério de rateio,

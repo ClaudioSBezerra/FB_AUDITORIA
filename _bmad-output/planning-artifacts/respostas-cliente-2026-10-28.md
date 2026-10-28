@@ -75,3 +75,24 @@ Só estrutura e regras; nomes de views, host e credenciais ficam fora do reposit
 ### Impacto no planejamento
 - A ingestão do Oracle (Épico 2) ainda não pode ser construída por completo: faltam o nome e as colunas da view de realizado por conta e a definição de CMV e sinais. Dá para construir o adaptador do que já existe (consolidado e orçado) e as duas views novas (contas e filiais), e provar a conexão a partir do servidor de produção, não daqui.
 - O vínculo conta-departamento precisa de decisão (a regra por grupo da conta é uma hipótese a validar com o Marcos).
+
+## Respostas do Marcos às perguntas de negócio (28/10/2026)
+
+Só estrutura e regras; composição de filiais e dados reais ficam no sistema.
+
+- **CMV:** usa o da rotina 124. O CMV orçado fica gravado na conta correspondente do orçamento.
+- **Sinais:** na 124 todos os valores vêm **positivos**; o sistema recalcula o sinal por conta (só o CMV é negativo). Vai em `dre_mapa.sinal`.
+- **AC e GRUPO da planilha:** `AC` = acumulado do ano. `Grupo` = soma de todas as filiais. `AC + filial` = acumulado da filial; `filial` = só a filial filtrada; `AC + Grupo` = acumulado do grupo. Existem visões nomeadas que somam algumas filiais gerenciais (Balcões e Distribuição). Nova história **2.15**.
+- **Departamento:** é o do grupo da conta (confirmado; por exemplo, o grupo 402 é Centro de Distribuição).
+- **Apresentação:** o DRE mostra por **grupo**; clicar no grupo abre as contas; clicar na conta abre os **lançamentos** (data, fornecedor, nota, valor, filial). Isso conflita com a 1.8, que parou o detalhe de mês fechado na conta. Nova história **3.9**.
+- **Histórico com nome de pessoa:** pode aparecer na tela e no e-mail (já é visível hoje nos acompanhamentos, autorizado por eles).
+- **Atualização:** semanal. Não existe lançamento com data retroativa; é raro estornar pagamento do mês anterior (entra no mês atual). Pode haver correção no primeiro dia útil do mês, e depois é preciso buscar os dados de novo. Só a gestão pede a atualização. Nova história **2.16** (botão "Atualizar dados"); corrigir mês fechado = reabrir (1.7), atualizar, fechar de novo.
+- **Limite de desvio:** não há limite. Todo desvio tem a linha de justificativa, **não obrigatória**. As histórias 5.1 e 5.2 foram ajustadas.
+- **Ajuste:** só a controladoria faz ajuste e alteração de conta. O gerente justifica **só o desvio**; se houver lançamento em conta incorreta, ele pede à controladoria que realoque. As histórias 5.5 e 5.7 foram **descartadas**.
+- **Rateio:** gravado **mês a mês**, tanto por faturamento quanto por percentual manual (7.1 ajustada).
+- **Quem reabre:** só a gestão (a controladoria, que já é o perfil que reabre na 1.7).
+
+### Perguntas que continuam abertas
+- Nome e colunas da view de realizado por conta (Keslley); as colunas data de pagamento, fornecedor e documento precisam estar nela (3.9).
+- Formato exato da planilha para a história 2.2 (cabeçalho e se é CSV ou .xlsx).
+- Frequência e formato da atualização das views, alinhados entre o Keslley e o Marcos (semanal).
