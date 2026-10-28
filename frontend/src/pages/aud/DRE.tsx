@@ -18,6 +18,10 @@ interface DreResp {
   nao_mapeado: { conta: string; valor: number }[]
   pct_status: 'ok' | 'sem_papel' | 'zero'; aviso_faturamento: string
 }
+interface Atualizacao {
+  hora: string; status: 'ok' | 'sem_fonte' | 'recusada' | 'erro' | 'parcial'; mensagem: string
+  fontes: { fonte: string; status: string; linhas: number; mensagem?: string }[]
+}
 interface Lanc {
   id: number; competencia: string; filial: string; centro_custo: string; canal: string
   conta: string; conta_desc: string; valor: number; linha: string
@@ -39,6 +43,8 @@ export default function DRE() {
   const [visao, setVisao] = useState<'mensal' | 'acumulada'>('mensal')
   const [filial, setFilial] = useState('')
   const [drill, setDrill] = useState<Linha | null>(null)
+  const [atualizando, setAtualizando] = useState(false)
+  const [atual, setAtual] = useState<Atualizacao | null>(null)
   const podeFechar = isAdmin || perfil === 'controladoria'
 
   const q = `ano=${ano}&mes=${mes}&visao=${visao}&filial=${encodeURIComponent(filial)}`
@@ -80,6 +86,24 @@ export default function DRE() {
     } catch (e: any) { toast.error(e.message) }
   }
 
+  async function atualizarDados() {
+    if (atualizando) return
+    setAtualizando(true)
+    try {
+      const r = await fetch('/api/aud/dados/atualizar', { method: 'POST' })
+      const txt = await r.text()
+      let res: Atualizacao | null = null
+      try { res = JSON.parse(txt) as Atualizacao } catch { /* resposta de texto (403, 500) */ }
+      if (!res || !res.status) throw new Error(txt.trim() || `HTTP ${r.status}`)
+      setAtual(res)
+      if (res.status === 'ok') {
+        toast.success(res.mensagem)
+        qc.invalidateQueries({ queryKey: ['dre'] })
+      } else if (res.status === 'sem_fonte') toast.warning(res.mensagem)
+      else toast.error(res.mensagem)
+    } catch (e: any) { toast.error(e.message) } finally { setAtualizando(false) }
+  }
+
   const d = dre.data
   return (
     <div className="space-y-4">
@@ -114,10 +138,21 @@ export default function DRE() {
               <Lock className="h-3 w-3" /> Fechado — versão {d.versao}
             </span>
           )}
+          {podeFechar && <Button size="sm" variant="outline" disabled={atualizando} onClick={atualizarDados}>
+            {atualizando ? 'Atualizando…' : 'Atualizar dados'}</Button>}
           {podeFechar && visao === 'mensal' && !d?.fechamento_ativo && <Button size="sm" variant="outline" onClick={fechar}>Fechar período (grupo inteiro)</Button>}
           {podeFechar && visao === 'mensal' && d?.fechamento_ativo && <Button size="sm" variant="outline" onClick={reabrir}>Reabrir período</Button>}
         </div>
       </div>
+
+      {atual && (
+        <div className={`rounded-md border p-3 text-sm ${atual.status === 'ok' ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
+          <b>Atualizar dados — {new Date(atual.hora).toLocaleString('pt-BR')}:</b> {atual.mensagem}
+          {atual.fontes.map(f => (
+            <div key={f.fonte} className="text-xs mt-1">{f.fonte}: {f.status === 'ok' ? `${f.linhas} linha(s)` : f.mensagem || f.status}</div>
+          ))}
+        </div>
+      )}
 
       {d && d.nao_mapeado.length > 0 && (
         <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">

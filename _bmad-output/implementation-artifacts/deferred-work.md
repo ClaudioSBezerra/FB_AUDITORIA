@@ -70,3 +70,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-15-agrupamentos-de-filiais.md`
   summary: A tela do DRE ainda não tem seletor de agrupamento nem de Grupo; os endpoints aceitam os parâmetros. O detalhe por lançamento (`/api/aud/dre/lancamentos`) segue só com `?filial=`.
   evidence: `frontend/src/pages/aud/`; `backend/handlers/dre.go`, `DRELancamentosHandler`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-16-atualizar-dados.md`
+  summary: A fonte Oracle real (realizado e orçado) entra quando a história 2.1 sair: basta registrar `dre.ViaIngestor(ing, fonteOracle)` em `dre.RegistroPadrao` (realizado) e uma `Atualizavel` do orçado com guarda de período; hoje o registro está vazio e o botão responde "nenhuma fonte configurada".
+  evidence: `backend/dre/atualizar.go`, `RegistroPadrao`; depende da resposta do cliente sobre o acesso ao Oracle.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-16-atualizar-dados.md`
+  summary: Sem trava contra dois pedidos simultâneos de atualização nem timeout por fonte; definir ao entrar a fonte real (por exemplo, advisory lock por empresa e `context.WithTimeout`).
+  evidence: `dre.Atualizador.Atualizar` roda as fontes na requisição.

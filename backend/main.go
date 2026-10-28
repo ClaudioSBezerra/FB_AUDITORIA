@@ -444,6 +444,7 @@ func main() {
 	// Escrita do DRE: só controladoria (auditoria lê; não mexe no mapa).
 	http.HandleFunc("/api/aud/dre/mapa", withAud(handlers.DREMapaHandler, est))
 	http.HandleFunc("/api/aud/dre/orcado", withAud(handlers.DREOrcadoHandler, est, "controladoria"))
+	http.HandleFunc("/api/aud/dados/atualizar", withAud(handlers.DadosAtualizarHandler, est, "controladoria"))
 	http.HandleFunc("/api/aud/dre/lancamentos/importar", withAud(handlers.DREImportarHandler, est, "controladoria"))
 
 	// ── Frontend estático (SPA React) ─────────────────────────────────────────
