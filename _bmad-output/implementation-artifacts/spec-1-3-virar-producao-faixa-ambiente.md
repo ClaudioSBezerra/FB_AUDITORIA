@@ -2,7 +2,7 @@
 title: 'Story 1.3: Virar para Produção e faixa de ambiente (FR-21)'
 type: 'feature'
 created: '2026-10-28'
-status: 'approved'
+status: 'ready-for-dev'
 route: 'dispatch'
 review_loop_iteration: 0
 context:

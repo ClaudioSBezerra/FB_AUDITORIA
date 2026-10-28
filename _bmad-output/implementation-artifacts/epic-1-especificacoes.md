@@ -14,7 +14,7 @@ Todas as specs estão em `draft`, rota `dispatch`, sem nenhuma linha de código 
 | 1.8 Mês fechado lido do snapshot | `spec-1-8-mes-fechado-do-snapshot.md` | 2050 | 1 |
 | 1.9 Sem endereço do banco do cliente | `spec-1-9-sem-endereco-do-cliente.md` | 2000 | 3 |
 
-Respondidas pelo dono do produto em 28/10/2026 (já no bloco congelado das specs): 2, 5, 6, 7, 8 e 9. As 1, 3 e 4 foram aprovadas como recomendado. Todas as specs estão `approved`. Enquanto houver pergunta aberta, a spec não sai de `draft`. Ao responder, a decisão entra no bloco congelado da spec e a pergunta é apagada.
+Respondidas pelo dono do produto em 28/10/2026 (já no bloco congelado das specs): 2, 5, 6, 7, 8 e 9. As 1, 3 e 4 foram aprovadas como recomendado. Todas as specs estão `ready-for-dev`. Enquanto houver pergunta aberta, a spec não sai de `draft`. Ao responder, a decisão entra no bloco congelado da spec e a pergunta é apagada.
 
 ## Open Questions (numeração única)
 

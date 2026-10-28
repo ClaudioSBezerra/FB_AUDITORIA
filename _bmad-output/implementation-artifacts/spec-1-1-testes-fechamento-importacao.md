@@ -2,7 +2,7 @@
 title: 'Story 1.1: Testes que registram o fechamento e a importação de hoje'
 type: 'chore'
 created: '2026-10-28'
-status: 'approved'
+status: 'ready-for-dev'
 route: 'dispatch'
 review_loop_iteration: 0
 context:

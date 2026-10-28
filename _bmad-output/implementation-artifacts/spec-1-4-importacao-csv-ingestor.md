@@ -2,7 +2,7 @@
 title: 'Story 1.4: Importação CSV passa pelo Ingestor (AD-1, AD-2, AD-3)'
 type: 'refactor'
 created: '2026-10-28'
-status: 'approved'
+status: 'ready-for-dev'
 route: 'dispatch'
 review_loop_iteration: 0
 context:

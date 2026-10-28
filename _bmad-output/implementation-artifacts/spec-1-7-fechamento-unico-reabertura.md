@@ -2,7 +2,7 @@
 title: 'Story 1.7: Um fechamento ativo por mês e reabertura com motivo (FR-9, FR-10, AD-9)'
 type: 'feature'
 created: '2026-10-28'
-status: 'approved'
+status: 'ready-for-dev'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
