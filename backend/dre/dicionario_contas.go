@@ -218,19 +218,68 @@ func carregarVinculos(ctx context.Context, q Consultador, empresaID string) ([]v
 	return out, rows.Err()
 }
 
-// DepartamentoDe devolve o departamento da conta (nil se não houver): a mesma
-// resolução do Mapa, exato vence e senão o prefixo ('%') mais específico.
-func DepartamentoDe(ctx context.Context, q Consultador, empresaID, conta string) (*Departamento, error) {
+// ResolvedorDepartamento resolve o departamento de muitas contas com uma única
+// leitura dos vínculos (a mesma regra do Mapa: exato vence, senão o prefixo mais longo).
+type ResolvedorDepartamento struct{ vs []vinculo }
+
+// CarregarResolvedorDepartamento lê os vínculos da empresa uma vez.
+func CarregarResolvedorDepartamento(ctx context.Context, q Consultador, empresaID string) (*ResolvedorDepartamento, error) {
 	vs, err := carregarVinculos(ctx, q, empresaID)
 	if err != nil {
 		return nil, err
 	}
-	i := MelhorPadrao(len(vs), func(i int) string { return vs[i].padrao }, conta)
+	return &ResolvedorDepartamento{vs: vs}, nil
+}
+
+// De devolve o departamento da conta (nil se não houver).
+func (r *ResolvedorDepartamento) De(conta string) *Departamento {
+	i := MelhorPadrao(len(r.vs), func(i int) string { return r.vs[i].padrao }, conta)
 	if i < 0 {
-		return nil, nil
+		return nil
 	}
-	dep := vs[i].dep
-	return &dep, nil
+	dep := r.vs[i].dep
+	return &dep
+}
+
+// DepartamentoDe devolve o departamento de UMA conta (nil se não houver). Para
+// várias contas use CarregarResolvedorDepartamento: aqui cada chamada consulta.
+func DepartamentoDe(ctx context.Context, q Consultador, empresaID, conta string) (*Departamento, error) {
+	r, err := CarregarResolvedorDepartamento(ctx, q, empresaID)
+	if err != nil {
+		return nil, err
+	}
+	return r.De(conta), nil
+}
+
+// DescritorConta resolve a descrição de contas pelo dicionário (mesma regra de padrão).
+type DescritorConta struct{ contas, descs []string }
+
+// CarregarDescritorConta lê o dicionário da empresa uma vez.
+func CarregarDescritorConta(ctx context.Context, q Consultador, empresaID string) (*DescritorConta, error) {
+	rows, err := q.QueryContext(ctx, `SELECT conta, descricao FROM auditoria.conta_dicionario
+		WHERE empresa_id = $1::uuid`, empresaID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	d := &DescritorConta{}
+	for rows.Next() {
+		var c, desc string
+		if err := rows.Scan(&c, &desc); err != nil {
+			return nil, err
+		}
+		d.contas, d.descs = append(d.contas, c), append(d.descs, desc)
+	}
+	return d, rows.Err()
+}
+
+// De devolve a descrição da conta ('' se não estiver no dicionário).
+func (d *DescritorConta) De(conta string) string {
+	i := MelhorPadrao(len(d.contas), func(i int) string { return d.contas[i] }, conta)
+	if i < 0 {
+		return ""
+	}
+	return d.descs[i]
 }
 
 // ListarContas devolve a página de contas (por conta, filtro opcional por trecho

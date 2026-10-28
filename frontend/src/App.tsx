@@ -18,6 +18,7 @@ const ConfigAmbienteEmpresa = lazy(() => import('./pages/ConfigAmbienteEmpresa')
 const AdminUsers = lazy(() => import('./pages/AdminUsers'))
 const AreaHome = lazy(() => import('./pages/aud/AreaHome'))
 const DRE = lazy(() => import('./pages/aud/DRE'))
+const DREDepartamentos = lazy(() => import('./pages/aud/DREDepartamentos'))
 const DREMapa = lazy(() => import('./pages/aud/DREMapa'))
 const DREFechamentos = lazy(() => import('./pages/aud/DREFechamentos'))
 const AdmCarga = lazy(() => import('./pages/aud/AdmCarga'))
@@ -156,6 +157,7 @@ function AppLayout() {
               {/* Administrativo (área empresa) */}
               <Route path="/empresa" element={<Navigate to="/empresa/dre" replace />} />
               <Route path="/empresa/dre" element={<AreaRoute area="empresa"><DRE /></AreaRoute>} />
+              <Route path="/empresa/dre-departamentos" element={<AreaRoute area="empresa" perfis={['controladoria', 'auditoria', 'diretoria']}><DREDepartamentos /></AreaRoute>} />
               <Route path="/empresa/fechamentos" element={<AreaRoute area="empresa"><DREFechamentos /></AreaRoute>} />
               <Route path="/empresa/mapa" element={<AreaRoute area="empresa" perfis={['controladoria', 'auditoria']}><DREMapa /></AreaRoute>} />
 

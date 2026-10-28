@@ -436,6 +436,7 @@ func main() {
 	http.HandleFunc("/api/aud/dre/filiais", withAud(handlers.DREFiliaisHandler, est))
 	http.HandleFunc("/api/aud/dre/linhas", withAud(handlers.DRELinhasHandler, est))
 	http.HandleFunc("/api/aud/dre/linhas/papel", withAud(handlers.DRELinhaPapelHandler, est, "controladoria"))
+	http.HandleFunc("/api/aud/dre/departamentos", gz(withAud(handlers.DREDepartamentosHandler, est, "controladoria", "auditoria", "diretoria")))
 	http.HandleFunc("/api/aud/dre/lancamentos", gz(withAud(handlers.DRELancamentosHandler, est)))
 	http.HandleFunc("/api/aud/dre/fechamentos", withAud(handlers.DREFechamentoHandler, est))
 	http.HandleFunc("/api/aud/dre/fechamentos/reabrir", withAud(handlers.DREReabrirHandler, est, "controladoria"))

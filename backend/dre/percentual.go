@@ -46,3 +46,20 @@ func PercentuaisSobreFaturamento(linhas []Linha, valores map[string]float64, cod
 	}
 	return out, PctOK
 }
+
+// CodigoBase escolhe a linha-base dos percentuais da estrutura exibida. Se ela
+// é a congelada de um fechamento anterior à 3.4 (sem papel gravado), vale o
+// papel vivo, desde que a linha exista na estrutura exibida.
+func CodigoBase(exibidas, vivas []Linha, congelada bool) string {
+	cod := CodigoComPapel(exibidas, PapelFaturamentoLiquido)
+	if cod != "" || !congelada {
+		return cod
+	}
+	vivo := CodigoComPapel(vivas, PapelFaturamentoLiquido)
+	for _, l := range exibidas {
+		if l.Codigo == vivo {
+			return vivo
+		}
+	}
+	return ""
+}

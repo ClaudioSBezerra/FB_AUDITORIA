@@ -156,16 +156,7 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 		}
 		// Linha-base dos percentuais: o papel da estrutura exibida; fechamento
 		// anterior à 3.4 (sem papel gravado) usa o papel vivo, se a linha existir nele.
-		codFat := dre.CodigoComPapel(linhas, dre.PapelFaturamentoLiquido)
-		if codFat == "" && estruturaCongelada {
-			if c := dre.CodigoComPapel(vivas, dre.PapelFaturamentoLiquido); c != "" {
-				for _, l := range linhas {
-					if l.Codigo == c {
-						codFat = c
-					}
-				}
-			}
-		}
+		codFat := dre.CodigoBase(linhas, vivas, estruturaCongelada)
 		real, aa, orc, sem := res0.Real, res0.AA, res0.Orc, res0.Sem
 		congelado, versao := false, 0
 		fechAtivo, fechVersao := false, 0
@@ -705,5 +696,90 @@ func DRELinhaPapelHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, req)
+	}
+}
+
+// DREDepartamentosHandler — GET /api/aud/dre/departamentos?ano=&mes=&visao=&filial=
+// DRE por departamento (Comercial, Logística, Administrativo), com as contas, o
+// total e o percentual sobre o Faturamento Líquido. O perfil `gestor` (sem escopo
+// até o épico 4) não recebe dado de departamento: 403, fail closed. "Sem
+// departamento" só vai a quem não tem restrição (o mesmo conjunto de perfis).
+func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c := GetAudContext(r)
+		if !c.Tem("controladoria", "auditoria", "diretoria") {
+			writeAuditLog(db, c.EmpresaID, c.UserID, "dre_departamentos", "", "negado", map[string]any{"perfil": c.Perfil})
+			http.Error(w, "Forbidden: o perfil não tem acesso ao DRE por departamento", http.StatusForbidden)
+			return
+		}
+		semRestricao := true // todos os perfis acima; vira checagem de escopo no épico 4
+		p, visao, ok := parsePeriodo(r)
+		if !ok {
+			http.Error(w, "ano/mes inválidos", http.StatusBadRequest)
+			return
+		}
+		filial := r.URL.Query().Get("filial")
+		erro := func(err error) {
+			log.Printf("dre departamentos: %v", err)
+			http.Error(w, "Erro ao calcular o DRE por departamento", http.StatusInternalServerError)
+		}
+		linhas, err := carregarLinhas(db, c.EmpresaID)
+		if err != nil {
+			erro(err)
+			return
+		}
+		mapa, err := carregarMapa(db, c.EmpresaID)
+		if err != nil {
+			erro(err)
+			return
+		}
+		leitor := dre.Leitor{Q: db}
+		lei, err := leitor.Ler(r.Context(), c.EmpresaID, filial, p, linhas, mapa)
+		if err != nil {
+			erro(err)
+			return
+		}
+		exibidas, congelada := linhas, false
+		if cong, ok, err := leitor.EstruturaCongelada(r.Context(), filial, p, lei.Ativos); err != nil {
+			erro(err)
+			return
+		} else if ok {
+			exibidas, congelada = cong, true
+		}
+		codFat := dre.CodigoBase(exibidas, linhas, congelada)
+		_, status := dre.PercentuaisSobreFaturamento(exibidas, lei.Real, codFat)
+		base := 0.0
+		if codFat != "" {
+			base = lei.Real[codFat]
+		}
+		contas, semContas, err := leitor.ContasPorDepartamento(r.Context(), c.EmpresaID, filial, p, mapa, lei.Ativos)
+		if err != nil {
+			erro(err)
+			return
+		}
+		deps, err := leitor.Departamentos(r.Context(), c.EmpresaID)
+		if err != nil {
+			erro(err)
+			return
+		}
+		desc, err := dre.CarregarDescritorConta(r.Context(), db, c.EmpresaID)
+		if err != nil {
+			erro(err)
+			return
+		}
+		visaoDeps := dre.MontarVisao(contas, deps, desc, base, semRestricao)
+		avisos := []string{}
+		if status == dre.PctSemPapel {
+			avisos = append(avisos, "Nenhuma linha do DRE está marcada como Faturamento Líquido — marque uma em Mapa do DRE para ver os percentuais.")
+		}
+		if len(semContas) > 0 {
+			avisos = append(avisos, "Fechamento anterior ao detalhe por conta: sem contas por departamento em "+strings.Join(semContas, ", ")+".")
+		}
+		writeAuditLog(db, c.EmpresaID, c.UserID, "dre_departamentos", p.Fim.Format("2006-01"), "visualizar", map[string]any{"visao": visao, "filial": filial})
+		writeJSON(w, map[string]any{
+			"ini": p.Ini.Format("2006-01-02"), "fim": p.Fim.Format("2006-01-02"), "visao": visao,
+			"pct_status": status, "faturamento_liquido_linha": codFat, "faturamento_liquido": base,
+			"avisos": avisos, "grupos": visaoDeps.Grupos, "sem_departamento": visaoDeps.SemDepartamento,
+		})
 	}
 }

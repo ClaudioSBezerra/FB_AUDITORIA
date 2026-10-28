@@ -28,6 +28,7 @@ export const modules: Record<string, ModuleConfig> = {
     area: 'empresa',
     tabs: [
       { label: 'DRE',         path: '/empresa/dre' },
+      { label: 'DRE por departamento', path: '/empresa/dre-departamentos', perfis: ['controladoria', 'auditoria', 'diretoria'] },
       { label: 'Fechamentos', path: '/empresa/fechamentos' },
       { label: 'Mapa do DRE', path: '/empresa/mapa', perfis: ['controladoria', 'auditoria'] },
     ],

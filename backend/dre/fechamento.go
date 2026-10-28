@@ -136,6 +136,17 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 		VALUES ($1::uuid,$2,$3,'',$4::uuid,$5) RETURNING id`, in.EmpresaID, comp, versao, in.UserID, in.Observacao).Scan(&id); err != nil {
 		return FecharOut{}, err
 	}
+	// Departamento de cada conta, resolvido em lote (vínculos lidos uma única vez).
+	resolvedor, err := CarregarResolvedorDepartamento(ctx, tx, in.EmpresaID)
+	if err != nil {
+		return FecharOut{}, err
+	}
+	depDe := func(conta string) string {
+		if d := resolvedor.De(conta); d != nil {
+			return d.Codigo
+		}
+		return ""
+	}
 	// Snapshot completo: o consolidado do grupo ('') e cada filial, na mesma transação.
 	for _, filial := range append([]string{""}, filiais...) {
 		r := real
@@ -170,8 +181,8 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 			return FecharOut{}, err
 		}
 		for conta, v := range cr {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_contas (fechamento_id, empresa_id, filial, conta, linha_codigo, realizado, ano_anterior)
-				VALUES ($1,$2::uuid,$3,$4,$5,$6,$7)`, id, in.EmpresaID, filial, conta, v.Linha, v.Valor, ca[conta].Valor); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_contas (fechamento_id, empresa_id, filial, conta, linha_codigo, realizado, ano_anterior, departamento)
+				VALUES ($1,$2::uuid,$3,$4,$5,$6,$7,$8)`, id, in.EmpresaID, filial, conta, v.Linha, v.Valor, ca[conta].Valor, depDe(conta)); err != nil {
 				return FecharOut{}, err
 			}
 		}
@@ -179,8 +190,8 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 			if _, ok := cr[conta]; ok {
 				continue
 			}
-			if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_contas (fechamento_id, empresa_id, filial, conta, linha_codigo, realizado, ano_anterior)
-				VALUES ($1,$2::uuid,$3,$4,$5,0,$6)`, id, in.EmpresaID, filial, conta, v.Linha, v.Valor); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_contas (fechamento_id, empresa_id, filial, conta, linha_codigo, realizado, ano_anterior, departamento)
+				VALUES ($1,$2::uuid,$3,$4,$5,0,$6,$7)`, id, in.EmpresaID, filial, conta, v.Linha, v.Valor, depDe(conta)); err != nil {
 				return FecharOut{}, err
 			}
 		}
