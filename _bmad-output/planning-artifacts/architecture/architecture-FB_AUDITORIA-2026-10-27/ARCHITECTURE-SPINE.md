@@ -80,11 +80,11 @@ Setas são as únicas dependências permitidas. `dre` não importa `handlers` ne
 - **Prevents:** orçado resolvido por um caminho e realizado por outro; zero fabricado; duas tabelas de orçado em uso.
 - **Rule:** o DRE lê o orçado só de `auditoria.orcado_conta`, resolvido por `dre.ResolverConta` (a mesma função do realizado). `dre_orcado` (por linha) vira legado somente leitura: a rota de escrita é removida na primeira história e os dados migram em release posterior. Ausência de linha significa "sem orçado"; célula nula do mês não é gravada.
 
-### AD-6 — Ajuste imutável
+### AD-6 — Ajuste vindo do ERP, sem lançamento manual
 
 - **Binds:** FR-4, FR-7, FR-8
-- **Prevents:** Realizado alterado em silêncio; reimportação apagar ajuste; sinal aplicado duas vezes.
-- **Rule:** `auditoria.ajustes` é append-only por trigger (mesma função de `audit_log`), com `motivo` obrigatório e `criado_por` `NOT NULL`. O valor do ajuste está na convenção de sinal da fonte da conta; o sinal do Mapa é aplicado uma só vez, sobre `SUM(lancamentos) + SUM(ajustes)`, por um único caminho (`dre.Realizado`). Correção é novo ajuste de sinal oposto. O Ingestor nunca toca `ajustes`.
+- **Prevents:** Realizado alterado em silêncio; ajuste lançado fora do ERP; reimportação duplicar ajuste; sinal aplicado duas vezes.
+- **Rule:** o sistema não tem rota para criar, editar ou apagar ajuste (decisão do cliente, 28/10/2026). O ajuste chega pela ingestão e é gravado pelo Ingestor em `lancamentos` com `tipo = 'ajuste'` (formato definido pela fonte), substituído por escopo como qualquer lançamento. O sinal do Mapa é aplicado uma só vez, sobre `SUM(lancamentos) + SUM(ajustes)`, por um único caminho (`dre.Realizado`). A justificativa do ajuste usa a chave canônica `ajuste:<AAAA-MM>:<filial gerencial>:<conta>` (AD-7) e cada justificativa gera registro na trilha.
 
 ### AD-7 — Justificativa imutável, versionada e com chave canônica
 

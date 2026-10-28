@@ -19,7 +19,7 @@ Este documento decompõe os requisitos do PRD e as decisões da arquitetura da R
 FR-1: Importar o Realizado consolidado do banco do cliente, por Competência e Filial, sem escrever no banco do cliente; reimportar substitui, não duplica; competência fechada é recusada.
 FR-2: Importar o Orçado por ano, Filial e Conta gerencial, convertendo as 12 colunas de mês em um Lançamento de Orçado por Competência; nulo é "sem orçado", não zero.
 FR-3: Carregar o Realizado por Conta gerencial por arquivo CSV (provisório), com validação antes de gravar e recusa em competência fechada.
-FR-4 (EM REVISÃO: o ajuste vem do ERP, sem lançamento manual no sistema): Lançar Ajuste em Conta gerencial de Competência aberta, com valor e motivo obrigatório; avisar a Lista de aviso por e-mail; exigir Justificativa dos Gerentes afetados; o Ajuste é imutável.
+FR-4: Registrar os Ajustes que vêm do ERP junto do realizado (o sistema não lança ajuste manual), exigir a Justificativa dos Gerentes afetados e registrar cada justificativa em log; o Ajuste não é editável no sistema.
 FR-5: Manter a estrutura de Linhas do DRE (descrição, ordem, nível, tipo conta ou subtotal, linhas somadas).
 FR-6: Manter o Mapa de contas (Conta gerencial para Linha do DRE com sinal, e para Departamento); a associação mais específica prevalece.
 FR-7: Exibir o DRE mensal e acumulado, por Filial ou grupo, com subtotais exatos e percentual sobre o Faturamento Líquido; competência fechada usa os valores congelados.
@@ -88,7 +88,7 @@ Não há documento de UX. As telas seguem os padrões de componentes e o `naviga
 FR-1: Epic 2 - Importar o Realizado consolidado do banco do cliente
 FR-2: Epic 2 - Importar o Orçado por conta
 FR-3: Epic 2 - Carregar o Realizado por conta por arquivo (validação e provisório)
-FR-4: Epic 5 - Ajuste imutável com motivo, aviso e Justificativa
+FR-4: Epic 5 - Ajuste vindo do ERP, Justificativa e log
 FR-5: Epic 3 - Estrutura de Linhas do DRE
 FR-6: Epic 3 - Mapa de contas com Departamento
 FR-7: Epic 3 - DRE mensal e acumulado
@@ -166,11 +166,41 @@ Cada pessoa vê e faz só o que cabe ao seu papel, o Gerente enxerga apenas o se
 **Notas:** a história do FR-19 sai antes de todas as outras (o site já é público); `perfis.go` e middleware por capacidade (AD-11); escopo que nega por padrão (AD-10); migração dos ids de área (AD-12).
 
 ### Epic 5: Gerentes justificam ajustes e desvios
-O analista lança ajuste com motivo, os gerentes são avisados e justificam, e cada gerente recebe por e-mail o DRE do seu departamento.
+Os ajustes vêm do ERP, os gerentes justificam (com log), e cada gerente recebe por e-mail o DRE do seu departamento, toda sexta (acumulado) e no fechamento.
 **FRs covered:** FR-4, FR-12, FR-13, FR-14
 **Notas:** outbox de e-mail (AD-13); limite de desvio e Lista de aviso começam com padrão provisório até o cliente responder; em Teste o e-mail vai só ao administrador.
 
-### Epic 6: Dashboards de desvios e tendência
+#### Story 5.10: Disparo semanal do acumulado do mês (FR-14)
+
+As a Gerente,
+I want receber toda sexta-feira o DRE do meu departamento com o acumulado do mês,
+So that eu acompanhe o mês antes do fechamento.
+
+**Nota:** requisito do cliente (28/10/2026): toda sexta-feira, acumulado do mês até aquele dia (semana 1 de 01 a 07, semana 2 de 01 a 14 etc.), em nível de lançamento. Depende de a fonte atualizar com essa frequência (hoje as views atualizam no início do mês). O disparo do **fechamento** continua manual (5.8).
+
+**Acceptance Criteria:**
+
+**Given** o dia e a hora em `config_empresa` (padrão sexta-feira, `America/Sao_Paulo`)
+**When** chega o horário
+**Then** enfileira para cada gerente o DRE do seu departamento com o acumulado do mês, marcado "parcial, mês não fechado"
+
+**Given** `pg_try_advisory_lock` em conexão dedicada
+**When** outra execução está em andamento
+**Then** a segunda não roda e registra
+
+**Given** a chave `semanal:<AAAA-MM-DD>:user:<uid>`
+**When** o disparo repete na mesma sexta
+**Then** não duplica
+
+**Given** o ambiente em Teste
+**When** chega o horário
+**Then** o e-mail vai só ao administrador
+
+**Given** o analista ou o Controller
+**When** altera o dia, a hora ou desliga o disparo
+**Then** grava na trilha, e gestor e diretoria recebem `403`
+
+## Epic 6: Dashboards de desvios e tendência
 A diretoria vê os maiores desvios por departamento, gerente e filial, a tendência da despesa sobre o Faturamento Líquido, a ponte do resultado e a projeção do ano.
 **FRs covered:** FR-16, FR-17
 
@@ -691,6 +721,8 @@ So that contas e gerentes tenham a quem se ligar.
 **Then** `409`
 
 ### Story 2.10: Dicionário de contas por arquivo (FR-20, AD-2)
+
+> **Regra provisória (decisão do dono do produto, 28/10/2026):** o departamento de uma conta é o do **grupo da conta** (por exemplo, o grupo 402 é Centro de Distribuição), até o cliente confirmar. O dicionário guarda o grupo; o vínculo conta-departamento (2.9) deriva dele e pode ser corrigido conta a conta.
 
 As a analista,
 I want carregar o dicionário (conta, descrição, grupo, departamento) por arquivo,
@@ -1260,7 +1292,7 @@ So that o gerente entre sem cadastro público.
 
 ## Epic 5: Gerentes justificam ajustes e desvios
 
-O analista lança ajuste com motivo, os gerentes são avisados e justificam, e cada gerente recebe por e-mail o DRE do seu departamento.
+Os ajustes vêm do ERP, os gerentes justificam (com log), e cada gerente recebe por e-mail o DRE do seu departamento, toda sexta (acumulado) e no fechamento.
 
 **Nota:** o limite de desvio e a Lista de aviso começam sem valor definido pelo cliente; até lá, nenhum desvio exige justificativa e a tela avisa.
 
@@ -1362,72 +1394,67 @@ So that a controladoria saiba por que a área fugiu do orçado.
 **Then** vai à trilha
 **And** a diretoria e a controladoria só leem
 
-### Story 5.4: Ajuste imutável com motivo (FR-4, AD-6)
+### Story 5.4: Ajustes vindos do ERP no realizado (FR-4, AD-6)
 
-> **REVISÃO 28/10/2026 (decisão do cliente):** o ajuste vem do ERP e chega pelo banco, junto da ingestão; o sistema não tem lançamento manual de ajuste. Esta história, como escrita, está **suspensa**: será reescrita (ajuste como componente do realizado ingerido, com a justificativa e o aviso ligados a ele) depois das respostas do dono dos dados sobre a fonte. Não implementar. Ver `respostas-cliente-2026-10-28.md`.
+As a Controller,
+I want que os ajustes feitos no ERP apareçam no DRE separados do valor carregado,
+So that o gerente veja o que foi ajustado sem que o sistema aceite ajuste manual.
 
-
-As a analista,
-I want lançar um ajuste numa conta de mês aberto, com motivo,
-So that a correção fique registrada sem alterar o dado original.
+**Nota:** decisão do cliente (28/10/2026): o ajuste vem do ERP e chega pelo banco, junto da ingestão; o sistema não tem lançamento manual de ajuste. O formato do ajuste na view de origem (coluna própria ou lançamento marcado) ainda depende do dono dos dados; esta história só é executável quando ele responder.
 
 **Acceptance Criteria:**
 
 **Given** a migration
-**Then** `auditoria.ajustes (empresa_id, competencia, filial, conta, valor, motivo NOT NULL, criado_por NOT NULL, criado_em)` é append-only por gatilho que respeita `imutavel_salvo_em_teste`, com `criado_por` em `ON DELETE RESTRICT`
-**And** ela entra em `limpar_dados_teste`
+**Then** `lancamentos` ganha `tipo` (`lancamento` ou `ajuste`, padrão `lancamento`)
+**And** o Ingestor é o único que grava `tipo`, a partir do que a fonte informa
 
-**Given** um analista
-**When** lança um ajuste com conta, filial, competência aberta, valor e motivo
-**Then** grava e registra na trilha
-**And** sem motivo, recusa
-
-**Given** competência fechada
-**When** tenta lançar ajuste
-**Then** `409` pela guarda de período (1.6)
-
-**Given** um ajuste gravado
-**When** se tenta editá-lo ou apagá-lo
-**Then** em Produção, `UPDATE` e `DELETE` falham
-**And** a correção é um novo ajuste de sinal oposto
+**Given** uma carga com linhas de ajuste
+**When** a importação termina
+**Then** as linhas de ajuste substituem as do mesmo escopo, como qualquer lançamento (nunca duplicam)
 
 **Given** `dre.Realizado`
 **When** calcula o realizado
-**Then** é a soma dos lançamentos mais a dos ajustes, com o sinal do Mapa aplicado uma só vez
+**Then** soma lançamentos e ajustes uma só vez, com o sinal do Mapa
 **And** o detalhe mostra o valor carregado e os ajustes separados
 
 **Given** Fechar
 **When** grava o snapshot
 **Then** `dre_fechamento_contas` ganha a coluna `ajustes` e o snapshot a preenche
-**And** reimportar não toca nos ajustes, e gestor ou diretoria recebem `403`
 
-### Story 5.5: Justificar os ajustes (FR-4, FR-12)
+**Given** qualquer perfil
+**When** tenta criar, editar ou apagar um ajuste pelo sistema
+**Then** não existe rota para isso
 
-> **REVISÃO 28/10/2026 (decisão do cliente):** o ajuste vem do ERP e chega pelo banco, junto da ingestão; o sistema não tem lançamento manual de ajuste. Esta história, como escrita, está **suspensa**: será reescrita (ajuste como componente do realizado ingerido, com a justificativa e o aviso ligados a ele) depois das respostas do dono dos dados sobre a fonte. Não implementar. Ver `respostas-cliente-2026-10-28.md`.
-
+### Story 5.5: Justificar os ajustes e registrar o log (FR-4, FR-12)
 
 As a Gerente,
-I want ver e justificar os ajustes feitos nas contas do meu departamento,
-So that nenhum ajuste fique sem explicação.
+I want ver os ajustes das contas do meu departamento e justificá-los,
+So that nenhum ajuste fique sem explicação e fique registrado quem explicou.
+
+**Nota:** decisão do cliente (28/10/2026): o gerente só justifica; cada justificativa gera um registro (log) na trilha. O ajuste não tem id próprio: a chave é `ajuste:<AAAA-MM>:<filial gerencial>:<conta>`.
 
 **Acceptance Criteria:**
 
 **Given** a migration
-**Then** `justificativas` ganha `ajuste_id` com chave estrangeira para `ajustes`
+**Then** `justificativas` aceita a chave canônica de ajuste (AD-7), append-only como as demais
 
 **Given** ajustes em contas do seu escopo
 **When** o Gerente abre "Ajustes"
-**Then** vê cada um com valor, motivo, autor e status "pendente" ou "justificado"
+**Then** vê cada um com valor e status "pendente" ou "justificado"
 
 **Given** um ajuste
 **When** o Gerente justifica
-**Then** o status vira "justificado"
+**Then** o status vira "justificado" e a trilha registra autor, chave e texto
 **And** uma justificativa vigente basta, mesmo com mais de um Gerente no departamento
 
 **Given** ajuste de outro departamento
 **When** o Gerente tenta justificar
 **Then** `403`
 **And** o Controller vê os ajustes pendentes de todos os departamentos
+
+**Given** o valor do ajuste mudar numa nova carga
+**When** a chave é a mesma
+**Then** a justificativa anterior continua no histórico, mas o ajuste volta a "pendente"
 
 ### Story 5.6: Fila de e-mail e envio (AD-13)
 
@@ -1460,36 +1487,31 @@ So that nenhum e-mail se perca nem saia duplicado.
 **When** acontecem
 **Then** vão à trilha
 
-### Story 5.7: Aviso de ajuste por e-mail (FR-4)
-
-> **REVISÃO 28/10/2026 (decisão do cliente):** o ajuste vem do ERP e chega pelo banco, junto da ingestão; o sistema não tem lançamento manual de ajuste. Esta história, como escrita, está **suspensa**: será reescrita (ajuste como componente do realizado ingerido, com a justificativa e o aviso ligados a ele) depois das respostas do dono dos dados sobre a fonte. Não implementar. Ver `respostas-cliente-2026-10-28.md`.
-
+### Story 5.7: Aviso dos ajustes pendentes por e-mail (FR-4)
 
 As a Controller,
-I want que a Lista de aviso seja avisada quando um ajuste é lançado,
-So that os gestores saibam e justifiquem.
+I want que os gerentes sejam avisados quando chegam ajustes a justificar,
+So that a justificativa não dependa de alguém abrir a tela.
+
+**Nota:** depende da resposta do cliente sobre quem recebe o aviso (o gerente do departamento, a Lista de aviso ou ambos). Até lá, não executar.
 
 **Acceptance Criteria:**
 
-**Given** um ajuste lançado (5.4)
+**Given** uma carga que traga ajuste novo ou alterado (5.4)
 **When** a transação termina
-**Then** enfileira `aviso_ajuste` (5.6) com chave `ajuste:<id>` para a `lista_aviso`
+**Then** enfileira `aviso_ajuste` (5.6) com chave `ajuste:<AAAA-MM>:<filial gerencial>:<conta>:<valor>` para os destinatários definidos
 
 **Given** o e-mail do aviso
 **When** é gerado
-**Then** traz conta, departamento, competência, valor, motivo e autor, sem dado de outros departamentos
+**Then** traz conta, departamento, competência e valor, sem dado de outros departamentos
 
-**Given** a Lista de aviso vazia
-**When** um ajuste é lançado
-**Then** não enfileira e registra "sem destinatários"
+**Given** o mesmo ajuste na mesma carga reenviada
+**When** a importação repete
+**Then** não enfileira de novo (chave de deduplicação)
 
 **Given** o ambiente em Teste
-**When** um ajuste é lançado
+**When** chega um ajuste
 **Then** o aviso vai só ao administrador (regra da 5.6)
-
-**Given** um ajuste
-**When** é lançado
-**Then** o aviso é enfileirado na mesma transação do ajuste, de modo que ajuste e aviso não se separam
 
 ### Story 5.8: E-mail do DRE por departamento no fechamento (FR-14)
 
