@@ -19,3 +19,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-2-ambiente-teste-producao-apagar.md`
   summary: A rota de limpar dados de teste não limita tentativas de senha nem registra tentativas falhas na trilha.
   evidence: `ambiente.go` só grava trilha no caminho de sucesso.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-virar-producao-faixa-ambiente.md`
+  summary: O aviso das contas vindas de arquivo (CSV) aparece só na sessão da tela em que a empresa vira Produção; depois não há como consultá-lo.
+  evidence: `AmbienteVirarHandler` devolve `contas_de_arquivo` só na resposta da virada.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-3-virar-producao-faixa-ambiente.md`
+  summary: A tela reconhece o 409 da virada pelo texto "já está em Produção", porque o helper `api` não expõe o status.
+  evidence: `ConfigAmbienteEmpresa.tsx`; mudar a mensagem do backend quebra esse tratamento.

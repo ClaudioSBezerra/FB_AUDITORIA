@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -248,5 +249,158 @@ func TestAmbiente_ImutavelSalvoEmTeste(t *testing.T) {
 	}
 	if err := tx.QueryRow(q, f.EmpresaID).Scan(&ok); err != nil || ok {
 		t.Fatalf("em producao deveria ser falso: %v %v", ok, err)
+	}
+}
+
+func virar(t *testing.T, db *sql.DB, f testdb.Fixture, admin bool, corpo string) *httptest.ResponseRecorder {
+	t.Helper()
+	r := httptest.NewRequest(http.MethodPost, "/api/aud/ambiente/virar", strings.NewReader(corpo))
+	c := &AudContext{UserID: f.UserID, EmpresaID: f.EmpresaID, Perfil: "controladoria", Admin: admin}
+	r = r.WithContext(context.WithValue(r.Context(), AudContextKey, c))
+	return chamar(AmbienteVirarHandler(db), r)
+}
+
+func ambienteDe(t *testing.T, db *sql.DB, f testdb.Fixture) string {
+	t.Helper()
+	var amb string
+	if err := db.QueryRow(`SELECT ambiente FROM companies WHERE id=$1::uuid`, f.EmpresaID).Scan(&amb); err != nil {
+		t.Fatal(err)
+	}
+	return amb
+}
+
+const corpoVirarOK = `{"senha":"senha-de-teste","confirmacao":"VIRAR PARA PRODUCAO"}`
+
+func TestAmbienteVirar_VaiParaProducaoComAviso(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	setAdmin(t, db, f)
+	semearDominio(t, db, f) // lancamento com origem 'csv', conta 3.1
+	if _, err := db.Exec(`INSERT INTO auditoria.lancamentos (empresa_id, competencia, conta, valor, origem) VALUES
+		($1::uuid,'2026-09-01','3.2',1,'csv.v2'),($1::uuid,'2026-09-01','3.3',1,'winthor'),($1::uuid,'2026-09-01','3.1',1,'csv')`, f.EmpresaID); err != nil {
+		t.Fatal(err)
+	}
+	w := virar(t, db, f, true, corpoVirarOK)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if ambienteDe(t, db, f) != "producao" {
+		t.Error("deveria estar em producao")
+	}
+	var resp struct {
+		Ambiente string   `json:"ambiente"`
+		Contas   []string `json:"contas_de_arquivo"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Ambiente != "producao" || len(resp.Contas) != 2 || resp.Contas[0] != "3.1" || resp.Contas[1] != "3.2" {
+		t.Errorf("resposta inesperada: %+v", resp)
+	}
+	if contar(t, db, `SELECT count(*) FROM auditoria.audit_log WHERE empresa_id=$1::uuid AND acao='virar_producao' AND user_id=$2::uuid`, f.EmpresaID, f.UserID) != 1 {
+		t.Error("trilha da virada ausente")
+	}
+}
+
+func TestAmbienteVirar_SenhaOuFraseErrada403(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	setAdmin(t, db, f)
+	for _, corpo := range []string{
+		`{"senha":"errada","confirmacao":"VIRAR PARA PRODUCAO"}`,
+		`{"confirmacao":"VIRAR PARA PRODUCAO"}`,
+		``,
+		`{"senha":"senha-de-teste","confirmacao":"virar para producao"}`,
+		`{"senha":"senha-de-teste"}`,
+	} {
+		if w := virar(t, db, f, true, corpo); w.Code != http.StatusForbidden {
+			t.Errorf("corpo %q: status %d", corpo, w.Code)
+		}
+	}
+	if ambienteDe(t, db, f) != "teste" {
+		t.Error("nada deveria mudar")
+	}
+}
+
+func TestAmbienteVirar_NaoAdmin403(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	if w := virar(t, db, f, false, corpoVirarOK); w.Code != http.StatusForbidden {
+		t.Fatalf("status %d", w.Code)
+	}
+	if ambienteDe(t, db, f) != "teste" {
+		t.Error("nada deveria mudar")
+	}
+}
+
+func TestAmbienteVirar_JaEmProducao409SemNovoRegistro(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	setAdmin(t, db, f)
+	if w := virar(t, db, f, true, corpoVirarOK); w.Code != http.StatusOK {
+		t.Fatalf("status %d", w.Code)
+	}
+	if w := virar(t, db, f, true, corpoVirarOK); w.Code != http.StatusConflict {
+		t.Fatalf("status %d", w.Code)
+	}
+	if contar(t, db, `SELECT count(*) FROM auditoria.audit_log WHERE empresa_id=$1::uuid AND acao='virar_producao'`, f.EmpresaID) != 1 {
+		t.Error("deveria haver um só registro")
+	}
+}
+
+func TestAudMe_InformaAmbiente(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	me := func() string {
+		r := httptest.NewRequest(http.MethodGet, "/api/aud/me", nil)
+		c := &AudContext{UserID: f.UserID, EmpresaID: f.EmpresaID, Perfil: "controladoria"}
+		r = r.WithContext(context.WithValue(r.Context(), AudContextKey, c))
+		w := chamar(AudMeHandler(db), r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status %d", w.Code)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil {
+			t.Fatal(err)
+		}
+		a, ok := m["ambiente"].(string)
+		if !ok {
+			t.Fatalf("campo ambiente ausente ou de tipo errado: %v", m["ambiente"])
+		}
+		return a
+	}
+	if a := me(); a != "teste" {
+		t.Errorf("ambiente=%q", a)
+	}
+	if _, err := db.Exec(`UPDATE companies SET ambiente='producao' WHERE id=$1::uuid`, f.EmpresaID); err != nil {
+		t.Fatal(err)
+	}
+	if a := me(); a != "producao" {
+		t.Errorf("ambiente=%q", a)
+	}
+}
+
+func TestAmbienteVirar_FalhaNaTrilhaDesfazTudo(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	setAdmin(t, db, f)
+	for _, q := range []string{
+		`CREATE OR REPLACE FUNCTION auditoria.tg_teste_falha_virar() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+			IF NEW.acao = 'virar_producao' THEN RAISE EXCEPTION 'falha simulada'; END IF; RETURN NEW; END $$`,
+		`CREATE TRIGGER tg_teste_falha_virar BEFORE INSERT ON auditoria.audit_log FOR EACH ROW EXECUTE FUNCTION auditoria.tg_teste_falha_virar()`,
+	} {
+		if _, err := db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Cleanup(func() {
+		db.Exec(`DROP TRIGGER IF EXISTS tg_teste_falha_virar ON auditoria.audit_log`)
+		db.Exec(`DROP FUNCTION IF EXISTS auditoria.tg_teste_falha_virar()`)
+	})
+	if w := virar(t, db, f, true, corpoVirarOK); w.Code != http.StatusInternalServerError {
+		t.Fatalf("status %d", w.Code)
+	}
+	if ambienteDe(t, db, f) != "teste" {
+		t.Error("ambiente deveria continuar teste")
 	}
 }

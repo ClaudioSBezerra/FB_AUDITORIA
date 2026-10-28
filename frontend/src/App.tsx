@@ -14,6 +14,7 @@ const Login = lazy(() => import('./pages/Login'))
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/ResetPassword'))
 const GestaoAmbiente = lazy(() => import('./pages/GestaoAmbiente'))
+const ConfigAmbienteEmpresa = lazy(() => import('./pages/ConfigAmbienteEmpresa'))
 const AdminUsers = lazy(() => import('./pages/AdminUsers'))
 const AreaHome = lazy(() => import('./pages/aud/AreaHome'))
 const DRE = lazy(() => import('./pages/aud/DRE'))
@@ -118,11 +119,22 @@ function AppHeader() {
   )
 }
 
+function FaixaAmbiente() {
+  const { ambienteEmpresa } = useAuth()
+  if (ambienteEmpresa !== 'teste') return null
+  return (
+    <div role="status" className="shrink-0 bg-amber-500 text-amber-950 text-center text-xs font-bold tracking-widest py-1">
+      AMBIENTE DE TESTE
+    </div>
+  )
+}
+
 function AppLayout() {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <AppRail />
       <div className="flex flex-col flex-1 min-w-0">
+        <FaixaAmbiente />
         <AppHeader />
         <ModuleTabs />
         <main className="flex-1 overflow-auto">
@@ -148,6 +160,7 @@ function AppLayout() {
               {/* Configurações (admin de plataforma) */}
               <Route path="/config" element={<Navigate to="/config/ambiente" replace />} />
               <Route path="/config/ambiente" element={<PlatformAdminRoute><GestaoAmbiente /></PlatformAdminRoute>} />
+              <Route path="/config/dados" element={<PlatformAdminRoute><ConfigAmbienteEmpresa /></PlatformAdminRoute>} />
               <Route path="/config/usuarios" element={<PlatformAdminRoute><AdminUsers /></PlatformAdminRoute>} />
 
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -25,6 +25,10 @@ interface AuthContextType {
   /** true depois que /api/aud/me respondeu */
   acessoCarregado: boolean;
   canManageUsers: boolean;
+  /** ambiente da empresa ativa: teste | producao (null até /api/aud/me responder) */
+  ambienteEmpresa: string | null;
+  /** recarrega /api/aud/me (ex.: depois de virar para Produção) */
+  recarregarAcesso: () => void;
   loading: boolean;
   login: (data: any) => void;
   logout: () => void;
@@ -48,9 +52,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [acessoCarregado, setAcessoCarregado] = useState(false);
   const [canManageUsers, setCanManageUsers] = useState(false);
+  const [ambienteEmpresa, setAmbienteEmpresa] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchAcesso = (tok: string) => {
+    setAmbienteEmpresa(null)
     fetch('/api/aud/me', { headers: { Authorization: `Bearer ${tok}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => {
@@ -58,8 +64,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (Array.isArray(d?.areas)) setAreas(d.areas)
         setIsAdmin(!!d?.admin)
         setCanManageUsers(!!d?.can_manage_users)
+        setAmbienteEmpresa(typeof d?.ambiente === 'string' ? d.ambiente : null)
       })
-      .catch(() => {})
+      .catch(() => { setAmbienteEmpresa(null) })
       .finally(() => setAcessoCarregado(true));
   };
 
@@ -264,10 +271,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setAreas([]);
     setIsAdmin(false);
     setAcessoCarregado(false);
+    setAmbienteEmpresa(null);
     window.location.href = '/login';
   };
 
   const switchCompany = (id: string, name: string, newCnpj: string) => {
+    setAmbienteEmpresa(null);
     setCompany(name);
     setCompanyId(id);
     setCnpj(newCnpj);
@@ -305,6 +314,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       isAdmin,
       acessoCarregado,
       canManageUsers,
+      ambienteEmpresa,
+      recarregarAcesso: () => { if (token) fetchAcesso(token) },
       loading,
       login,
       logout,

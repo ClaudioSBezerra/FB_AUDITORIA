@@ -38,7 +38,7 @@ development_status:
   epic-1: in-progress
   1-1-testes-que-registram-o-fechamento-e-a-importação-de-hoje: review
   1-2-marcador-teste-produção-e-apagar-os-dados-de-teste-fr-21-ad: review
-  1-3-virar-para-produção-e-faixa-de-ambiente-fr-21: backlog
+  1-3-virar-para-produção-e-faixa-de-ambiente-fr-21: review
   1-4-importação-csv-passa-pelo-ingestor-ad-1-ad-2-ad-3: backlog
   1-5-fechamento-passa-pelo-serviço-dre-ad-1: backlog
   1-6-guarda-de-período-e-bloqueio-de-escrita-em-mês-fechado-fr-11: backlog
@@ -61,6 +61,7 @@ development_status:
   2-11-dicionário-inicial-validado-com-o-cliente-tarefa-de-dados: backlog
   2-12-conferir-o-oracle-contra-a-planilha: backlog
   2-13-importação-automática-diária-opcional-ad-15: backlog
+  2-14-mapa-de-filiais-filial-do-erp-para-filial-gerencial: backlog
   epic-2-retrospective: optional
 
   epic-3: backlog

@@ -52,6 +52,7 @@ export const modules: Record<string, ModuleConfig> = {
     label: 'Configurações',
     tabs: [
       { label: 'Ambiente',               path: '/config/ambiente', masterOnly: true },
+      { label: 'Dados e ambiente',       path: '/config/dados', masterOnly: true },
       { label: 'Usuários da plataforma', path: '/config/usuarios', masterOnly: true },
     ],
   },

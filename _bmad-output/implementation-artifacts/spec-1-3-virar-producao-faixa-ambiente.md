@@ -2,7 +2,8 @@
 title: 'Story 1.3: Virar para Produção e faixa de ambiente (FR-21)'
 type: 'feature'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: '89ab235624cb66a72ba80924b51251553d0c9875'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -78,3 +79,17 @@ A tela fica numa aba nova do módulo Configurações, porque "Ambiente" já nome
 
 **Manual checks (if no CLI):**
 - Com `npm run dev` e o banco local: faixa visível em teste, some em produção, e a tela troca o botão de apagar por "Produção".
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| `/api/aud/me` devolve 500 se a consulta do ambiente falhar e derruba o menu | medium | patch | agora registra e devolve `ambiente` vazio |
+| `ambienteEmpresa` não zera no logout, na troca de empresa nem na falha do `/me` | medium | patch | corrigido em `AuthContext.tsx` |
+| Tela presa em Teste após virada ou 409; duplo clique | medium | patch | estado local para Produção, 409 recarrega, `useRef` contra duplo clique |
+| `Scan` falha se `conta` for NULL e bloquearia a virada | low | patch | `COALESCE(conta,'')` |
+| Atomicidade da virada sem teste | medium | patch | `TestAmbienteVirar_FalhaNaTrilhaDesfazTudo` |
+| Teste de virada concorrente; ramos de erro de `conferirSenha` | low | rejeitado | `FOR UPDATE` presente; dano é só uma linha de trilha duplicada |
+| Sem limite de tentativas de senha nem trilha de falha | low | defer | já registrado na 1.2; Épico 4 |
+| Aviso das contas de arquivo some ao sair da tela | low | defer | a resposta da virada é a única fonte; registrar |
+| Frase sem trim, `limpar` sem frase, trilha só com a contagem, nome da aba, faixa fora do layout | low | rejeitado | a spec define frase exata e escopo; sem dano real |

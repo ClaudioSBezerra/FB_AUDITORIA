@@ -14,6 +14,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -130,21 +131,29 @@ func AuditoriaAuthMiddleware(db *sql.DB, next http.HandlerFunc, area string, per
 }
 
 // AudMeHandler — GET /api/aud/me: o que o front precisa pra montar o menu.
-func AudMeHandler(w http.ResponseWriter, r *http.Request) {
-	c := GetAudContext(r)
-	if c == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+func AudMeHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c := GetAudContext(r)
+		if c == nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		var ambiente string
+		if err := db.QueryRow(`SELECT ambiente FROM companies WHERE id = $1::uuid`, c.EmpresaID).Scan(&ambiente); err != nil {
+			log.Printf("aud/me: erro ao consultar ambiente da empresa %s: %v", c.EmpresaID, err)
+			ambiente = ""
+		}
+		areas := c.Areas
+		if c.Admin {
+			areas = []string{AreaEstrategico, AreaOperacional, AreaAdministrativo}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{
+			"perfil":           c.Perfil,
+			"areas":            areas,
+			"admin":            c.Admin,
+			"can_manage_users": c.PodeGerirUsuarios(),
+			"ambiente":         ambiente,
+		})
 	}
-	areas := c.Areas
-	if c.Admin {
-		areas = []string{AreaEstrategico, AreaOperacional, AreaAdministrativo}
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]any{
-		"perfil":           c.Perfil,
-		"areas":            areas,
-		"admin":            c.Admin,
-		"can_manage_users": c.PodeGerirUsuarios(),
-	})
 }
