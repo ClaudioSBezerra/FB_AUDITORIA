@@ -36,3 +36,16 @@ O arquivo de exemplo (um grupo de despesas, quinzena de janeiro) não vai para o
 2. O DRE é por **data de pagamento** (o relatório) ou por **competência**? O histórico traz meses de referência diferentes do mês do pagamento.
 3. Os parâmetros "desconsiderar ST" e "desconsiderar beneficiamento" valem NÃO no DRE?
 4. As filiais do relatório (cerca de 20) são todas do mesmo CNPJ/empresa, e só 8 entram no rateio?
+
+## Respostas às perguntas 2 a 4 do dono dos dados (Marcos, 28/10/2026)
+
+- **Regime:** o DRE é por **data de pagamento**, como o relatório da rotina 124.
+- **Parâmetros "desconsiderar ST" e "desconsiderar beneficiamento":** nenhum dos dois é usado; valem NÃO.
+- **Filial gerencial:** três filiais gerenciais são compostas por várias filiais do ERP (a matriz agrupa a maior parte delas; duas outras agrupam duas filiais cada); as demais são filiais soltas, que valem por si. A composição é configuração por empresa, nunca código nem arquivo versionado (os códigos entram pelo sistema).
+
+### Impacto no planejamento
+
+- Entra um conceito novo: **filial gerencial = conjunto de filiais do ERP**. O realizado, o orçado e o rateio devem ser lidos e gravados por filial gerencial; a ingestão (Épico 2) precisa do mapa filial do ERP para filial gerencial.
+- Isso provavelmente resolve a lacuna das filiais sem orçado (elas entram no consolidado da filial gerencial); confirmar com o cliente.
+- O snapshot por filial da 1.8 e a matriz do rateio (Épico 7) passam a usar a filial gerencial como chave.
+- Competência pelo **pagamento**: a coluna de data da ingestão é a data de pagamento; a pergunta de competência fica encerrada.
