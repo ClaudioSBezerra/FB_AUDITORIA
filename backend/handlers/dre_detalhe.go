@@ -8,8 +8,10 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"fb_auditoria/dre"
 )
@@ -187,6 +189,143 @@ func DREContaLancamentosHandler(db *sql.DB) http.HandlerFunc {
 			"divergente": len(det.Divergencias) > 0, "aviso_divergencia": aviso, "divergencias": det.Divergencias,
 			"avisos": avisos, "total_lancamentos": det.TotalLancamentos, "limite": limite, "offset": offset,
 			"lancamentos": det.Lancamentos,
+		})
+	}
+}
+
+// DRETrimestresHandler — GET /api/aud/dre/trimestres?ano=AAAA&filial=|agrupamento=<codigo>|grupo=1
+// DRE por trimestre (T1 a T4 e Ano): para cada linha, realizado, orçado, ano
+// anterior e percentual sobre o Faturamento Líquido do próprio trimestre. Cada
+// trimestre soma três meses lidos pelo Leitor (mês fechado do snapshot, mês
+// aberto ao vivo). `gestor` fica de fora (403, fail closed) até o escopo por
+// departamento da 4.7, como nas demais visões.
+func DRETrimestresHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		c := GetAudContext(r)
+		if !exigeDetalhe(w, c, db, "dre_trimestres") {
+			return
+		}
+		ano, err := strconv.Atoi(r.URL.Query().Get("ano"))
+		if err != nil || ano < 2000 || ano > 2100 {
+			http.Error(w, "ano inválido", http.StatusBadRequest)
+			return
+		}
+		rec, ok := resolverRecorte(w, r, db, c.EmpresaID)
+		if !ok {
+			return
+		}
+		erro := func(err error) {
+			log.Printf("dre trimestres: %v", err)
+			http.Error(w, "Erro ao calcular o DRE por trimestre", http.StatusInternalServerError)
+		}
+		linhas, err := carregarLinhas(db, c.EmpresaID)
+		if err != nil {
+			erro(err)
+			return
+		}
+		mapa, err := carregarMapa(db, c.EmpresaID)
+		if err != nil {
+			erro(err)
+			return
+		}
+		cols, err := (dre.Leitor{Q: db}).LerTrimestres(r.Context(), c.EmpresaID, rec.Filiais, ano, time.Now(), linhas, mapa)
+		if err != nil {
+			erro(err)
+			return
+		}
+		anoCol := cols[len(cols)-1]
+
+		// Linhas exibidas: a estrutura congelada se o ano todo está fechado; senão a
+		// viva, mais as linhas que só existem no congelado de algum trimestre.
+		layout := linhas
+		if anoCol.Congelada {
+			layout = anoCol.Estrutura
+		} else {
+			vistas := map[string]bool{}
+			for _, l := range layout {
+				vistas[l.Codigo] = true
+			}
+			layout = append([]dreLinha(nil), layout...)
+			for _, col := range cols {
+				if !col.Congelada {
+					continue
+				}
+				for _, l := range col.Estrutura {
+					if !vistas[l.Codigo] {
+						vistas[l.Codigo] = true
+						layout = append(layout, l)
+					}
+				}
+			}
+		}
+
+		type valor struct {
+			Rotulo      string   `json:"rotulo"`
+			Realizado   float64  `json:"realizado"`
+			Orcado      float64  `json:"orcado"`
+			AnoAnterior float64  `json:"ano_anterior"`
+			PctFat      *float64 `json:"pct_faturamento"`
+		}
+		type coluna struct {
+			Rotulo        string   `json:"rotulo"`
+			Ini           string   `json:"ini"`
+			Fim           string   `json:"fim"`
+			Vazio         bool     `json:"vazio"`
+			Parcial       bool     `json:"parcial"`
+			MesesFechados []string `json:"meses_fechados"`
+			PctStatus     string   `json:"pct_status"`
+			FatLiqLinha   string   `json:"faturamento_liquido_linha"`
+			FatLiq        float64  `json:"faturamento_liquido"`
+		}
+		type linhaOut struct {
+			Codigo    string  `json:"codigo"`
+			Descricao string  `json:"descricao"`
+			Nivel     int     `json:"nivel"`
+			Tipo      string  `json:"tipo"`
+			Valores   []valor `json:"valores"`
+		}
+		colunas := make([]coluna, 0, len(cols))
+		pcts := make([]map[string]*float64, len(cols))
+		avisoFat := ""
+		for i, col := range cols {
+			x := coluna{Rotulo: col.Rotulo, Ini: col.Ini.Format("2006-01-02"), Fim: col.Fim.Format("2006-01-02"),
+				Vazio: col.Vazio, Parcial: col.Parcial, MesesFechados: col.MesesFechados, PctStatus: dre.PctOK, FatLiqLinha: col.CodBase}
+			if !col.Vazio {
+				pcts[i], x.PctStatus = dre.PercentuaisSobreFaturamento(col.Estrutura, col.Real, col.CodBase)
+				if col.CodBase != "" {
+					x.FatLiq = col.Real[col.CodBase]
+				}
+				if x.PctStatus == dre.PctSemPapel {
+					avisoFat = "Nenhuma linha do DRE está marcada como Faturamento Líquido — marque uma em Mapa do DRE para ver os percentuais."
+				}
+			}
+			colunas = append(colunas, x)
+		}
+		res := make([]linhaOut, 0, len(layout))
+		for _, l := range layout {
+			lo := linhaOut{Codigo: l.Codigo, Descricao: l.Descricao, Nivel: l.Nivel, Tipo: l.Tipo, Valores: make([]valor, 0, len(cols))}
+			for i, col := range cols {
+				v := valor{Rotulo: col.Rotulo, Realizado: col.Real[l.Codigo], Orcado: col.Orc[l.Codigo], AnoAnterior: col.AA[l.Codigo]}
+				if pcts[i] != nil {
+					v.PctFat = pcts[i][l.Codigo]
+				}
+				lo.Valores = append(lo.Valores, v)
+			}
+			res = append(res, lo)
+		}
+		type nm struct {
+			Conta string  `json:"conta"`
+			Valor float64 `json:"valor"`
+		}
+		naoMapeado := []nm{}
+		for k, v := range anoCol.Sem {
+			naoMapeado = append(naoMapeado, nm{k, v})
+		}
+		sort.Slice(naoMapeado, func(i, j int) bool { return absf(naoMapeado[i].Valor) > absf(naoMapeado[j].Valor) })
+
+		writeAuditLog(db, c.EmpresaID, c.UserID, "dre_trimestres", strconv.Itoa(ano), "visualizar", rec.comVisao("trimestres"))
+		writeJSON(w, map[string]any{
+			"ano": ano, "colunas": colunas, "linhas": res, "nao_mapeado": naoMapeado, "aviso_faturamento": avisoFat,
 		})
 	}
 }

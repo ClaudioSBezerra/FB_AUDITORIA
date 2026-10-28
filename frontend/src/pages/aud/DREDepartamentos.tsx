@@ -4,6 +4,7 @@ import { AlertTriangle } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { api, brl, pctFmt, MESES } from './util'
 import { DetalheContaDialog } from './DetalheDRE'
+import { SeletorRecorte, useRecorte } from './Recorte'
 
 interface ContaV { conta: string; descricao: string; linha: string; valor: number; pct_faturamento: number | null }
 interface DeptoV { codigo: string; nome: string; total: number; pct_faturamento: number | null; contas: ContaV[] }
@@ -19,11 +20,10 @@ export default function DREDepartamentos() {
   const [ano, setAno] = useState(hoje.getFullYear())
   const [mes, setMes] = useState(hoje.getMonth() + 1)
   const [visao, setVisao] = useState<'mensal' | 'acumulada'>('mensal')
-  const [filial, setFilial] = useState('')
+  const { recorte, setRecorte, param } = useRecorte()
   const [conta, setConta] = useState<string | null>(null)
-  const q = `ano=${ano}&mes=${mes}&visao=${visao}&filial=${encodeURIComponent(filial)}`
+  const q = `ano=${ano}&mes=${mes}&visao=${visao}&${param}`
   const dados = useQuery({ queryKey: ['dre-departamentos', q], queryFn: () => api<Resp>(`/api/aud/dre/departamentos?${q}`) })
-  const filiais = useQuery({ queryKey: ['dre-filiais'], queryFn: () => api<string[]>('/api/aud/dre/filiais') })
   const d = dados.data
 
   const pct = (v: number | null) =>
@@ -66,13 +66,7 @@ export default function DREDepartamentos() {
             <option value="acumulada">Acumulada no ano</option>
           </select>
         </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">Filial</label>
-          <select className="h-9 rounded-md border px-2 text-sm bg-white" value={filial} onChange={e => setFilial(e.target.value)}>
-            <option value="">Consolidado</option>
-            {(filiais.data ?? []).map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
+        <SeletorRecorte valor={recorte} onChange={setRecorte} />
       </div>
 
       {(d?.avisos ?? []).map(a => (

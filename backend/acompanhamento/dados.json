@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-28",
-  "versao": "475ce61",
+  "versao": "4b0c596",
   "historias": [
     {
       "id": "1.1",
@@ -634,7 +634,7 @@
         "nome": "DRE por departamento, com orçado e ano anterior"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como Gerente, quero ver o DRE por trimestre do ano (T1 a T4 e o total do ano), para que eu compare os trimestres sem somar meses na mão.",
       "criterios": [

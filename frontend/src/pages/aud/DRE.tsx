@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { useAuth } from '@/contexts/AuthContext'
 import { api, brl, pctFmt, MESES } from './util'
 import { DetalheLinhaDialog } from './DetalheDRE'
+import DRETrimestres from './DRETrimestres'
+import { SeletorRecorte, useRecorte } from './Recorte'
 
 interface Linha {
   codigo: string; descricao: string; nivel: number; tipo: 'conta' | 'subtotal'
@@ -42,7 +44,8 @@ export default function DRE() {
   const [ano, setAno] = useState(hoje.getFullYear())
   const [mes, setMes] = useState(hoje.getMonth() + 1)
   const [visao, setVisao] = useState<'mensal' | 'acumulada'>('mensal')
-  const [filial, setFilial] = useState('')
+  const { recorte, setRecorte, param: paramRecorte } = useRecorte()
+  const [aba, setAba] = useState<'mensal' | 'trimestres'>('mensal')
   const [drill, setDrill] = useState<Linha | null>(null)
   const [atualizando, setAtualizando] = useState(false)
   const [atual, setAtual] = useState<Atualizacao | null>(null)
@@ -50,13 +53,14 @@ export default function DRE() {
   // Gestor segue sem o detalhe por conta e lançamento até o escopo por departamento (4.7).
   const podeDetalhar = isAdmin || ['controladoria', 'auditoria', 'diretoria'].includes(perfil ?? '')
 
-  const q = `ano=${ano}&mes=${mes}&visao=${visao}&filial=${encodeURIComponent(filial)}`
+  const q = `ano=${ano}&mes=${mes}&visao=${visao}&${paramRecorte}`
+  // O detalhe antigo (gestor) só conhece filial: o seletor do gestor não oferece agrupamento.
+  const qLegado = `ano=${ano}&mes=${mes}&visao=${visao}&filial=${encodeURIComponent(recorte.startsWith('f:') ? recorte.slice(2) : '')}`
   const dre = useQuery({ queryKey: ['dre', q], queryFn: () => api<DreResp>(`/api/aud/dre?${q}`) })
-  const filiais = useQuery({ queryKey: ['dre-filiais'], queryFn: () => api<string[]>('/api/aud/dre/filiais') })
   const lancs = useQuery({
-    queryKey: ['dre-lanc', q, drill?.codigo],
+    queryKey: ['dre-lanc', qLegado, drill?.codigo],
     enabled: !!drill && !podeDetalhar,
-    queryFn: () => api<{ lancamentos: Lanc[]; truncado: boolean; aviso?: string }>(`/api/aud/dre/lancamentos?${q}&linha=${drill!.codigo}`),
+    queryFn: () => api<{ lancamentos: Lanc[]; truncado: boolean; aviso?: string }>(`/api/aud/dre/lancamentos?${qLegado}&linha=${drill!.codigo}`),
   })
 
   async function fechar() {
@@ -111,43 +115,50 @@ export default function DRE() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">Mês</label>
-          <select className="h-9 rounded-md border px-2 text-sm bg-white" value={mes} onChange={e => setMes(+e.target.value)}>
-            {MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-          </select>
-        </div>
+        {podeDetalhar && (
+          <div className="flex rounded-md border overflow-hidden self-end h-9 text-sm">
+            <button className={`px-3 ${aba === 'mensal' ? 'bg-sky-50 font-medium' : 'bg-white'}`} onClick={() => setAba('mensal')}>Mensal</button>
+            <button className={`px-3 border-l ${aba === 'trimestres' ? 'bg-sky-50 font-medium' : 'bg-white'}`} onClick={() => setAba('trimestres')}>Trimestres</button>
+          </div>
+        )}
+        {aba === 'mensal' && (
+          <>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1">Mês</label>
+              <select className="h-9 rounded-md border px-2 text-sm bg-white" value={mes} onChange={e => setMes(+e.target.value)}>
+                {MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+              </select>
+            </div>
+          </>
+        )}
         <div>
           <label className="text-xs text-muted-foreground block mb-1">Ano</label>
           <Input type="number" className="w-24 h-9" value={ano} onChange={e => setAno(+e.target.value || ano)} />
         </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">Visão</label>
-          <select className="h-9 rounded-md border px-2 text-sm bg-white" value={visao} onChange={e => setVisao(e.target.value as any)}>
-            <option value="mensal">Mensal</option>
-            <option value="acumulada">Acumulada no ano</option>
-          </select>
-        </div>
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">Filial</label>
-          <select className="h-9 rounded-md border px-2 text-sm bg-white" value={filial} onChange={e => setFilial(e.target.value)}>
-            <option value="">Consolidado</option>
-            {(filiais.data ?? []).map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
+        {aba === 'mensal' && (
+          <div>
+            <label className="text-xs text-muted-foreground block mb-1">Visão</label>
+            <select className="h-9 rounded-md border px-2 text-sm bg-white" value={visao} onChange={e => setVisao(e.target.value as any)}>
+              <option value="mensal">Mensal</option>
+              <option value="acumulada">Acumulada no ano</option>
+            </select>
+          </div>
+        )}
+        <SeletorRecorte valor={recorte} onChange={setRecorte} somenteFilial={!podeDetalhar} />
         <div className="ml-auto flex items-center gap-2">
-          {d?.congelado && (
+          {aba === 'mensal' && d?.congelado && (
             <span className="inline-flex items-center gap-1 text-xs bg-sky-50 text-sky-700 border border-sky-200 rounded-full px-2.5 py-1">
               <Lock className="h-3 w-3" /> Fechado — versão {d.versao}
             </span>
           )}
-          {podeFechar && <Button size="sm" variant="outline" disabled={atualizando} onClick={atualizarDados}>
+          {podeFechar && aba === 'mensal' && <Button size="sm" variant="outline" disabled={atualizando} onClick={atualizarDados}>
             {atualizando ? 'Atualizando…' : 'Atualizar dados'}</Button>}
-          {podeFechar && visao === 'mensal' && !d?.fechamento_ativo && <Button size="sm" variant="outline" onClick={fechar}>Fechar período (grupo inteiro)</Button>}
-          {podeFechar && visao === 'mensal' && d?.fechamento_ativo && <Button size="sm" variant="outline" onClick={reabrir}>Reabrir período</Button>}
+          {podeFechar && aba === 'mensal' && visao === 'mensal' && !d?.fechamento_ativo && <Button size="sm" variant="outline" onClick={fechar}>Fechar período (grupo inteiro)</Button>}
+          {podeFechar && aba === 'mensal' && visao === 'mensal' && d?.fechamento_ativo && <Button size="sm" variant="outline" onClick={reabrir}>Reabrir período</Button>}
         </div>
       </div>
 
+      {aba === 'trimestres' && podeDetalhar ? <DRETrimestres ano={ano} recorte={paramRecorte} /> : <>
       {atual && (
         <div className={`rounded-md border p-3 text-sm ${atual.status === 'ok' ? 'border-emerald-300 bg-emerald-50 text-emerald-900' : 'border-amber-300 bg-amber-50 text-amber-900'}`}>
           <b>Atualizar dados — {new Date(atual.hora).toLocaleString('pt-BR')}:</b> {atual.mensagem}
@@ -210,6 +221,7 @@ export default function DRE() {
         </table>
       </div>
       <p className="text-xs text-muted-foreground">Clique numa linha para ver as contas e, nelas, os lançamentos.</p>
+      </>}
 
       {podeDetalhar && <DetalheLinhaDialog q={q} linha={drill} onClose={() => setDrill(null)} />}
       <Dialog open={!!drill && !podeDetalhar} onOpenChange={o => !o && setDrill(null)}>

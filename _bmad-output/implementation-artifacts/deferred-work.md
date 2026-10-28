@@ -82,3 +82,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-9-detalhe-ate-o-lancamento.md`
   summary: Gestor fica sem as rotas de contas e lançamentos (403, fail closed) e ainda alcança `/api/aud/dre/lancamentos`; o escopo por departamento (4.7) deve fechar o endpoint antigo ou unificá-lo aos novos.
   evidence: `backend/handlers/dre_detalhe.go` (`exigeDetalhe`); `backend/handlers/dre.go` (`DRELancamentosHandler`).
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-10-visao-por-trimestre.md`
+  summary: O seletor de recorte oferece Grupo, agrupamento e filial do ERP; uma filial gerencial isolada (várias filiais do ERP) não é opção porque `resolverRecorte` não tem parâmetro para ela. Acrescentar `?filial_gerencial=<codigo>` (resolvido pelo mapa da 2.14, mesmas regras de exclusão) e a opção no seletor.
+  evidence: `backend/handlers/recorte_filial.go`; `frontend/src/pages/aud/Recorte.tsx`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-10-visao-por-trimestre.md`
+  summary: A visão por trimestre fica negada ao `gestor` (fail closed) e o orçado de trimestre futuro não entra no Ano; liberar o gestor com escopo por departamento é a 4.7, e o orçado do ano inteiro depende de o cliente pedir. A tela do DRE por departamento tem o seletor de recorte, mas a aba Trimestres existe só no DRE.
+  evidence: `backend/handlers/dre_detalhe.go` (`DRETrimestresHandler`); `backend/dre/trimestres.go`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-3-10-visao-por-trimestre.md`
+  summary: O seletor de recorte da 2.15 estava pendente e foi entregue com a 3.10 nas telas do DRE e do DRE por departamento; o detalhe antigo por lançamento (`/api/aud/dre/lancamentos`, usado pelo gestor) continua só com `?filial=`.
+  evidence: `frontend/src/pages/aud/DRE.tsx` (`qLegado`).
