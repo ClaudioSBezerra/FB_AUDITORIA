@@ -14,13 +14,10 @@ Todas as specs estão em `draft`, rota `dispatch`, sem nenhuma linha de código 
 | 1.8 Mês fechado lido do snapshot | `spec-1-8-mes-fechado-do-snapshot.md` | 2050 | 1 |
 | 1.9 Sem endereço do banco do cliente | `spec-1-9-sem-endereco-do-cliente.md` | 2000 | 3 |
 
-Respondidas pelo dono do produto em 28/10/2026 (já no bloco congelado das specs): 2, 5, 6, 7, 8 e 9. Restam abertas: 1, 3 e 4 (numeração original). Enquanto houver pergunta aberta, a spec não sai de `draft`. Ao responder, a decisão entra no bloco congelado da spec e a pergunta é apagada.
+Respondidas pelo dono do produto em 28/10/2026 (já no bloco congelado das specs): 2, 5, 6, 7, 8 e 9. As 1, 3 e 4 foram aprovadas como recomendado. Todas as specs estão `approved`. Enquanto houver pergunta aberta, a spec não sai de `draft`. Ao responder, a decisão entra no bloco congelado da spec e a pergunta é apagada.
 
 ## Open Questions (numeração única)
 
-1. **(1.1) Sem PostgreSQL acessível, o que `go test ./...` faz?** Opções: (a) falhar com mensagem clara; (b) pular os testes de banco. Recomendação: (a), porque um pulo silencioso deixa passar justamente a regressão que a 1.1 existe para pegar; o dono do produto tem Postgres local.
-3. **(1.4) Qual valor de `origem` o CSV grava?** Opções: (a) manter `csv`; (b) `csv.contas`, como no exemplo da arquitetura. Recomendação: (a), porque os dados já gravados têm `csv` e seriam duplicados em vez de substituídos; (b) exigiria migration de dados.
-4. **(1.5) O `409` de conta sem mapeamento passa a listar as contas?** Opções: (a) listar (até 20 contas e o total, em texto simples); (b) manter a mensagem fixa. Recomendação: (a), porque o requisito de fechar exige a lista e nenhuma outra história a entrega.
 
 ## Inconsistências que encontrei entre epics.md e o código real
 

@@ -2,7 +2,7 @@
 title: 'Story 1.9: Nenhum endereço do banco do cliente no repositório (NFR7)'
 type: 'chore'
 created: '2026-10-28'
-status: 'draft'
+status: 'approved'
 route: 'dispatch'
 review_loop_iteration: 0
 context:

@@ -2,7 +2,7 @@
 title: 'Story 1.6: Guarda de período e bloqueio de escrita em mês fechado (FR-11, AD-8)'
 type: 'feature'
 created: '2026-10-28'
-status: 'draft'
+status: 'approved'
 route: 'dispatch'
 review_loop_iteration: 0
 context:

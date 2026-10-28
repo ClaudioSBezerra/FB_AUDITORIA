@@ -2,7 +2,7 @@
 title: 'Story 1.5: Fechamento passa pelo serviço `dre` (AD-1)'
 type: 'refactor'
 created: '2026-10-28'
-status: 'draft'
+status: 'approved'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -19,7 +19,7 @@ context:
 
 ## Boundaries & Constraints
 
-**Always:** O handler não tem SQL de fechamento. Só a controladoria fecha (`c.Tem("controladoria")`; o admin de plataforma passa), como hoje, com `403` para os demais. Fechar abre a transação, calcula via `dre.Realizado` sobre essa transação, grava `dre_fechamentos`, `dre_fechamento_linhas` e a trilha `dre_fechamento/fechar` no mesmo `Commit`. `DREHandler`, `DRELancamentosHandler` e o resto do DRE passam a calcular o realizado por `dre.Realizado` e a resolver a conta por `dre.ResolverConta` (movida de `resolverConta`, mesmo comportamento: exato vence; senão o prefixo `%` mais longo). Os testes da 1.1 seguem passando sem mudança (versão, linhas, `409` sem mapeamento, trilha); a listagem de fechamentos devolve o mesmo JSON; `POST` continua `201` com `{id, versao}`.
+**Always:** O `409` de conta sem mapeamento lista até 20 contas e o total, em texto simples (decisão do dono do produto). O handler não tem SQL de fechamento. Só a controladoria fecha (`c.Tem("controladoria")`; o admin de plataforma passa), como hoje, com `403` para os demais. Fechar abre a transação, calcula via `dre.Realizado` sobre essa transação, grava `dre_fechamentos`, `dre_fechamento_linhas` e a trilha `dre_fechamento/fechar` no mesmo `Commit`. `DREHandler`, `DRELancamentosHandler` e o resto do DRE passam a calcular o realizado por `dre.Realizado` e a resolver a conta por `dre.ResolverConta` (movida de `resolverConta`, mesmo comportamento: exato vence; senão o prefixo `%` mais longo). Os testes da 1.1 seguem passando sem mudança (versão, linhas, `409` sem mapeamento, trilha); a listagem de fechamentos devolve o mesmo JSON; `POST` continua `201` com `{id, versao}`.
 
 **Never:** Não adicionar `Guardar` nem lock (1.6), não mudar a versão por filial nem o índice (1.7), não mudar o schema nem criar migration. Não alterar `dre_fechamento_linhas`. Não mexer em `DREOrcadoHandler`, `orcadoPorLinha` nem em ano anterior além de trocar o cálculo do realizado de lugar. Não mudar o JSON de `/api/aud/dre`.
 
@@ -36,7 +36,7 @@ context:
 
 ## Open Questions
 
-- O `409` de conta sem mapeamento passa a listar as contas? Hoje a mensagem é fixa e o requisito de fechar diz que o sistema lista as contas — opções: listar na resposta, em texto simples, até 20 contas e o total (cumpre o requisito; muda o texto do erro que o Controller vê) / manter a mensagem fixa (nenhuma mudança visível; o requisito de listar fica sem história que o cubra)
+_Nenhuma._
 
 ## Code Map
 

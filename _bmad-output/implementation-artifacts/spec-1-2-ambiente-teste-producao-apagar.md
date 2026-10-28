@@ -2,7 +2,7 @@
 title: 'Story 1.2: Marcador Teste/Produção e apagar os dados de teste (FR-21, AD-18)'
 type: 'feature'
 created: '2026-10-28'
-status: 'draft'
+status: 'approved'
 route: 'dispatch'
 review_loop_iteration: 0
 context:

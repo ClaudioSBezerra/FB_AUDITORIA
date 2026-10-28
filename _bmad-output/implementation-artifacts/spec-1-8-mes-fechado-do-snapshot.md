@@ -2,7 +2,7 @@
 title: 'Story 1.8: Mês fechado lido do que foi congelado (AD-17)'
 type: 'feature'
 created: '2026-10-28'
-status: 'draft'
+status: 'approved'
 route: 'dispatch'
 review_loop_iteration: 0
 context:

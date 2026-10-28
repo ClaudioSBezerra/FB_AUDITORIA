@@ -2,7 +2,7 @@
 title: 'Story 1.1: Testes que registram o fechamento e a importação de hoje'
 type: 'chore'
 created: '2026-10-28'
-status: 'draft'
+status: 'approved'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -19,7 +19,7 @@ context:
 
 ## Boundaries & Constraints
 
-**Always:** O nome do banco de teste termina em `_test` e o teste aborta com mensagem clara se não terminar, ou se for `fb_auditoria`. Usuário e senha locais vêm de variável de ambiente, com padrão `postgres`/`postgres` em `localhost:5432`. O banco `fb_auditoria_test` é criado se não existir e recriado limpo a cada execução de `go test`. Os testes chamam os handlers reais (`DREFechamentoHandler`, `DREImportarHandler`) com `AudContext` no contexto da requisição, sem passar pelo JWT. Cada teste cria a sua empresa e o seu usuário, para não depender de ordem. O que o código faz hoje e vai mudar fica marcado no nome e no comentário do teste ("muda na 1.6").
+**Always:** Sem PostgreSQL acessível, `go test` falha com mensagem clara (decisão do dono do produto). O nome do banco de teste termina em `_test` e o teste aborta com mensagem clara se não terminar, ou se for `fb_auditoria`. Usuário e senha locais vêm de variável de ambiente, com padrão `postgres`/`postgres` em `localhost:5432`. O banco `fb_auditoria_test` é criado se não existir e recriado limpo a cada execução de `go test`. Os testes chamam os handlers reais (`DREFechamentoHandler`, `DREImportarHandler`) com `AudContext` no contexto da requisição, sem passar pelo JWT. Cada teste cria a sua empresa e o seu usuário, para não depender de ordem. O que o código faz hoje e vai mudar fica marcado no nome e no comentário do teste ("muda na 1.6").
 
 **Never:** Não alterar código de produção, migrations, `docker-compose.yml` nem `fb_auditoria`. Não usar `DATABASE_URL` do ambiente como banco de teste (poderia apontar para um banco real). Não recriar nem apagar nenhum banco cujo nome não termine em `_test`. Não depender de rede nem de Oracle.
 
@@ -38,7 +38,7 @@ context:
 
 ## Open Questions
 
-- Sem PostgreSQL acessível, o que `go test ./...` faz? — opções: falhar com mensagem clara (nenhuma regressão passa em silêncio; quem não tem Postgres local não consegue rodar a suíte inteira) / pular (`t.Skip`) os testes de banco (a suíte fica verde em qualquer máquina, mas pode esconder uma regressão sem aviso)
+_Nenhuma._
 
 ## Code Map
 

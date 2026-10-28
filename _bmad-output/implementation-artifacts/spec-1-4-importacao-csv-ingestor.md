@@ -2,7 +2,7 @@
 title: 'Story 1.4: Importação CSV passa pelo Ingestor (AD-1, AD-2, AD-3)'
 type: 'refactor'
 created: '2026-10-28'
-status: 'draft'
+status: 'approved'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -19,7 +19,7 @@ context:
 
 ## Boundaries & Constraints
 
-**Always:** Todas as linhas são validadas antes de abrir a transação; uma linha inválida ou com `filial` vazia rejeita o arquivo, listando as linhas com problema (as primeiras 20 e o total), e nada é gravado. Reimportar apaga e regrava apenas os escopos presentes no arquivo, na mesma transação da carga e da trilha; lançamentos de outra origem na mesma competência e filial permanecem. Arquivo sem linhas de dados não apaga nada e informa (`400`, como hoje). `dre` não importa `handlers` nem `fontes`; `fontes/csv` não importa `database/sql`. A trilha continua com `lancamentos/importar` e ganha os escopos substituídos; como `dre` não pode chamar `handlers.writeAuditLogTx`, a gravação da trilha passa para um pacote pequeno `backend/trilha`, e `writeAuditLogTx` vira um invólucro dele. Formatos aceitos do CSV (separador, `competencia`, valor `1.234,56`) não mudam.
+**Always:** A origem gravada pelo CSV continua `csv` (decisão do dono do produto). Todas as linhas são validadas antes de abrir a transação; uma linha inválida ou com `filial` vazia rejeita o arquivo, listando as linhas com problema (as primeiras 20 e o total), e nada é gravado. Reimportar apaga e regrava apenas os escopos presentes no arquivo, na mesma transação da carga e da trilha; lançamentos de outra origem na mesma competência e filial permanecem. Arquivo sem linhas de dados não apaga nada e informa (`400`, como hoje). `dre` não importa `handlers` nem `fontes`; `fontes/csv` não importa `database/sql`. A trilha continua com `lancamentos/importar` e ganha os escopos substituídos; como `dre` não pode chamar `handlers.writeAuditLogTx`, a gravação da trilha passa para um pacote pequeno `backend/trilha`, e `writeAuditLogTx` vira um invólucro dele. Formatos aceitos do CSV (separador, `competencia`, valor `1.234,56`) não mudam.
 
 **Never:** Não mudar a guarda de período (1.6), o fechamento (1.5), o contrato JSON de sucesso (`carga_id`, `linhas`) nem os formatos do cabeçalho. Não apagar lançamentos de outra origem. Não mexer em `dre_orcado` nem em `DREOrcadoHandler`. Nenhum `DELETE` fora de um escopo explícito: nunca "limpar a competência inteira". Sem migration nesta história.
 
@@ -37,7 +37,7 @@ context:
 
 ## Open Questions
 
-- Qual valor de `origem` o CSV grava? — opções: manter `csv` (os lançamentos já gravados têm `origem = 'csv'`, então a reimportação os substitui e não duplica) / passar a `csv.contas` (exemplo do AD-3; os lançamentos antigos ficariam fora de qualquer escopo, nunca seriam substituídos e somariam em dobro; exigiria migration de dados, irreversível em produção)
+_Nenhuma._
 
 ## Code Map
 
