@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+
+	"fb_auditoria/trilha"
 )
 
 // writeAuditLog grava uma entrada. Falha é logada, não derruba a operação —
@@ -27,18 +29,7 @@ func writeAuditLog(db *sql.DB, empresaID, userID, entidade, entidadeID, acao str
 }
 
 func writeAuditLogTx(tx *sql.Tx, empresaID, userID, entidade, entidadeID, acao string, payload any) error {
-	var p []byte
-	if payload != nil {
-		var err error
-		if p, err = json.Marshal(payload); err != nil {
-			return err
-		}
-	}
-	_, err := tx.Exec(`
-		INSERT INTO auditoria.audit_log (empresa_id, user_id, entidade, entidade_id, acao, payload)
-		VALUES ($1::uuid, NULLIF($2,'')::uuid, $3, $4, $5, $6)`,
-		empresaID, userID, entidade, entidadeID, acao, p)
-	return err
+	return trilha.Gravar(tx, empresaID, userID, entidade, entidadeID, acao, payload)
 }
 
 // AuditLogHandler — GET /api/aud/audit-log?limit=&entidade=

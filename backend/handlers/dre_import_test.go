@@ -6,6 +6,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"fb_auditoria/internal/testdb"
@@ -84,5 +85,26 @@ func TestImportar_MesFechado_Aceita_MudaNa1_6(t *testing.T) {
 	}
 	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid`, f.EmpresaID); n != 2 {
 		t.Errorf("esperava 2 lançamentos gravados, vieram %d", n)
+	}
+}
+
+func TestImportar_Invalido_Retorna400ComMensagem(t *testing.T) {
+	casos := []struct{ nome, csv, msg string }{
+		{"filial_vazia", "competencia;filial;conta;valor\n2026-09;;3.1;1,00\n", "linha 2"},
+		{"sem_coluna_filial", "competencia;conta;valor\n2026-09;3.1;1,00\n", "coluna obrigatória ausente"},
+		{"so_cabecalho", "competencia;filial;conta;valor\n", "nenhuma linha"},
+	}
+	for _, c := range casos {
+		t.Run(c.nome, func(t *testing.T) {
+			db := testdb.Open(t)
+			f := testdb.NovaEmpresa(t, db)
+			w := importar(t, f, c.nome+".csv", c.csv)
+			if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), c.msg) {
+				t.Fatalf("esperava 400 com %q, veio %d: %s", c.msg, w.Code, w.Body.String())
+			}
+			if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid`, f.EmpresaID); n != 0 {
+				t.Errorf("gravou %d linhas", n)
+			}
+		})
 	}
 }

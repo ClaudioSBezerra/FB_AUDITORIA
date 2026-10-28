@@ -31,3 +31,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-4-ids-de-area-novos-e-menu.md`
   summary: O frontend não tem testes; redirecionamentos, landing e módulo ativo só se verificam abrindo o app.
   evidence: não há harness de teste em `frontend/`; só `typecheck`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-importacao-csv-ingestor.md`
+  summary: Uma falha de banco no meio do INSERT de uma importação (por exemplo, conexão caída) agora responde 400 com a linha, e não 500.
+  evidence: `Ingestor.Importar` embrulha qualquer erro de INSERT em `ErroLinhas` para manter o 400 com linha do handler antigo.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-4-importacao-csv-ingestor.md`
+  summary: O valor do lançamento passa por `float64` antes do `NUMERIC(18,2)`; o ideal é decimal ou centavos.
+  evidence: herdado do handler antigo; `fontes/csv` usa `strconv.ParseFloat`.

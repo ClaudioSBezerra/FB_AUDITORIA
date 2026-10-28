@@ -2,7 +2,8 @@
 title: 'Story 1.4: Importação CSV passa pelo Ingestor (AD-1, AD-2, AD-3)'
 type: 'refactor'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: '6a408df2776a1d98207b5b5cb0115e552d1406da'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -80,3 +81,21 @@ O CSV define os próprios escopos (cada par competência e filial presente), dif
 - `cd backend && go build ./... && go vet ./... && go test -p 1 ./...` -- expected: sem erro, incluindo os testes da 1.1
 - `cd frontend && npm run typecheck` -- expected: só o erro anterior em `ResetPassword.tsx(13,9)`, que não é desta história (`npm run lint` não roda)
 - `grep -rniE "(insert into|delete from|update|truncate)\s+(auditoria\.)?lancamentos" backend --include=*.go | grep -v "backend/dre/" | grep -v "_test.go"` -- expected: vazio (os testes podem semear lançamentos)
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| Importações simultâneas do mesmo escopo duplicam linhas | medium | patch | `pg_advisory_xact_lock` por `(empresa, origem)`; `TestImportacoesConcorrentesNaoDuplicam` |
+| Erro de INSERT por linha virou 500 sem linha | medium | patch | embrulhado em `ErroLinhas` com a linha; 400 |
+| Arquivo sem coluna `filial` reporta erro por linha | medium | patch | `filial` na checagem do cabeçalho |
+| `NaN` e `Inf` aceitos como valor | medium | patch | rejeitados em `parseValorBR` |
+| Numeração de linha pelo contador, não pela posição do registro | low | patch | `cr.FieldPos(0)` e `ParseError.Line` |
+| 500 sem log no handler | low | patch | `log.Printf` |
+| Mapeamento 400 do handler e parser CSV sem teste | medium | patch | `TestImportar_Invalido_Retorna400ComMensagem` e `csv_test.go` |
+| Linhas legadas com `filial` vazia nunca são substituídas | low | rejeitado | a spec as deixa intocadas |
+| Teste de arquitetura contornável (aspas, COPY, MERGE, drivers) | low | rejeitado | guarda de regressão; reforço seria complexidade sem dano demonstrado |
+| `trilha.Gravar` sem contexto; validação de conta duplicada; trim de filial | low | rejeitado | negligível |
+| Sem confirmação nem contagem de substituídas na tela | low | rejeitado | fora da spec |
+| Valor em `float64` | low | defer | herdado do handler antigo |
+| Testes não rodam no `go build`; AGENTS.md ainda diz que não há testes Go | low | defer | já registrado |
