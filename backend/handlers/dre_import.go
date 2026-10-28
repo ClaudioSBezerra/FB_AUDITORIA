@@ -1,6 +1,6 @@
 package handlers
 
-// dre_import.go — upload do CSV de lançamentos. O handler só decodifica o
+// dre_import.go — upload de CSV ou XLSX de lançamentos. O handler só decodifica o
 // multipart e chama dre.Ingestor, o único escritor de lançamentos.
 
 import (
@@ -31,7 +31,8 @@ func DREImportarHandler(db *sql.DB) http.HandlerFunc {
 		}
 		defer f.Close()
 
-		res, err := ing.Importar(r.Context(), c.EmpresaID, c.UserID, csvfonte.Nova(f, hdr.Filename))
+		fonte := csvfonte.Nova(f, hdr.Filename)
+		res, err := ing.Importar(r.Context(), c.EmpresaID, c.UserID, fonte)
 		if err != nil {
 			var ee *dre.ErroEntrada
 			var el *dre.ErroLinhas
@@ -47,6 +48,6 @@ func DREImportarHandler(db *sql.DB) http.HandlerFunc {
 			}
 			return
 		}
-		writeJSON(w, map[string]any{"carga_id": res.CargaID, "linhas": res.Linhas})
+		writeJSON(w, map[string]any{"carga_id": res.CargaID, "linhas": res.Linhas, "ajustes_ignorados": fonte.AjustesIgnorados()})
 	}
 }

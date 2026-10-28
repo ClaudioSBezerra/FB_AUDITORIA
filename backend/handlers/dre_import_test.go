@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/xuri/excelize/v2"
+
 	"fb_auditoria/internal/testdb"
 )
 
@@ -105,5 +107,72 @@ func TestImportar_Invalido_Retorna400ComMensagem(t *testing.T) {
 				t.Errorf("gravou %d linhas", n)
 			}
 		})
+	}
+}
+
+func xlsxBytes(t *testing.T, linhas [][]any) string {
+	t.Helper()
+	x := excelize.NewFile()
+	for i, l := range linhas {
+		cel, _ := excelize.CoordinatesToCellName(1, i+1)
+		if err := x.SetSheetRow("Sheet1", cel, &l); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var b bytes.Buffer
+	if err := x.Write(&b); err != nil {
+		t.Fatal(err)
+	}
+	return b.String()
+}
+
+// Planilha do cliente (CSV e XLSX): origem csv.contas, ajuste ignorado e contado,
+// reenvio substitui o escopo.
+func TestImportar_Planilha(t *testing.T) {
+	csvPlan := "CONTA;DESCRIÇÃO;VL. Realizado;Ajustes;Saldo;Grupo;Mês;Loja\n" +
+		"4010001;Venda;1.234,56;5,00;0;G1;202609;01\n4010002;Custo;10,00;0;0;G1;202609;1\n4010003;Outra;3,00;2;0;G1;202609;02\n"
+	xl := xlsxBytes(t, [][]any{
+		{"CONTA", "DESCRIÇÃO", "VL. Realizado", "Ajustes", "Saldo", "Grupo", "Mês", "Loja"},
+		{"4010001", "Venda", 1234.56, 5, 0, "G1", 202609, 1},
+		{"4010002", "Custo", 10, 0, 0, "G1", 202609, 1},
+		{"4010003", "Outra", 3, 2, 0, "G1", 202609, 2},
+	})
+	for nome, conteudo := range map[string]string{"planilha.csv": csvPlan, "planilha.xlsx": xl} {
+		t.Run(nome, func(t *testing.T) {
+			db := testdb.Open(t)
+			f := testdb.NovaEmpresa(t, db)
+			for i := 0; i < 2; i++ { // reenvio não duplica
+				w := importar(t, f, nome, conteudo)
+				if w.Code != http.StatusOK {
+					t.Fatalf("status %d: %s", w.Code, w.Body.String())
+				}
+				var resp struct {
+					Linhas           int `json:"linhas"`
+					AjustesIgnorados int `json:"ajustes_ignorados"`
+				}
+				if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil || resp.Linhas != 3 || resp.AjustesIgnorados != 2 {
+					t.Fatalf("resposta inesperada: %s (%v)", w.Body.String(), err)
+				}
+			}
+			if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid AND origem='csv.contas' AND competencia='2026-09-01'`, f.EmpresaID); n != 3 {
+				t.Errorf("esperava 3 lançamentos csv.contas, vieram %d", n)
+			}
+			if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid AND filial='1' AND valor IN (1234.56, 10)`, f.EmpresaID); n != 2 {
+				t.Errorf("filial 01 e 1 deviam ser a mesma, veio %d", n)
+			}
+		})
+	}
+}
+
+func TestImportar_Planilha_Invalida400(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	w := importar(t, f, "p.csv", "CONTA;VL. Realizado;Mês;Loja\n1;1;2026-09;1\n")
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "linha 2") {
+		t.Fatalf("esperava 400 com linha 2, veio %d: %s", w.Code, w.Body.String())
+	}
+	w = importar(t, f, "p.xlsx", "PK\x03\x04truncado")
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("esperava 400 para ZIP corrompido, veio %d: %s", w.Code, w.Body.String())
 	}
 }

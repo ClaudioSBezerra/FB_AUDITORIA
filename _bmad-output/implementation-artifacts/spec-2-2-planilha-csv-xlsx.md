@@ -2,7 +2,8 @@
 title: 'Story 2.2: CSV e XLSX no formato da planilha atual (FR-3)'
 type: 'feature'
 created: '2026-10-28'
-status: 'draft'
+status: 'done'
+baseline_commit: '7716e73e0d2e15a1a494bfdf9c9a4994b0bb7749'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -76,3 +77,19 @@ context:
 ## Implementation Notes
 
 Tamanho acima de 1600 tokens: cruza leitura de arquivo, backend e tela; sem divisão proposta. Decisão a revisar: `Loja` só com dígitos perde os zeros à esquerda para casar com o `CODFILIAL` do ERP; o formato antigo não faz essa normalização. Os nomes exatos das colunas da planilha real ainda não foram confirmados pelo cliente; os apelidos do cabeçalho cobrem as variações prováveis.
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| XLSX lido pelo texto exibido perde centavos e erra formatos | high | patch | `RawCellValue`; `ParseFloat` primeiro para célula do XLSX, `parseValorBR` para texto |
+| XLSX sem cabeçalho dava "arquivo vazio" em vez de listar as colunas | medium | patch | `ErroEntrada` com as colunas esperadas |
+| Linha de título aceita como cabeçalho | medium | patch | `ehCabecalho` exige o conjunto obrigatório de um formato |
+| Separador decidido pelos primeiros bytes (títulos com vírgula); erros de parse no título rejeitavam o arquivo | medium | patch | separador por linha de cabeçalho; erros antes do cabeçalho descartados |
+| Latin-1 tratado como ISO-8859-1, não Windows-1252 | medium | patch | `charmap.Windows1252` |
+| Cabeçalho duplicado (último vencia); coluna a mais deslocava valores em silêncio | medium | patch | primeiro vence; contagem de colunas no CSV da planilha |
+| `Nome()` e `ajustes` não reiniciados; assinatura `PK` incompleta | low | patch | reinício no começo de `Ler`; `PK\x03\x04` |
+| Testes: Windows-1252, vírgula com título, várias planilhas, cabeçalho após a linha 20 | medium | patch | testes novos |
+| Filial normalizada só no formato da planilha (`01` e `1` no antigo) | low | defer | o formato antigo fica inalterado por decisão da spec |
+| Ajuste não numérico ignorado sem aviso; ajuste não vai para a trilha | low | rejeitado | o ajuste não é importado por decisão do cliente |
+| Memória no upload; abas ocultas e células mescladas | low | rejeitado | `MaxBytesReader` de 64 MB e limite de descompactação; sem dano demonstrado |

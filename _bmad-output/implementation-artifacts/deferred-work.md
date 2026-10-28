@@ -61,3 +61,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-14-mapa-de-filiais.md`
   summary: `dre.FilialGerencialDe` não tem chamador e faz uma consulta por filial; a história que trocar a chave do snapshot e do realizado para a filial gerencial deve criar uma leitura em lote (`map[filialERP]codigo`).
   evidence: `backend/dre/filiais.go`; nenhum caminho do DRE usa o mapa ainda.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-2-planilha-csv-xlsx.md`
+  summary: O formato antigo do CSV não normaliza a filial (`01` fica `01`) e o da planilha remove zeros à esquerda (`01` vira `1`); uma mesma filial pode entrar com chaves diferentes nas duas origens.
+  evidence: `backend/dre/fontes/csv/csv.go`, `normFilial`; alinhar quando entrar o resolvedor de filial gerencial (2.14) na ingestão.
