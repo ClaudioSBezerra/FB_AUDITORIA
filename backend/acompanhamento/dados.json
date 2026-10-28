@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-28",
-  "versao": "4b0c596",
+  "versao": "6ba4ae0",
   "historias": [
     {
       "id": "1.1",
@@ -671,7 +671,7 @@
         "nome": "Acesso seguro por perfil e departamento"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como Controller, quero perfis com capacidades claras, para que o analista tenha o que precisa sem poder fechar o mês.",
       "criterios": [

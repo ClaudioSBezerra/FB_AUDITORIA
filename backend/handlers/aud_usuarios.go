@@ -11,7 +11,6 @@ import (
 	"github.com/lib/pq"
 )
 
-var perfisValidos = map[string]bool{"auditoria": true, "controladoria": true, "diretoria": true, "gestor": true}
 var areasValidas = map[string]bool{AreaEmpresa: true, AreaConfiguracoes: true, AreaComercial: true, AreaOperacao: true, AreaAcompanhamento: true}
 
 // AudUsuariosHandler — GET lista | PUT {user_id, perfil, areas}.
@@ -53,7 +52,7 @@ func AudUsuariosHandler(db *sql.DB) http.HandlerFunc {
 				Perfil string   `json:"perfil"`
 				Areas  []string `json:"areas"`
 			}
-			if json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req) != nil || req.UserID == "" || !perfisValidos[req.Perfil] || len(req.Areas) == 0 {
+			if json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req) != nil || req.UserID == "" || matrizPerfis[req.Perfil] == nil || len(req.Areas) == 0 {
 				http.Error(w, "user_id, perfil e areas obrigatórios", http.StatusBadRequest)
 				return
 			}

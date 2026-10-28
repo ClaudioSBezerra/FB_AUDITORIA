@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { api } from './util'
+import { PERFIS } from '@/lib/perfis'
 
 interface U { id: string; full_name: string; email: string; perfil: string; areas: string[] }
-const PERFIS = [['auditoria', 'Auditoria'], ['controladoria', 'Controladoria'], ['diretoria', 'Diretoria'], ['gestor', 'Gestor']]
 const AREAS = [['empresa', 'Administrativo'], ['configuracoes', 'Configurações'], ['comercial', 'Comercial'], ['operacao', 'Operação'], ['acompanhamento', 'Acompanhamento']]
 
 export default function AdmUsuarios() {

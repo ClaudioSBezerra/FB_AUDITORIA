@@ -7,7 +7,8 @@ package handlers
 //   2. AuditoriaAuthMiddleware resolve a empresa ativa (X-Company-ID), carrega
 //      perfil/áreas do banco e aplica licença e bloqueio de empresa.
 //
-// Perfis (users.perfil): auditoria | controladoria | diretoria | gestor.
+// Perfis (users.perfil): analista | auditoria | controladoria | diretoria | gestor.
+// O que cada perfil pode fazer está na matriz de capacidades (perfis.go).
 // users.role = 'admin' é o admin de plataforma e passa em qualquer perfil.
 
 import (
@@ -75,11 +76,31 @@ func (c *AudContext) Tem(perfis ...string) bool {
 }
 
 // PodeGerirUsuarios — só admin de plataforma e controladoria.
-func (c *AudContext) PodeGerirUsuarios() bool { return c.Tem("controladoria") }
+func (c *AudContext) PodeGerirUsuarios() bool { return c.Pode(CapGerirUsuarios) }
 
 // AuditoriaAuthMiddleware: area == "" só exige autenticação; perfis vazio =
-// qualquer perfil com acesso à área.
+// qualquer perfil com acesso à área. Forma legada, por lista de perfis; remanescente
+// até a 4.3 migrar as rotas para AuditoriaAuthCap.
 func AuditoriaAuthMiddleware(db *sql.DB, next http.HandlerFunc, area string, perfis ...string) http.HandlerFunc {
+	return autenticaAud(db, next, area, func(c *AudContext, _ *http.Request) bool {
+		return len(perfis) == 0 || c.Tem(perfis...)
+	})
+}
+
+// AuditoriaAuthCap protege a rota por capacidade (AD-11). `leitura` vale para GET,
+// HEAD e OPTIONS; `escrita`, se informada, vale para os demais métodos (sem ela,
+// `leitura` vale para todos). area == "" só exige autenticação.
+func AuditoriaAuthCap(db *sql.DB, next http.HandlerFunc, area string, leitura Capacidade, escrita ...Capacidade) http.HandlerFunc {
+	return autenticaAud(db, next, area, func(c *AudContext, r *http.Request) bool {
+		cap := leitura
+		if len(escrita) > 0 && r.Method != http.MethodGet && r.Method != http.MethodHead && r.Method != http.MethodOptions {
+			cap = escrita[0]
+		}
+		return c.Pode(cap)
+	})
+}
+
+func autenticaAud(db *sql.DB, next http.HandlerFunc, area string, autoriza func(*AudContext, *http.Request) bool) http.HandlerFunc {
 	return AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		userID := GetUserIDFromContext(r)
 		if userID == "" {
@@ -112,7 +133,7 @@ func AuditoriaAuthMiddleware(db *sql.DB, next http.HandlerFunc, area string, per
 			http.Error(w, "Forbidden: sem acesso à área "+area, http.StatusForbidden)
 			return
 		}
-		if len(perfis) > 0 && !c.Tem(perfis...) {
+		if !autoriza(c, r) {
 			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
 			return
 		}
@@ -154,10 +175,21 @@ func AudMeHandler(db *sql.DB) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{
 			"perfil":           c.Perfil,
+			"capacidades":      capacidadesDe(c),
 			"areas":            areas,
 			"admin":            c.Admin,
 			"can_manage_users": c.PodeGerirUsuarios(),
 			"ambiente":         ambiente,
 		})
 	}
+}
+
+func capacidadesDe(c *AudContext) []Capacidade {
+	out := []Capacidade{}
+	for _, cap := range TodasCapacidades {
+		if c.Pode(cap) {
+			out = append(out, cap)
+		}
+	}
+	return out
 }

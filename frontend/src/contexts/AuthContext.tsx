@@ -16,7 +16,7 @@ interface AuthContextType {
   company: string | null;
   companyId: string | null;
   cnpj: string | null;
-  /** perfil funcional: auditoria | controladoria | diretoria | gestor */
+  /** perfil funcional: analista | auditoria | controladoria | diretoria | gestor */
   perfil: string | null;
   /** áreas do menu liberadas: empresa | configuracoes | comercial | operacao | acompanhamento */
   areas: string[];
