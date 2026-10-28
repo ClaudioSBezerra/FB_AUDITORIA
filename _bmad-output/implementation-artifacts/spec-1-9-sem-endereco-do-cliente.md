@@ -19,7 +19,7 @@ context:
 
 ## Boundaries & Constraints
 
-**Always:** Só mudar valores padrão e mensagens; nomes das variáveis, a porta padrão `1521` (valor genérico) e o resto do `jc-probe` ficam como estão. O `.env.example` mostra as variáveis vazias com um comentário de que são obrigatórias e que a credencial fica só no `backend/.env` (fora do git) e no Coolify. A mensagem de falha do `jc-probe` cita só os nomes das variáveis que faltam. A lista de variáveis do Coolify vai no `Implementation Notes` e na mensagem de commit, sem valores. `go mod tidy` só altera `go.mod` e `go.sum` (o `go-ora` sai de `// indirect`).
+**Always:** (decisões do dono do produto) `JC_ORACLE_HOST`, `JC_ORACLE_SERVICE` e `JC_ORACLE_DRE_VIEWS` já estão cadastradas no Coolify; ficam obrigatórias no compose com `${VAR:?mensagem}` e sem padrão no repositório. Só mudar valores padrão e mensagens; nomes das variáveis, a porta padrão `1521` (valor genérico) e o resto do `jc-probe` ficam como estão. O `.env.example` mostra as variáveis vazias com um comentário de que são obrigatórias e que a credencial fica só no `backend/.env` (fora do git) e no Coolify. A mensagem de falha do `jc-probe` cita só os nomes das variáveis que faltam. A lista de variáveis do Coolify vai no `Implementation Notes` e na mensagem de commit, sem valores. `go mod tidy` só altera `go.mod` e `go.sum` (o `go-ora` sai de `// indirect`).
 
 **Never:** Não reescrever o histórico do git: o endereço continua nele, e a mitigação decidida é o repositório privado (hoje público, temporariamente, para o deploy). Não escrever o endereço, o service name nem os nomes das views reais em arquivo nenhum, nem nesta spec, em teste ou em comentário. Não fazer push nem tocar Coolify, Cloudflare ou o Oracle. Não ler dado do cliente. Não alterar `backend/.env` local, que não é versionado. Não mexer em `_bmad-output/planning-artifacts` (ver Design Notes).
 
@@ -29,15 +29,13 @@ context:
 |----------|--------------|---------------------------|----------------|
 | `jc-probe` sem variáveis | nenhuma `JC_*` | falha antes de conectar | pede `JC_ORACLE_HOST`, `JC_ORACLE_SERVICE`, usuário e senha pelo nome |
 | `jc-probe` com host e service | variáveis definidas | conecta como hoje | N/A |
-| Compose sem a variável | `JC_ORACLE_HOST` ausente | não renderiza | mensagem do compose (depende da pergunta) |
+| Compose sem a variável | `JC_ORACLE_HOST` ausente | não renderiza | mensagem do compose |
 
 </frozen-after-approval>
 
 ## Open Questions
 
-- As variáveis `JC_ORACLE_HOST` e `JC_ORACLE_SERVICE` (e a de views, se mudar) já estão cadastradas no Coolify? Hoje o compose as tem com padrão, então o Coolify pode estar usando o padrão e ter nada cadastrado — opções: já existem (o push sai sem o deploy quebrar) / não existem (cadastrar antes do push; sem isso o deploy falha ou sobe com valor vazio)
-- No `docker-compose.yml`, `JC_ORACLE_HOST` e `JC_ORACLE_SERVICE` ficam obrigatórios com `${VAR:?mensagem}`? A API ainda não lê Oracle — opções: obrigatórias no compose (cumpre "obrigatórios" de ponta a ponta; o deploy falha se faltarem, mesmo sem uso hoje) / sem padrão e sem `:?` no compose, obrigatórias só no `jc-probe` e no código que ler Oracle (o deploy nunca quebra por isso, mas a obrigatoriedade só aparece quando alguém usar)
-- O padrão de `JC_ORACLE_DRE_VIEWS` (nomes das views do cliente) também sai do repositório? O critério cita "IP, service name ou schema" — opções: remover e tornar obrigatória (consistente com não expor o schema; mais uma variável a cadastrar) / manter (os nomes das views continuam no git)
+_Nenhuma._
 
 ## Code Map
 
@@ -77,4 +75,4 @@ O arquivo de revisão em `_bmad-output/planning-artifacts` mantém o endereço e
 - `cd backend && go build ./... && go vet ./... && go test -p 1 ./...` -- expected: sem erro (inclui `./cmd/jc-probe`)
 - `cd backend && go run ./cmd/jc-probe` sem variáveis `JC_*` -- expected: falha pedindo-as por nome, sem tentar conectar
 - `cd backend && go mod tidy && git diff --stat go.mod go.sum` -- expected: só `go-ora` sai de `indirect`
-- `docker compose config` sem as variáveis -- expected: erro do compose se a pergunta 2 escolher obrigatórias
+- `docker compose config` sem as variáveis -- expected: erro do compose (variáveis obrigatórias)

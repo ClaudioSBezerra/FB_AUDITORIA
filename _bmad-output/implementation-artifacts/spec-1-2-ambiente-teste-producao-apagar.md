@@ -19,7 +19,7 @@ context:
 
 ## Boundaries & Constraints
 
-**Always:** A senha é conferida com `CheckPasswordHash` contra `users.password_hash` do admin logado (o mesmo bcrypt do login); admin de plataforma é `users.role = 'admin'` (`AudContext.Admin`); senha ausente ou errada devolve `403`. A função de limpeza recusa fora de `teste` mesmo se chamada direto por SQL. Apaga `lancamentos`, `dre_orcado`, `dre_fechamentos` (e as linhas por cascata) e `cargas` da empresa; mantém `dre_linhas`, `dre_mapa` e usuários; nunca toca `audit_log`. A rota grava na trilha, na mesma transação, com `writeAuditLogTx` (quantas linhas saíram de cada tabela). `imutavel_salvo_em_teste(empresa)` é verdadeira só com ambiente `teste` e com a sessão marcada por `set_config(..., true)` dentro da função de limpeza. A migration é idempotente.
+**Always:** Gatilho `BEFORE DELETE` em `companies` que recusa `producao` (decisão do dono do produto), na migration desta história; em `teste` a exclusão em cascata segue permitida. A senha é conferida com `CheckPasswordHash` contra `users.password_hash` do admin logado (o mesmo bcrypt do login); admin de plataforma é `users.role = 'admin'` (`AudContext.Admin`); senha ausente ou errada devolve `403`. A função de limpeza recusa fora de `teste` mesmo se chamada direto por SQL. Apaga `lancamentos`, `dre_orcado`, `dre_fechamentos` (e as linhas por cascata) e `cargas` da empresa; mantém `dre_linhas`, `dre_mapa` e usuários; nunca toca `audit_log`. A rota grava na trilha, na mesma transação, com `writeAuditLogTx` (quantas linhas saíram de cada tabela). `imutavel_salvo_em_teste(empresa)` é verdadeira só com ambiente `teste` e com a sessão marcada por `set_config(..., true)` dentro da função de limpeza. A migration é idempotente.
 
 **Never:** Nenhum `UPDATE` de `ambiente` na migration: todas as empresas existentes ficam em `teste` pelo padrão. Não apagar `audit_log` nem alterar o gatilho dele. Não apagar de outra empresa além da ativa. Não criar rota para voltar a `teste`. Nesta história não há tela, não há virada para produção (1.3) e não há gatilho de imutabilidade em fechamento (1.7). A migration só roda no boot da API; push é decisão humana.
 
@@ -37,7 +37,7 @@ context:
 
 ## Open Questions
 
-- Em Produção, o que impede apagar dado de domínio pelas rotas de administração `DELETE /api/config/companies`, `/groups` e `/environments`? Hoje elas excluem em cascata lançamentos e fechamentos, e só a trilha (`audit_log`, que bloqueia a cascata) impede na prática — opções: gatilho `BEFORE DELETE` em `companies` que recusa `producao` (fecha o requisito "nem por chamada direta"; é pequeno e vai nesta migration) / deixar como está e registrar em `deferred-work.md` (a história fica menor, mas o requisito de Produção depende de um efeito colateral da trilha)
+_Nenhuma._
 
 ## Code Map
 
@@ -48,7 +48,7 @@ context:
 - `backend/handlers/audit_log.go` -- `writeAuditLogTx`; reaproveitar.
 - Novo `backend/handlers/ambiente.go` -- `AmbienteLimparHandler` (POST `/api/aud/ambiente/limpar`, corpo `{senha}`), sem SQL de limpeza própria: chama `SELECT auditoria.limpar_dados_teste($1)` dentro da transação.
 - Novo `backend/handlers/ambiente_test.go` -- usa `internal/testdb` da 1.1.
-- `backend/handlers/environment.go` -- handlers de `DELETE` de empresa, grupo e ambiente (ver Open Questions); não mudar.
+- `backend/handlers/environment.go` -- handlers de `DELETE` de empresa, grupo e ambiente (a proteção de Produção vem do gatilho em `companies`); não mudar.
 
 ## Tasks & Acceptance
 

@@ -14,19 +14,13 @@ Todas as specs estão em `draft`, rota `dispatch`, sem nenhuma linha de código 
 | 1.8 Mês fechado lido do snapshot | `spec-1-8-mes-fechado-do-snapshot.md` | 2050 | 1 |
 | 1.9 Sem endereço do banco do cliente | `spec-1-9-sem-endereco-do-cliente.md` | 2000 | 3 |
 
-Total de Open Questions: 9. Enquanto houver pergunta aberta, a spec não sai de `draft`. Ao responder, a decisão entra no bloco congelado da spec e a pergunta é apagada.
+Respondidas pelo dono do produto em 28/10/2026 (já no bloco congelado das specs): 2, 5, 6, 7, 8 e 9. Restam abertas: 1, 3 e 4 (numeração original). Enquanto houver pergunta aberta, a spec não sai de `draft`. Ao responder, a decisão entra no bloco congelado da spec e a pergunta é apagada.
 
 ## Open Questions (numeração única)
 
 1. **(1.1) Sem PostgreSQL acessível, o que `go test ./...` faz?** Opções: (a) falhar com mensagem clara; (b) pular os testes de banco. Recomendação: (a), porque um pulo silencioso deixa passar justamente a regressão que a 1.1 existe para pegar; o dono do produto tem Postgres local.
-2. **(1.2) O que impede apagar dado de domínio em Produção pelas rotas `DELETE` de empresa, grupo e ambiente (`/api/config/*`)?** Hoje elas excluem em cascata lançamentos e fechamentos, e só a trilha impede na prática. Opções: (a) gatilho `BEFORE DELETE` em `companies` que recusa `producao`, dentro da migration da 1.2; (b) deixar e registrar em `deferred-work.md`. Recomendação: (a), porque o requisito de Produção diz "nem por chamada direta" e custa um gatilho pequeno.
 3. **(1.4) Qual valor de `origem` o CSV grava?** Opções: (a) manter `csv`; (b) `csv.contas`, como no exemplo da arquitetura. Recomendação: (a), porque os dados já gravados têm `csv` e seriam duplicados em vez de substituídos; (b) exigiria migration de dados.
 4. **(1.5) O `409` de conta sem mapeamento passa a listar as contas?** Opções: (a) listar (até 20 contas e o total, em texto simples); (b) manter a mensagem fixa. Recomendação: (a), porque o requisito de fechar exige a lista e nenhuma outra história a entrega.
-5. **(1.7) Se a produção já tiver o mesmo mês fechado mais de uma vez, ou por filial e consolidado, a migration aborta e a API não sobe. Como tratar?** Opções: (a) aceitar o aborto e o dono do produto conferir a tabela antes do push; (b) a migration marca as versões antigas como reabertas (altera dado de fechamento); (c) índice restrito ao que já é único (sem garantia nos meses antigos). Recomendação: (a), com a consulta de conferência no `Implementation Notes`, porque (b) contraria "nunca tocar fechamentos" e (c) esvazia a garantia.
-6. **(1.8) Como fica o DRE de uma filial num mês fechado?** Opções: (a) congelar também por filial (filial na chave de linhas e contas); (b) voltar ao vivo para o filtro de filial; (c) recusar o filtro de filial em mês fechado. Recomendação: (a), porque é a única que mantém "só do snapshot" e o recorte por filial; o custo é gravar mais linhas por fechamento, com volume pequeno.
-7. **(1.9) As variáveis `JC_ORACLE_HOST` e `JC_ORACLE_SERVICE` já estão cadastradas no Coolify?** Opções: (a) já existem; (b) não existem, cadastrar antes do push. Recomendação: o dono do produto responde; sem certeza, tratar como (b) e cadastrar antes do push.
-8. **(1.9) No compose, host e service ficam obrigatórios com `${VAR:?...}`?** Opções: (a) obrigatórios no compose; (b) sem padrão e sem `:?`, obrigatórios só no `jc-probe` e no código que ler Oracle. Recomendação: (a) se a pergunta 7 for "já existem" e (b) se não, para o deploy não quebrar por uma variável que a API ainda não usa.
-9. **(1.9) O padrão de `JC_ORACLE_DRE_VIEWS` também sai do repositório?** Opções: (a) remover e tornar obrigatória; (b) manter. Recomendação: (a), porque o critério cita "schema" e o plano de execução já trata o nome das views como dado a revisar; implica cadastrar mais uma variável no Coolify.
 
 ## Inconsistências que encontrei entre epics.md e o código real
 

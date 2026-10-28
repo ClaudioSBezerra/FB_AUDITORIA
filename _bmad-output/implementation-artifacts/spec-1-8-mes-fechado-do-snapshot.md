@@ -19,7 +19,7 @@ context:
 
 ## Boundaries & Constraints
 
-**Always:** Valores em `NUMERIC(18,2)`. `Fechar` grava linhas (com realizado, orçado e ano anterior, subtotais inclusive, congelados) e contas (conta, linha, realizado, ano anterior) na mesma transação. Competência fechada é lida do snapshot ativo em qualquer papel (realizado, orçado, ano anterior), no mensal, no acumulado (soma mês a mês: mês fechado do snapshot, mês aberto ao vivo) e no detalhe por conta; mês fechado não consulta `lancamentos`, `dre_mapa` nem `dre_linhas`. Competência reaberta (sem ativo) volta ao vivo. O aviso "o detalhe mostra lançamentos posteriores ao fechamento" sai da tela. Orçado vem do que existe hoje (`dre_orcado`, por linha).
+**Always:** Valores em `NUMERIC(18,2)`. Snapshot completo (decisão do dono do produto): `dre_fechamento_linhas` e `dre_fechamento_contas` recebem `filial` na chave (consolidado do grupo e cada filial, congelados na mesma transação do `Fechar`), de modo que o filtro de filial em mês fechado também lê só do snapshot. `Fechar` grava linhas (com realizado, orçado e ano anterior, subtotais inclusive, congelados) e contas (conta, linha, realizado, ano anterior) na mesma transação. Competência fechada é lida do snapshot ativo em qualquer papel (realizado, orçado, ano anterior), no mensal, no acumulado (soma mês a mês: mês fechado do snapshot, mês aberto ao vivo) e no detalhe por conta; mês fechado não consulta `lancamentos`, `dre_mapa` nem `dre_linhas`. Competência reaberta (sem ativo) volta ao vivo. O aviso "o detalhe mostra lançamentos posteriores ao fechamento" sai da tela. Orçado vem do que existe hoje (`dre_orcado`, por linha).
 
 **Never:** Não acrescentar colunas de orçado por conta, departamento nem ajustes: chegam nas 2.7, 3.5 e 5.4. Não recalcular snapshot de fechamento antigo nem fazer `UPDATE` em linha de fechamento já gravada; fechamentos anteriores a esta migration não têm contas e continuam lidos como hoje (apenas linhas), sem inventar dados. Não mudar a regra de fechar da 1.7. Não editar a migration quando aplicada. Produção só recebe por push.
 
@@ -37,7 +37,7 @@ context:
 
 ## Open Questions
 
-- Como fica o DRE de uma filial específica num mês fechado? O fechamento é do grupo, e as tabelas descritas congelam só o total do grupo; sem a filial na chave o snapshot não responde ao filtro por filial — opções: congelar também por filial (acrescenta `filial` à chave de linhas e contas; o filtro funciona e segue só do snapshot; o fechamento grava várias vezes mais linhas) / mês fechado com filtro de filial volta ao vivo (nada a mais para gravar, mas reabre a incoerência que a história quer eliminar) / recusar o filtro por filial em mês fechado (simples e coerente, mas tira da diretoria o recorte por filial no mês fechado)
+_Nenhuma._
 
 ## Code Map
 

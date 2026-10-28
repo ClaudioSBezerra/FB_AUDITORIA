@@ -19,9 +19,9 @@ context:
 
 ## Boundaries & Constraints
 
-**Always:** A migration confere antes se há mais de um fechamento sem `reaberto_em` para a mesma `(empresa, competência)` e, se houver, aborta com uma mensagem clara sem alterar dado; essa mensagem NÃO pode conter `already exists` nem `duplicate`, porque o runner trata esses textos como "migration já aplicada" e seguiria em frente sem o índice. Reabrir e fechar tomam `ChaveLock`; só `controladoria` (ou admin de plataforma) fecha e reabre, `403` para os demais; motivo vazio ou só espaços é recusado (`400`). `reaberto_*` mudam uma única vez, por gatilho que também bloqueia `DELETE`, ambos liberados só quando `auditoria.imutavel_salvo_em_teste(empresa_id)` for verdadeira (1.2). A trilha registra `fechar` e `reabrir`. A versão anterior continua legível. O corpo do `POST` com `filial` preenchida é recusado (`400`: o fechamento é do grupo inteiro); fechamentos por filial já gravados continuam legíveis e aparecem na listagem.
+**Always:** Antes de criar o índice, a migration confere se há mais de um fechamento sem `reaberto_em` para a mesma `(empresa, competência)` (inclui fechamentos por filial). Por empresa: se o ambiente dela (1.2) for `teste`, consolida (decisão do dono do produto): marca como reabertos, com motivo fixo "consolidado na migração, ambiente de teste", todos os fechamentos por filial e todas as versões consolidadas exceto a de maior versão, que fica ativa; se for `producao`, aborta com uma mensagem clara sem alterar dado. A consolidação roda antes de o gatilho de imutabilidade existir e nunca apaga linha. A mensagem de aborto NÃO pode conter `already exists` nem `duplicate`, porque o runner trata esses textos como "migration já aplicada" e seguiria em frente sem o índice. Reabrir e fechar tomam `ChaveLock`; só `controladoria` (ou admin de plataforma) fecha e reabre, `403` para os demais; motivo vazio ou só espaços é recusado (`400`). `reaberto_*` mudam uma única vez, por gatilho que também bloqueia `DELETE`, ambos liberados só quando `auditoria.imutavel_salvo_em_teste(empresa_id)` for verdadeira (1.2). A trilha registra `fechar` e `reabrir`. A versão anterior continua legível. O corpo do `POST` com `filial` preenchida é recusado (`400`: o fechamento é do grupo inteiro); fechamentos por filial já gravados continuam legíveis e aparecem na listagem.
 
-**Never:** A migration não faz `UPDATE`, `DELETE` nem marca versões antigas como reabertas; ela só acrescenta colunas, gatilho e índice. Não apagar versões. Não mexer em `dre_fechamento_linhas` nem na leitura do DRE (1.8). Não criar migration que dependa de dado de produção que não se conhece. Produção só recebe a migration por push; decisão humana.
+**Never:** A migration só faz `UPDATE` na consolidação de empresa em `teste` descrita acima; em `producao` não altera dado nenhum. Nunca `DELETE`; não apagar versões. Não mexer em `dre_fechamento_linhas` nem na leitura do DRE (1.8). Não criar migration que dependa de dado de produção que não se conhece. Produção só recebe a migration por push; decisão humana.
 
 ## I/O & Edge-Case Matrix
 
@@ -39,7 +39,7 @@ context:
 
 ## Open Questions
 
-- Se o banco de produção já tiver o mesmo mês fechado mais de uma vez (versões 1 e 2) ou por filial e consolidado, todas essas linhas estão "sem reaberto_em", e a migration abortaria: a API não sobe (o runner faz `log.Fatal`). Como tratar? Não consigo ver os dados de produção — opções: aceitar o aborto como está escrito (o dono do produto confere o banco antes do push e resolve à mão; nada é alterado, mas um push sem conferência derruba o deploy) / a migration marca as versões antigas como reabertas, com motivo fixo "histórico anterior à reabertura" (a API sobe sozinha, mas altera dados de fechamento, o que a regra de nunca tocar fechamentos proíbe) / restringir o índice ao que for único hoje (a migration nunca aborta, mas a garantia de um só ativo não vale para os meses antigos)
+_Nenhuma._
 
 ## Code Map
 
