@@ -1,4 +1,4 @@
-import { Settings, LogOut, KeyRound, ClipboardList, Briefcase, Activity, SlidersHorizontal } from 'lucide-react'
+import { Settings, LogOut, KeyRound, ClipboardList, Briefcase, Activity, SlidersHorizontal, Kanban } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import {
@@ -39,12 +39,13 @@ interface RailItem {
   area: AreaId
 }
 
-// Quatro áreas de gestão. A primeira aba de cada área é o destino do clique.
+// Áreas de gestão e o acompanhamento do projeto. A primeira aba de cada área é o destino do clique.
 const mainItems: RailItem[] = [
   { id: 'empresa',       icon: ClipboardList,    label: 'Administrativo', path: '/empresa/dre',  area: 'empresa' },
   { id: 'comercial',     icon: Briefcase,        label: 'Comercial',      path: '/comercial',    area: 'comercial' },
   { id: 'operacao',      icon: Activity,         label: 'Operação',       path: '/operacao',     area: 'operacao' },
   { id: 'configuracoes', icon: SlidersHorizontal, label: 'Configurações',  path: '/configuracoes', area: 'configuracoes' },
+  { id: 'acompanhamento', icon: Kanban,          label: 'Acompanhamento', path: '/acompanhamento', area: 'acompanhamento' },
 ]
 
 export function AppRail() {

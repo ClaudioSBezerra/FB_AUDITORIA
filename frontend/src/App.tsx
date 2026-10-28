@@ -19,6 +19,7 @@ const AdminUsers = lazy(() => import('./pages/AdminUsers'))
 const AreaHome = lazy(() => import('./pages/aud/AreaHome'))
 const DRE = lazy(() => import('./pages/aud/DRE'))
 const DREDepartamentos = lazy(() => import('./pages/aud/DREDepartamentos'))
+const Acompanhamento = lazy(() => import('./pages/aud/Acompanhamento'))
 const DREMapa = lazy(() => import('./pages/aud/DREMapa'))
 const DREFechamentos = lazy(() => import('./pages/aud/DREFechamentos'))
 const AdmCarga = lazy(() => import('./pages/aud/AdmCarga'))
@@ -76,6 +77,7 @@ function Landing() {
   if (hasArea('comercial')) return <Navigate to="/comercial" replace />
   if (hasArea('operacao')) return <Navigate to="/operacao" replace />
   if (hasArea('configuracoes')) return <Navigate to="/configuracoes" replace />
+  if (hasArea('acompanhamento')) return <Navigate to="/acompanhamento" replace />
   return <p className="text-sm text-muted-foreground">Seu usuário ainda não tem nenhuma área liberada. Fale com a controladoria.</p>
 }
 
@@ -175,6 +177,9 @@ function AppLayout() {
               {/* Comercial e Operação (em breve) */}
               <Route path="/comercial" element={<AreaRoute area="comercial"><AreaHome moduleId="comercial" /></AreaRoute>} />
               <Route path="/operacao" element={<AreaRoute area="operacao"><AreaHome moduleId="operacao" /></AreaRoute>} />
+
+              {/* Acompanhamento do projeto (Kanban somente leitura, história 4.10) */}
+              <Route path="/acompanhamento" element={<AreaRoute area="acompanhamento"><Acompanhamento /></AreaRoute>} />
 
               {/* Caminhos antigos (ids de área anteriores) */}
               <Route path="/estrategico/*" element={<RedirecionaPrefixo para="/empresa" />} />

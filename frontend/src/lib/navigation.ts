@@ -2,6 +2,7 @@
 //   Administrativo (id empresa) → DRE, fechamentos, Mapa do DRE
 //   Configurações               → carga de dados, usuários, trilha de auditoria
 //   Comercial / Operação        → em breve
+//   Acompanhamento              → Kanban somente leitura do andamento do projeto (4.10)
 //   Plataforma (config)         → ambiente e usuários da plataforma (só admin de plataforma)
 // Cada área é um item no rail (AppRail) e tem a sua barra de abas (ModuleTabs).
 // Acesso: users.areas (+ admin de plataforma vê tudo); abas podem exigir perfil.
@@ -14,7 +15,7 @@ export interface ModuleTab {
   masterOnly?: boolean     // só admin de plataforma
 }
 
-export type AreaId = 'empresa' | 'configuracoes' | 'comercial' | 'operacao'
+export type AreaId = 'empresa' | 'configuracoes' | 'comercial' | 'operacao' | 'acompanhamento'
 
 export interface ModuleConfig {
   label: string
@@ -56,6 +57,11 @@ export const modules: Record<string, ModuleConfig> = {
     area: 'operacao',
     tabs: [{ label: 'Em breve', path: '/operacao/em-breve', disabled: true }],
   },
+  acompanhamento: {
+    label: 'Acompanhamento',
+    area: 'acompanhamento',
+    tabs: [],
+  },
   config: {
     label: 'Plataforma',
     tabs: [
@@ -69,6 +75,7 @@ export const modules: Record<string, ModuleConfig> = {
 export function getActiveModule(pathname: string): string {
   if (pathname.startsWith('/comercial'))      return 'comercial'
   if (pathname.startsWith('/operacao'))       return 'operacao'
+  if (pathname.startsWith('/acompanhamento')) return 'acompanhamento'
   if (pathname.startsWith('/configuracoes'))  return 'configuracoes'
   if (pathname.startsWith('/config'))         return 'config'
   return 'empresa'

@@ -143,7 +143,7 @@ func TestAreas_PutComIdsNovos(t *testing.T) {
 		f.UserID, f.EmpresaID); err != nil {
 		t.Fatal(err)
 	}
-	for _, novo := range []string{"empresa", "configuracoes", "comercial", "operacao"} {
+	for _, novo := range []string{"empresa", "configuracoes", "comercial", "operacao", "acompanhamento"} {
 		r := httptest.NewRequest(http.MethodPut, "/api/aud/usuarios",
 			strings.NewReader(`{"user_id":"`+f.UserID+`","perfil":"controladoria","areas":["`+novo+`"]}`))
 		w := chamar(AudUsuariosHandler(db), reqComCtx(r, f))

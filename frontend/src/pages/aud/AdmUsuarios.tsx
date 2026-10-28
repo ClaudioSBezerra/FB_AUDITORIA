@@ -4,7 +4,7 @@ import { api } from './util'
 
 interface U { id: string; full_name: string; email: string; perfil: string; areas: string[] }
 const PERFIS = [['auditoria', 'Auditoria'], ['controladoria', 'Controladoria'], ['diretoria', 'Diretoria'], ['gestor', 'Gestor']]
-const AREAS = [['empresa', 'Administrativo'], ['configuracoes', 'Configurações'], ['comercial', 'Comercial'], ['operacao', 'Operação']]
+const AREAS = [['empresa', 'Administrativo'], ['configuracoes', 'Configurações'], ['comercial', 'Comercial'], ['operacao', 'Operação'], ['acompanhamento', 'Acompanhamento']]
 
 export default function AdmUsuarios() {
   const qc = useQueryClient()
@@ -36,7 +36,7 @@ export default function AdmUsuarios() {
                 </select>
               </td>
               <td className="p-2.5">
-                <div className="flex gap-3">
+                <div className="flex flex-wrap gap-3">
                   {AREAS.map(([v, l]) => (
                     <label key={v} className="flex items-center gap-1.5 text-xs">
                       <input type="checkbox" checked={u.areas.includes(v)}

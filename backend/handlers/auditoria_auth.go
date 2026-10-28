@@ -31,6 +31,9 @@ const (
 	AreaConfiguracoes = "configuracoes"
 	AreaComercial     = "comercial"
 	AreaOperacao      = "operacao"
+	// AreaAcompanhamento (história 4.10): só enxerga o quadro de andamento do
+	// projeto. Não entra no DEFAULT de users.areas; é concedida pela tela de usuários.
+	AreaAcompanhamento = "acompanhamento"
 )
 
 type AudContext struct {
@@ -146,7 +149,7 @@ func AudMeHandler(db *sql.DB) http.HandlerFunc {
 		}
 		areas := c.Areas
 		if c.Admin {
-			areas = []string{AreaEmpresa, AreaConfiguracoes, AreaComercial, AreaOperacao}
+			areas = []string{AreaEmpresa, AreaConfiguracoes, AreaComercial, AreaOperacao, AreaAcompanhamento}
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{

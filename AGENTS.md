@@ -23,5 +23,5 @@ Módulo de Controladoria e Auditoria da família FB (derivado do FB_FAROL), inte
 ## Running and verifying
 
 - `./dev.sh` exige `backend/.env` (copie de `.env.example`, preencha `JWT_SECRET`) e Postgres em localhost:5432; ele mata qualquer processo nas portas 8088 e 3088.
-- Não há testes Go nem CI; antes de commitar rode `npm run typecheck` e `npm run lint` em `frontend/` e `go build ./...` em `backend/`.
+- Não há testes Go nem CI; antes de commitar rode `npm run typecheck` e `npm run lint` em `frontend/` e `go build ./...` em `backend/`. Se mexeu em `epics.md` ou `sprint-status.yaml`, rode também `cd backend && go run ./cmd/gerar-acompanhamento` e commite o `acompanhamento/dados.json` (o teste do pacote falha se estiver desatualizado).
 <!-- /bmad:context -->

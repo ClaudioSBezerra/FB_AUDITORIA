@@ -1398,6 +1398,34 @@ So that o gerente entre sem cadastro público.
 **Then** vai à trilha
 **And** só o administrador de plataforma cria; o perfil de TI, que poderá criar usuários, fica para depois
 
+### Story 4.10: Acompanhamento do projeto
+
+As a gestor do cliente,
+I want ver o andamento das histórias do projeto num quadro Kanban dentro do sistema,
+So that eu acompanhe o que está pronto, em andamento ou aguardando resposta, sem precisar de conta em outra ferramenta.
+
+**Nota:** o quadro é somente leitura e vem de `epics.md` e `sprint-status.yaml`, embutidos no binário (`backend/acompanhamento/dados.json`, regenerado por `go run ./cmd/gerar-acompanhamento`); o dono do produto continua usando o quadro do GitHub em paralelo. A área nova `acompanhamento` não entra no padrão de `users.areas`.
+
+**Acceptance Criteria:**
+
+**Given** um usuário só com a área `acompanhamento`
+**When** entra no sistema
+**Then** cai em `/acompanhamento`, com cinco colunas (Backlog, Pronto, Em andamento, Em revisão, Feito), contador por coluna, filtro por épico e busca por texto
+**And** o cartão mostra id, título, épico e o selo "Aguardando o cliente" quando a história depende de resposta ou decisão do cliente
+
+**Given** um cartão
+**When** o usuário clica
+**Then** vê o resumo e os critérios de aceite, sem nenhuma ação de escrita
+
+**Given** a rota `GET /api/aud/acompanhamento`
+**When** chamada por usuário com a área `acompanhamento`
+**Then** devolve o JSON com cabeçalho de cache curto; qualquer método diferente de GET recebe `405`
+**And** esse usuário recebe `403` em todas as outras rotas `/api/aud/*`, e quem não tem a área recebe `403` nesta
+
+**Given** uma alteração em `epics.md` ou `sprint-status.yaml`
+**When** o `dados.json` não foi regenerado
+**Then** um teste Go falha dizendo como regenerar
+
 ## Epic 5: Gerentes justificam ajustes e desvios
 
 Os ajustes vêm do ERP, os gerentes justificam (com log), e cada gerente recebe por e-mail o DRE do seu departamento, toda sexta (acumulado) e no fechamento.

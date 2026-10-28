@@ -1,0 +1,1324 @@
+{
+  "gerado_em": "2026-10-28",
+  "versao": "9ff2146",
+  "historias": [
+    {
+      "id": "1.1",
+      "titulo": "Testes que registram o fechamento e a importação de hoje",
+      "epico": {
+        "numero": 1,
+        "nome": "Fechar o mês com segurança"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero testes automáticos que registram como o fechamento e a importação CSV funcionam hoje, para que eu possa mover esse código sem quebrar o que o Controller já usa.",
+      "criterios": [
+        "Dado um banco PostgreSQL de teste com as migrations 001 a 003\nQuando go test ./... roda em backend/\nEntão os testes usam um banco cujo nome termina em _test\nE abortam com mensagem clara se o nome não terminar assim\nE o banco local fb_auditoria_test é criado se não existir e recriado limpo a cada execução",
+        "Dado lançamentos mapeados para as linhas do DRE\nQuando o teste fecha uma competência\nEntão confirma a versão 1, as linhas congeladas com os valores esperados e o registro na trilha",
+        "Dado uma conta com lançamento sem mapeamento\nQuando o teste tenta fechar\nEntão recebe 409 e nada é gravado",
+        "Dado um CSV com ; e outro com ,\nQuando o teste importa\nEntão as linhas entram com carga_id e a trilha registra a importação",
+        "Dado que hoje a importação ignora o fechamento\nQuando o teste importa para uma competência fechada\nEntão o comportamento atual (aceita) fica registrado e marcado \"muda na 1.6\"\nE go build ./... e go vet ./... seguem passando"
+      ]
+    },
+    {
+      "id": "1.2",
+      "titulo": "Marcador Teste/Produção e apagar os dados de teste",
+      "epico": {
+        "numero": 1,
+        "nome": "Fechar o mês com segurança"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como administrador de plataforma, quero marcar a empresa como Teste ou Produção e apagar os dados de teste com a minha senha, para que eu valide com planilhas e depois comece do zero sem risco de apagar dado real.",
+      "criterios": [
+        "Dado as empresas existentes\nQuando a migration roda\nEntão companies.ambiente existe com padrão teste e todas ficam em teste",
+        "Dado uma empresa em producao\nQuando alguém tenta voltar para teste (por SQL ou API)\nEntão o banco recusa (gatilho de mão única)",
+        "Dado o admin de plataforma logado\nQuando pede para apagar informando a senha correta\nEntão auditoria.limpar_dados_teste apaga lançamentos, orçado, fechamentos e cargas, mantém estrutura do DRE, Mapa, usuários e audit_log, e grava na trilha",
+        "Dado senha errada ou ausente\nQuando pede para apagar\nEntão 403 e nada é apagado",
+        "Dado empresa em producao\nQuando chama apagar (inclusive direto na API)\nEntão a função recusa e nada é apagado",
+        "Dado um perfil que não é admin de plataforma\nQuando chama apagar\nEntão 403\nE existe auditoria.imutavel_salvo_em_teste(empresa_id), verdadeira só em teste com a sessão aberta pela função de limpeza"
+      ]
+    },
+    {
+      "id": "1.3",
+      "titulo": "Virar para Produção e faixa de ambiente",
+      "epico": {
+        "numero": 1,
+        "nome": "Fechar o mês com segurança"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como administrador de plataforma, quero virar a empresa para Produção e ver em toda tela em que ambiente estou, para que ninguém confunda teste com produção.",
+      "criterios": [
+        "Dado empresa em teste\nQuando o admin pede para virar informando a senha e digitando \"VIRAR PARA PRODUCAO\"\nEntão ambiente passa a producao e a trilha registra quem e quando\nE a resposta lista as contas com lançamento de origem arquivo (aviso, não bloqueia)",
+        "Dado ambiente teste\nQuando qualquer tela carrega\nEntão a faixa \"AMBIENTE DE TESTE\" aparece fixa (via /api/aud/me)",
+        "Dado producao\nQuando o admin abre a tela de administração\nEntão não há faixa, a tela mostra \"Produção\" e não há botão de apagar",
+        "Dado senha errada\nQuando pede para virar\nEntão 403 e nada muda"
+      ]
+    },
+    {
+      "id": "1.4",
+      "titulo": "Importação CSV passa pelo Ingestor",
+      "epico": {
+        "numero": 1,
+        "nome": "Fechar o mês com segurança"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero que reenviar um CSV substitua os dados em vez de duplicá-los, para que a carga de validação seja repetível.",
+      "criterios": [
+        "Dado o pacote backend/dre com a porta Fonte e dre/fontes/csv\nQuando o handler recebe um CSV\nEntão só chama dre.Ingestor, sem INSERT em lançamentos",
+        "Dado um escopo (empresa, origem, competência, filial) já importado\nQuando o CSV é reenviado\nEntão o escopo é substituído numa transação e não duplica",
+        "Dado lançamentos de outra origem na mesma competência e filial\nQuando reimporta\nEntão eles permanecem",
+        "Dado linha inválida ou filial vazia\nQuando importa\nEntão rejeita listando as linhas e nada é gravado",
+        "Dado arquivo sem linhas\nQuando importa\nEntão não apaga o escopo e informa\nE um teste falha o build se outro pacote tiver INSERT ou DELETE em lancamentos"
+      ]
+    },
+    {
+      "id": "1.5",
+      "titulo": "Fechamento passa pelo serviço dre",
+      "epico": {
+        "numero": 1,
+        "nome": "Fechar o mês com segurança"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero que o fechamento continue funcionando como hoje, agora num único lugar, para que as garantias seguintes tenham onde morar.",
+      "criterios": [
+        "Dado o handler de fechamento\nQuando recebe o POST\nEntão chama dre.Fechamento.Fechar sem SQL próprio, e só a controladoria fecha",
+        "Dado os testes da 1.1\nQuando rodam\nEntão seguem passando (versão, linhas, 409 sem mapeamento, trilha)",
+        "Dado Fechar\nQuando calcula o snapshot\nEntão o cálculo acontece dentro da transação, via dre.Realizado (hoje é fora dela)\nE dre.Realizado é o único caminho que calcula o realizado exibido\nE a listagem de fechamentos devolve o mesmo JSON de hoje"
+      ]
+    },
+    {
+      "id": "1.6",
+      "titulo": "Guarda de período e bloqueio de escrita em mês fechado",
+      "epico": {
+        "numero": 1,
+        "nome": "Fechar o mês com segurança"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero que nenhuma carga entre em mês fechado, para que o detalhe nunca mostre dado posterior ao fechamento.",
+      "criterios": [
+        "Dado competência com fechamento (nesta história \"ativo\" significa que existe fechamento; a reabertura chega na 1.7)\nQuando o analista importa para ela\nEntão 409 listando os escopos recusados, com a mensagem de que é preciso reabrir, e nada é gravado",
+        "Dado competência aberta\nQuando importa\nEntão funciona",
+        "Dado dre.Periodo.Guardar(tx, empresa, competência) com pg_advisory_xact_lock(dre.ChaveLock) e isolamento READ COMMITTED\nQuando fechar e importar a mesma competência rodam juntas\nEntão são serializadas: a carga entra antes do snapshot ou é recusada depois, nunca fica de fora do snapshot e dentro dos lançamentos\nE um teste garante que toda escrita em lancamentos passa por Guardar\nE o teste da 1.1 que registrava \"aceita em mês fechado\" é invertido"
+      ]
+    },
+    {
+      "id": "1.7",
+      "titulo": "Um fechamento ativo por mês e reabertura com motivo",
+      "epico": {
+        "numero": 1,
+        "nome": "Fechar o mês com segurança"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero fechar o mês do grupo uma única vez e reabri-lo com motivo, para que eu corrija sem perder a história do fechamento anterior.",
+      "criterios": [
+        "Dado a migration\nEntão dre_fechamentos ganha reaberto_em, reaberto_por, motivo_reabertura e um índice único parcial em (empresa, competência) WHERE reaberto_em IS NULL\nE se houver duplicatas, a migration aborta com mensagem, sem alterar dado",
+        "Dado competência fechada e ativa\nQuando o Controller tenta fechar de novo\nEntão 409",
+        "Dado motivo informado\nQuando o Controller reabre\nEntão o ativo recebe reaberto_, a competência volta a aceitar escrita, a versão anterior fica legível e a trilha registra",
+        "Dado reabrir sem motivo\nQuando o Controller envia\nEntão recusa",
+        "Dado competência reaberta\nQuando o Controller fecha de novo\nEntão a versão é MAX+1 por (empresa, competência), mantendo as anteriores",
+        "Dado um usuário sem o perfil controladoria (por exemplo, diretoria)\nQuando tenta fechar ou reabrir\nEntão 403\nE reaberto_ mudam uma só vez, por gatilho que respeita imutavel_salvo_em_teste\nE a tela de fechamento deixa de oferecer escolha de filial; fechamentos por filial já gravados continuam legíveis"
+      ]
+    },
+    {
+      "id": "1.8",
+      "titulo": "Mês fechado lido do que foi congelado",
+      "epico": {
+        "numero": 1,
+        "nome": "Fechar o mês com segurança"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero que o mês fechado seja lido sempre do snapshot, para que mudar o Mapa depois não altere um mês fechado.",
+      "criterios": [
+        "Dado a migration\nEntão existe dre_fechamento_contas (conta, linha, realizado, ano anterior) e dre_fechamento_linhas ganha orçado e ano anterior\nE ambas são imutáveis por gatilho que respeita imutavel_salvo_em_teste e entram em limpar_dados_teste",
+        "Dado Fechar\nQuando grava o snapshot\nEntão grava linhas e contas; as colunas de orçado por conta, departamento e ajustes são acrescentadas pelas histórias 2.7, 3.5 e 5.4",
+        "Dado competência fechada\nQuando o DRE (mensal, acumulado, detalhe por conta) é consultado\nEntão lê só do snapshot, e mudar Mapa ou estrutura depois não altera o resultado",
+        "Dado competência aberta\nQuando o DRE é consultado\nEntão lê ao vivo como hoje\nE o aviso da tela \"o detalhe mostra lançamentos posteriores ao fechamento\" deixa de existir"
+      ]
+    },
+    {
+      "id": "1.9",
+      "titulo": "Nenhum endereço do banco do cliente no repositório",
+      "epico": {
+        "numero": 1,
+        "nome": "Fechar o mês com segurança"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero que o repositório não carregue o endereço do banco do cliente, para que uma cópia do código não revele a infraestrutura dele.",
+      "criterios": [
+        "Dado docker-compose.yml, backend/.env.example e backend/cmd/jc-probe\nQuando revisados\nEntão nenhum traz IP, service name ou schema do cliente como valor padrão\nE JC_ORACLE_HOST e JC_ORACLE_SERVICE ficam obrigatórios",
+        "Dado o jc-probe sem variáveis\nQuando roda\nEntão falha pedindo-as, sem endereço embutido",
+        "Dado o deploy\nQuando a história é entregue\nEntão ela lista as variáveis a cadastrar no Coolify antes do push\nE go mod tidy marca o go-ora como dependência direta\nE o endereço continua no histórico do git; a mitigação decidida é o repositório privado, sem reescrever histórico"
+      ]
+    },
+    {
+      "id": "2.1",
+      "titulo": "Uma conta, uma fonte",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero que cada conta tenha uma única fonte dona, para que a mesma conta vinda do Oracle e do arquivo nunca seja somada em dobro.",
+      "criterios": [
+        "Dado a migration\nEntão existe auditoria.conta_fonte (empresa_id, conta_padrao, origem)\nE ela é mantida por limpar_dados_teste (é configuração)",
+        "Dado um CSV com conta sem dona\nQuando importa\nEntão o Ingestor registra csv.contas como dona e grava",
+        "Dado conta cuja dona é outra origem\nQuando o CSV a traz\nEntão a linha é rejeitada citando a dona\nE nada é gravado se houver erro bloqueante",
+        "Dado a posse de uma conta\nQuando é registrada\nEntão ela vai à trilha"
+      ]
+    },
+    {
+      "id": "2.2",
+      "titulo": "CSV e XLSX no formato da planilha atual",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero carregar o bloco de contas da planilha atual (CSV ou XLSX) sem reformatar, para que eu valide o ambiente com os mesmos dados que o Excel usa.",
+      "criterios": [
+        "Dado um arquivo CSV ou XLSX (decisão do dono do produto, 28/10/2026) com CONTA, DESCRIÇÃO, VL. Realizado, Ajustes, Saldo, Grupo, Mês, Loja\nQuando importa\nEntão Mês (AAAAMM) vira competência, Loja vira filial e VL. Realizado vira o valor, com origem csv.contas",
+        "Dado linhas com Ajustes preenchido\nQuando importa\nEntão o ajuste não é importado e a resposta avisa quantas linhas o tinham\nE Saldo é ignorado",
+        "Dado Mês fora de AAAAMM ou Loja vazia\nQuando importa\nEntão a linha é rejeitada com o seu número",
+        "Dado o formato antigo do importador\nQuando importa\nEntão continua aceito\nE competência fechada é recusada (1.6)"
+      ]
+    },
+    {
+      "id": "2.3",
+      "titulo": "Ler o realizado consolidado do Oracle",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero trazer o realizado consolidado do banco do cliente para dentro do sistema, para que faturamento, devoluções, CMV de devolução, ST e desconto de custo venham do ERP sem digitação.",
+      "criterios": [
+        "Dado a migration\nEntão lancamentos ganha a coluna uf",
+        "Dado dre/fontes/oracle (go-ora v2, só leitura) e as variáveis JC_ORACLE_ e JC_EMPRESA_ID\nQuando a importação é disparada\nEntão lê VW_DRE_CONSOLIDADO por competência (WHERE MES_ANO = :1), com ping de 30 s e timeout de consulta, nunca sem filtro",
+        "Dado cada coluna de valor da view\nQuando importa\nEntão vira lançamento com conta ERP.\u003cCOLUNA\u003e, origem oracle.consolidado, a UF na coluna própria e o valor como a fonte entrega\nE valor nulo não é gravado",
+        "Dado MES_ANO em MM/AAAA\nQuando importa\nEntão vira competência\nE formato inválido rejeita a linha",
+        "Dado reimportação do mesmo escopo\nQuando importa\nEntão substitui sem duplicar nem apagar outra origem\nE leitura vazia nunca apaga",
+        "Dado competência fechada\nQuando importa\nEntão é pulada e informada, sem falhar as demais",
+        "Dado que o IP das máquinas de desenvolvimento não está liberado no Oracle do cliente\nQuando os testes rodam\nEntão a leitura, a conversão de MES_ANO e a transformação das colunas em contas ERP. são testadas com uma Fonte falsa, sem Oracle\nE a leitura real é verificada no servidor de produção, com um comando de sonda, e não nos testes automáticos"
+      ]
+    },
+    {
+      "id": "2.4",
+      "titulo": "Registrar cada importação e a posse das contas",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero que cada importação fique registrada e que as contas do Oracle tenham dona, para que eu saiba o que foi importado e nada seja somado em dobro.",
+      "criterios": [
+        "Dado a migration\nEntão existe auditoria.execucoes\nE ela entra em limpar_dados_teste",
+        "Dado uma importação do Oracle (2.3)\nQuando termina\nEntão a execução grava início, fim, status e resumo (aplicadas, puladas por mês fechado, rejeitadas), e a trilha registra quem a disparou",
+        "Dado as contas ERP.\nQuando são importadas pela primeira vez\nEntão ganham dona oracle.consolidado (2.1)\nE uma conta ERP. cuja dona é outra origem é rejeitada",
+        "Dado falha de conexão\nQuando a importação roda\nEntão devolve mensagem clara (rede, serviço ou credencial), registra a execução com status de falha e mantém os dados anteriores"
+      ]
+    },
+    {
+      "id": "2.5",
+      "titulo": "Tela \"Importar do banco do cliente\"",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero um botão \"Importar agora\" e ver o resultado, para que eu acompanhe cada importação.",
+      "criterios": [
+        "Dado Configurações, Carga\nQuando clico em \"Importar do banco do cliente\" e escolho o período\nEntão a importação roda e a tela mostra aplicadas, puladas por mês fechado e rejeitadas",
+        "Dado execuções anteriores\nQuando abro a tela\nEntão ela lista as últimas (início, fim, status, resumo)",
+        "Dado uma falha\nQuando a importação termina\nEntão a tela mostra a causa e os dados anteriores continuam",
+        "Dado um perfil sem permissão (diretoria, gestor)\nQuando abre a tela ou chama a API\nEntão não vê o botão e a API devolve 403"
+      ]
+    },
+    {
+      "id": "2.6",
+      "titulo": "Orçado do Oracle por conta",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero importar o orçado do banco do cliente por conta, para que o DRE compare com o planejado.",
+      "criterios": [
+        "Dado a migration\nEntão existe auditoria.orcado_conta (empresa_id, competencia, filial, conta, valor, origem, carga_id), escrita só pelo Ingestor\nE o teste de arquitetura passa a cobri-la e ela entra em limpar_dados_teste",
+        "Dado uma linha de VW_DRE_ORCAMENTO (ano, filial, conta, 12 meses)\nQuando importa\nEntão gera até 12 registros, origem oracle.orcamento",
+        "Dado um mês nulo\nQuando importa\nEntão não grava (\"sem orçado\", não zero)",
+        "Dado reimportação do ano\nQuando importa\nEntão substitui por escopo\nE competências fechadas são puladas e informadas",
+        "Dado o CODCONTA do orçamento\nQuando é guardado\nEntão fica como texto"
+      ]
+    },
+    {
+      "id": "2.7",
+      "titulo": "O DRE lê o orçado por conta",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero que o DRE use o orçado vindo do banco do cliente, para que exista uma só fonte de orçado.",
+      "criterios": [
+        "Dado orçado em orcado_conta\nQuando o DRE é consultado\nEntão o orçado é resolvido pelo Mapa (mesma função do realizado) e somado por linha",
+        "Dado conta sem Mapa\nQuando o DRE é consultado\nEntão aparece como \"sem mapeamento\"",
+        "Dado a rota que grava orçado por linha\nQuando chamada\nEntão foi removida, e dre_orcado fica só para leitura (legado)",
+        "Dado conta ou filial sem orçado\nQuando o DRE é consultado\nEntão o DRE não inventa zero",
+        "Dado o snapshot do fechamento\nQuando Fechar roda\nEntão dre_fechamento_contas ganha a coluna orcado e grava o orçado por conta\nE os testes da 1.1 seguem passando"
+      ]
+    },
+    {
+      "id": "2.8",
+      "titulo": "Trocar a dona da conta",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero passar uma conta de arquivo para o Oracle quando ele passar a cobri-la, para que a virada não duplique nem perca dados.",
+      "criterios": [
+        "Dado conta com dona csv.contas\nQuando o Controller troca a dona\nEntão a troca vai à trilha e vale para as importações seguintes",
+        "Dado lançamentos da origem antiga em competência aberta\nQuando tenta trocar\nEntão recusa listando as competências (em Teste dá para apagar antes; em Produção primeiro se fecha o mês)",
+        "Dado competências fechadas\nQuando a dona é trocada\nEntão elas mantêm os lançamentos da origem antiga",
+        "Dado um perfil sem controladoria\nQuando tenta trocar\nEntão 403"
+      ]
+    },
+    {
+      "id": "2.9",
+      "titulo": "Cadastro de departamentos",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero cadastrar os departamentos e o grupo de cada um, para que contas e gerentes tenham a quem se ligar.",
+      "criterios": [
+        "Dado a migration\nEntão existe departamentos (empresa_id, codigo, nome, grupo) com grupo em Comercial, Logística ou Administrativo, único por (empresa, codigo)\nE escrita só por dre.Dicionario e mantida por limpar_dados_teste",
+        "Dado a tela de Configurações\nQuando o analista cria, edita ou lista\nEntão funciona e grava na trilha",
+        "Dado departamento ligado a contas\nQuando tenta excluir\nEntão 409"
+      ]
+    },
+    {
+      "id": "2.10",
+      "titulo": "Dicionário de contas por arquivo",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero carregar o dicionário (conta, descrição, grupo, departamento) por arquivo, para que o sistema saiba de qual departamento é cada conta.",
+      "criterios": [
+        "Dado a migration\nEntão existem conta_dicionario (empresa_id, conta, descricao, grupo) e conta_departamento (empresa_id, conta_padrao, departamento_id), escritas só por dre.Dicionario",
+        "Dado linhas com conta repetida ou departamento inexistente\nQuando carrega\nEntão são listadas\nE nada é gravado se houver erro bloqueante",
+        "Dado reenvio do arquivo\nQuando carrega\nEntão atualiza descrição, grupo e departamento sem apagar a associação à linha do DRE no Mapa",
+        "Dado conta com prefixo %\nQuando resolvida\nEntão vale a mesma resolução do Mapa (a mais específica vence)\nE a carga vai à trilha"
+      ]
+    },
+    {
+      "id": "2.11",
+      "titulo": "Dicionário inicial validado com o cliente (tarefa de dados)",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero gerar o arquivo do dicionário a partir da planilha do cliente e validá-lo com a área de negócio, para que os gerentes tenham departamento desde o primeiro dia.",
+      "criterios": [
+        "Dado a aba de gerentes da planilha (contas por departamento)\nQuando o arquivo é gerado\nEntão traz conta, descrição, grupo e departamento\nE as contas sem departamento vêm listadas à parte",
+        "Dado o arquivo gerado\nQuando o repositório é verificado\nEntão o arquivo não está nele",
+        "Dado a revisão com o responsável do cliente\nQuando termina\nEntão quem validou e quando fica registrado",
+        "Dado o arquivo validado\nQuando é carregado em Teste pela 2.10\nEntão a contagem de contas por departamento é conferida"
+      ]
+    },
+    {
+      "id": "2.12",
+      "titulo": "Conferir o Oracle contra a planilha",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero comparar o que veio do Oracle com a planilha do mesmo mês, para que eu confie na conexão antes de virar para Produção.",
+      "criterios": [
+        "Dado duas origens com lançamentos na mesma competência e um arquivo de correspondência (conta de uma, conta da outra, fator)\nQuando peço a conferência\nEntão lista por filial e conta os dois valores, a diferença e se passou da tolerância (padrão 0,01)",
+        "Dado diferença acima da tolerância\nQuando a conferência termina\nEntão é marcada e contada no resumo",
+        "Dado conta sem correspondência\nQuando a conferência roda\nEntão aparece como \"sem par\"",
+        "Dado a conferência\nQuando roda\nEntão é só leitura e grava apenas a execução em execucoes\nE funciona em Teste e em Produção"
+      ]
+    },
+    {
+      "id": "2.13",
+      "titulo": "Importação automática diária (opcional, AD-15)",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero que a importação rode sozinha todo dia, para que eu não precise lembrar.",
+      "criterios": [
+        "Dado a hora em config_empresa (padrão 06:30, America/Sao_Paulo; a tabela é criada aqui se ainda não existir)\nQuando chega a hora\nEntão dispara as importações 2.3 e 2.6",
+        "Dado pg_try_advisory_lock em conexão dedicada, com o unlock na mesma conexão (descartada se o unlock falhar)\nQuando outra execução está em andamento\nEntão a segunda não roda e registra",
+        "Dado uma execução agendada\nQuando termina\nEntão a trilha usa user_id nulo e origem agendador\nE a falha fica visível em execucoes"
+      ]
+    },
+    {
+      "id": "2.14",
+      "titulo": "Mapa de filiais (filial do ERP para filial gerencial)",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero cadastrar quais filiais do ERP compõem cada filial gerencial, para que o realizado, o orçado e o rateio sejam lidos por filial gerencial.",
+      "criterios": [
+        "Dado a migration\nEntão auditoria.filiais_gerenciais (id, empresa_id, codigo, nome) e auditoria.filiais_gerenciais_erp (empresa_id, filial_gerencial_id, filial_erp), com filial_erp única por empresa\nE ela entra em limpar_dados_teste se a regra de limpeza (1.2) exigir",
+        "Dado o analista ou o Controller\nQuando cria, edita, lista ou exclui uma filial gerencial e as filiais do ERP que a compõem\nEntão grava e registra na trilha\nE gestor e diretoria recebem 403 na escrita",
+        "Dado uma filial do ERP já ligada a outra filial gerencial\nQuando se tenta ligá-la de novo\nEntão recusa com 409 e diz a qual filial gerencial ela pertence",
+        "Dado uma filial do ERP sem ligação\nQuando o realizado é lido\nEntão ela vale por si (filial solta), sem precisar de cadastro",
+        "Dado uma filial gerencial usada por lançamento, orçado ou fechamento\nQuando se tenta excluí-la\nEntão recusa com 409",
+        "Dado um mês fechado\nQuando o mapa é alterado depois\nEntão o fechamento não muda (o snapshot da 1.8 guarda a filial gerencial do momento)"
+      ]
+    },
+    {
+      "id": "2.15",
+      "titulo": "Agrupamentos de filiais gerenciais (Balcões, Distribuição)",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero agrupar filiais gerenciais em visões nomeadas (por exemplo, Balcões e Distribuição), para que o DRE possa mostrar a soma do agrupamento, como a planilha atual.",
+      "criterios": [
+        "Dado a migration\nEntão auditoria.agrupamentos_filiais (id, empresa_id, codigo, nome) e auditoria.agrupamentos_filiais_membros (empresa_id, agrupamento_id, filial_gerencial_id), com membros da mesma empresa\nE uma filial gerencial pode estar em mais de um agrupamento",
+        "Dado o analista ou o Controller\nQuando cria, edita ou exclui um agrupamento\nEntão grava e registra na trilha, e os demais perfis recebem 403 na escrita",
+        "Dado um agrupamento\nQuando o resolvedor recebe seu código\nEntão devolve as filiais gerenciais (e, por elas, as filiais do ERP)",
+        "Dado a visão \"Grupo\" (todas as filiais)\nQuando o DRE a pede\nEntão é a soma de todas as filiais gerenciais, sem precisar de cadastro"
+      ]
+    },
+    {
+      "id": "2.16",
+      "titulo": "Botão \"Atualizar dados\" para a gestão",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero buscar de novo os dados do ERP depois de uma correção, para que o DRE reflita lançamentos corrigidos sem esperar a próxima carga.",
+      "criterios": [
+        "Dado o Controller (ou admin de plataforma)\nQuando aciona \"Atualizar dados\"\nEntão dispara as importações de realizado e de orçado e mostra o resultado e a hora",
+        "Dado um mês com fechamento ativo\nQuando a atualização o atinge\nEntão é recusada pela guarda de período (1.6), com a orientação de reabrir antes",
+        "Dado qualquer outro perfil\nQuando tenta atualizar\nEntão 403",
+        "Dado uma atualização\nQuando termina\nEntão a trilha registra quem pediu, o escopo e o resultado"
+      ]
+    },
+    {
+      "id": "3.1",
+      "titulo": "Estrutura do DRE editável",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero criar, editar, reordenar e excluir as linhas do DRE, para que a estrutura acompanhe o DRE do cliente sem novo deploy.",
+      "criterios": [
+        "Dado a rota de linhas (hoje só leitura)\nQuando o analista cria, edita, reordena ou exclui\nEntão funciona na tela, com descrição, ordem, nível, tipo (conta ou subtotal) e as linhas somadas",
+        "Dado um subtotal que referencia linha inexistente ou cria ciclo\nQuando salva\nEntão recusa com mensagem",
+        "Dado uma linha usada no Mapa\nQuando tenta excluir\nEntão 409 listando as contas",
+        "Dado competência fechada\nQuando a estrutura muda\nEntão o mês fechado não muda (lê do snapshot, 1.8)",
+        "Dado um perfil sem controladoria\nQuando tenta alterar\nEntão 403\nE cada alteração vai à trilha",
+        "Dado a migration\nEntão dre_linhas ganha papel (opcional, único por empresa quando preenchido)\nE o analista pode marcar a linha com um papel: faturamento líquido, margem composta, impostos, comercial, logística, administrativo, margem líquida, outras receitas e despesas, resultado antes do IR ou resultado após o IR (AD-20)"
+      ]
+    },
+    {
+      "id": "3.2",
+      "titulo": "Carregar estrutura e Mapa por arquivo",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero carregar a estrutura e o Mapa de contas por arquivo, para que eu não digite centenas de contas uma a uma.",
+      "criterios": [
+        "Dado um arquivo de estrutura (código, descrição, nível, ordem, tipo, soma_de)\nQuando carrega\nEntão cria ou atualiza pelo código e valida as referências\nE erro bloqueante não grava nada",
+        "Dado um arquivo de Mapa (conta_padrão, linha_código, sinal)\nQuando carrega\nEntão cria ou atualiza pela conta\nE linha inexistente rejeita a linha e sinal só vale 1 ou -1",
+        "Dado contas com prefixo %\nQuando resolvidas\nEntão a mais específica vence, como hoje",
+        "Dado reenvio do arquivo\nQuando carrega\nEntão atualiza sem duplicar\nE a trilha registra a carga com a quantidade de linhas"
+      ]
+    },
+    {
+      "id": "3.3",
+      "titulo": "Estrutura e Mapa iniciais derivados da planilha (tarefa de dados)",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero gerar a estrutura e o Mapa iniciais a partir do DRE da planilha e validá-los com a área de negócio, para que o primeiro fechamento não trave em centenas de contas sem mapeamento.",
+      "criterios": [
+        "Dado as abas de DRE da planilha\nQuando o arquivo de estrutura é gerado\nEntão reproduz as linhas: Faturamento Líquido; CMV, Deduções e Verbas; Margem Composta; Impostos sobre Faturamento Líquido; Margem de Contribuição; os departamentos Comercial, Logística e Administrativo e o Total de Despesas; Margem Líquida; Outras Receitas e Despesas; Resultado antes da tributação; IRPJ",
+        "Dado as contas das cargas de validação (CSV e ERP.)\nQuando o Mapa é gerado\nEntão cada conta com lançamento tem linha, ou aparece numa lista \"sem mapeamento\"",
+        "Dado os sinais das contas ERP.\nQuando o Mapa é gerado\nEntão ficam marcados como provisórios, confirmados pela paridade (3.7) ou pela resposta do cliente",
+        "Dado os arquivos gerados\nQuando o repositório é verificado\nEntão eles não estão nele\nE a validação registra quem e quando, e eles são carregados em Teste pela 3.2"
+      ]
+    },
+    {
+      "id": "3.4",
+      "titulo": "DRE com percentual sobre o Faturamento Líquido",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como usuário autorizado, quero ver o DRE mensal e acumulado, do grupo ou de uma filial, com o percentual de cada linha sobre o Faturamento Líquido, para que eu compare a estrutura de custos entre meses e filiais.",
+      "criterios": [
+        "Dado a tela do DRE\nQuando aberta\nEntão cada linha mostra também o percentual sobre o Faturamento Líquido",
+        "Dado Faturamento Líquido zero\nQuando o DRE é calculado\nEntão o percentual aparece como \"não calculável\"",
+        "Dado nenhuma linha com o papel faturamento líquido\nQuando o DRE é aberto\nEntão a tela avisa em vez de calcular o percentual",
+        "Dado qualquer subtotal\nQuando o DRE é calculado\nEntão é exatamente a soma das linhas que o compõem (teste com centavos)",
+        "Dado lançamentos com várias UFs na mesma filial\nQuando o DRE é calculado\nEntão a filial soma todas elas",
+        "Dado competência fechada\nQuando o DRE é consultado\nEntão usa o snapshot (1.8), inclusive os percentuais"
+      ]
+    },
+    {
+      "id": "3.5",
+      "titulo": "DRE por departamento",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero ver o DRE por departamento, com as contas de cada um, para que eu veja onde cada área gastou.",
+      "criterios": [
+        "Dado contas ligadas a departamentos (2.10)\nQuando abro a visão por departamento\nEntão lista cada departamento (agrupado em Comercial, Logística e Administrativo) com as contas, o total e o percentual sobre o Faturamento Líquido",
+        "Dado contas sem departamento\nQuando abro a visão\nEntão aparecem em \"Sem departamento\", visível só a perfis sem restrição",
+        "Dado o perfil gestor (sem escopo até o épico 4)\nQuando abre essa visão ou chama a API\nEntão não recebe dado de departamento",
+        "Dado Fechar\nQuando grava o snapshot\nEntão dre_fechamento_contas ganha a coluna departamento e o snapshot grava o departamento de cada conta"
+      ]
+    },
+    {
+      "id": "3.6",
+      "titulo": "Orçado e ano anterior, \"sem orçado\" e detalhe até a filial",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como usuário autorizado, quero comparar o Realizado com o Orçado e o Ano anterior por linha e conta, descendo até a filial, para que eu entenda de onde vem cada variação.",
+      "criterios": [
+        "Dado o DRE\nQuando aberto\nEntão cada linha e conta mostra Realizado, Orçado, Ano anterior e a variação em valor e em percentual",
+        "Dado Orçado zero\nQuando a variação é calculada\nEntão o percentual aparece como \"não calculável\"",
+        "Dado conta ou filial sem orçado\nQuando o DRE é consultado\nEntão mostra o Realizado com \"sem orçado\" e variação não calculável, nunca zero",
+        "Dado uma conta\nQuando abro o detalhe\nEntão vejo por filial os valores e a origem de cada um (Oracle ou arquivo)",
+        "Dado um Ano anterior sem dado (as views começam em 2021)\nQuando o DRE é consultado\nEntão aparece vazio, não zero"
+      ]
+    },
+    {
+      "id": "3.7",
+      "titulo": "Paridade do DRE com a planilha",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero comparar o DRE do sistema com o da planilha para um mês de referência, para que eu saiba que os números batem antes de mostrar ao cliente.",
+      "criterios": [
+        "Dado um mês de referência com Oracle consolidado, CSV de contas e orçado carregados em Teste, e um arquivo com os valores da planilha por linha do DRE e filial (fora do repositório)\nQuando peço a paridade\nEntão lista por linha e filial o valor do sistema, o da planilha, a diferença e se passou da tolerância (0,01)",
+        "Dado diferença numa linha de subtotal\nQuando a paridade termina\nEntão aponta a primeira linha componente que diverge",
+        "Dado valores iguais com sinal oposto\nQuando a paridade termina\nEntão marca \"sinal invertido\", para ajustar o Mapa",
+        "Dado todas as linhas dentro da tolerância\nQuando a paridade termina\nEntão o relatório conclui \"bate\" e grava a execução em execucoes\nE é só leitura e reaproveita o mecanismo da conferência 2.12"
+      ]
+    },
+    {
+      "id": "3.8",
+      "titulo": "Primeira demonstração ao cliente (marco)",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero mostrar o DRE por departamento ao cliente com um mês de referência, para que o cliente valide o rumo antes de os gerentes entrarem.",
+      "criterios": [
+        "Dado o épico 3 em Teste com um mês de referência que bate (3.7)\nQuando a demonstração é feita com os gestores do cliente\nEntão o que foi aprovado e o que precisa mudar ficam registrados",
+        "Dado as perguntas abertas do PRD (rateio, limite de desvio, lista de aviso, folha)\nQuando a demonstração termina\nEntão cada uma ganha resposta ou data de resposta",
+        "Dado a demonstração\nQuando acontece\nEntão nenhum dado real do cliente sai do ambiente de Teste (sem capturas de tela no repositório)"
+      ]
+    },
+    {
+      "id": "3.9",
+      "titulo": "Detalhe até o lançamento em mês fechado",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Gerente, quero descer do grupo à conta e da conta ao lançamento, também em mês fechado, para que eu veja data, fornecedor, nota, valor e filial de cada lançamento.",
+      "criterios": [
+        "Dado a migration\nEntão lancamentos ganha data de pagamento e fornecedor (e documento, se ainda não houver), preenchidos pelo Ingestor a partir da fonte",
+        "Dado um mês fechado\nQuando o gerente abre a conta\nEntão lista os lançamentos da conta, da filial e da competência (data, fornecedor, nota, valor, filial)\nE a soma bate com o valor congelado da conta; se não bater, a tela avisa",
+        "Dado um mês reaberto e atualizado\nQuando o gerente abre a conta\nEntão vê os lançamentos novos",
+        "Dado um gerente\nQuando abre contas fora do seu departamento\nEntão 403 (escopo da 4.7)"
+      ]
+    },
+    {
+      "id": "3.10",
+      "titulo": "Visão por trimestre",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Gerente, quero ver o DRE por trimestre do ano (T1 a T4 e o total do ano), para que eu compare os trimestres sem somar meses na mão.",
+      "criterios": [
+        "Dado um ano e uma filial (ou agrupamento, ou o grupo todo)\nQuando o usuário escolhe \"Trimestres\"\nEntão vê colunas T1, T2, T3, T4 e Ano, cada uma com realizado, orçado, ano anterior e percentual sobre o Faturamento Líquido",
+        "Dado um trimestre com algum mês aberto\nQuando a tela o mostra\nEntão marca o trimestre como \"parcial\" e diz quais meses estão fechados",
+        "Dado um trimestre com os três meses fechados\nQuando o Mapa ou a estrutura mudam depois\nEntão o valor do trimestre não muda (vem do snapshot, mês a mês)",
+        "Dado um gerente\nQuando abre a visão\nEntão vê só os grupos do seu departamento (escopo da 4.7)",
+        "Dado o ano em curso\nQuando um trimestre ainda não começou\nEntão a coluna aparece vazia, sem erro"
+      ]
+    },
+    {
+      "id": "4.1",
+      "titulo": "Fechar o cadastro público, a primeira a sair",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Feito",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero que ninguém consiga criar conta pela internet, para que só quem eu autorizo entre no sistema.",
+      "criterios": [
+        "Dado ALLOW_SELF_REGISTER ausente ou false\nQuando alguém chama POST /api/auth/register\nEntão responde 404 e nenhuma empresa ou usuário é criado",
+        "Dado ALLOW_SELF_REGISTER=true\nQuando alguém chama o cadastro\nEntão o comportamento é o de hoje (uso em desenvolvimento)",
+        "Dado o frontend\nQuando a rota /register é aberta\nEntão redireciona para o login",
+        "Dado as rotas públicas\nQuando um teste as lista\nEntão confirma que nenhuma outra cria usuário ou empresa\nE o padrão false consta em .env.example e no compose\nE a história pode ser entregue sozinha, antes de qualquer outra"
+      ]
+    },
+    {
+      "id": "4.2",
+      "titulo": "Perfil analista e matriz de capacidades",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero perfis com capacidades claras, para que o analista tenha o que precisa sem poder fechar o mês.",
+      "criterios": [
+        "Dado a migration\nEntão users.perfil aceita analista além dos atuais",
+        "Dado perfis.go\nEntão define as capacidades (ler, ler no escopo, carregar, ajustar, editar Mapa, estrutura e dicionário, configurar rateio, fechar, reabrir, aplicar rateio, definir limite, justificar, gerir usuários) e a matriz: analista, controladoria (Controller), gestor (Gerente), diretoria e auditoria (só leitura)",
+        "Dado o middleware\nQuando protege uma rota\nEntão aceita uma capacidade e, até a 4.3, ainda aceita a lista de perfis atual",
+        "Dado a matriz\nQuando um teste a percorre\nEntão confirma que o analista carrega e edita Mapa e estrutura mas não fecha nem reabre, e que diretoria e auditoria não têm nenhuma capacidade de escrita",
+        "Dado o admin de plataforma\nQuando acessa qualquer capacidade\nEntão segue com acesso total"
+      ]
+    },
+    {
+      "id": "4.3",
+      "titulo": "Migrar as rotas para capacidades",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero que todas as rotas usem a matriz, para que não haja listas de perfil soltas e divergentes.",
+      "criterios": [
+        "Dado as rotas atuais\nQuando são migradas\nEntão cada uma declara uma capacidade e os perfis existentes mantêm o comportamento de hoje (testes da 1.1)",
+        "Dado diretoria e auditoria\nQuando chamam qualquer rota de escrita\nEntão são recusadas (teste que percorre as rotas)",
+        "Dado um analista\nQuando carrega, edita Mapa ou estrutura\nEntão funciona\nE recebe 403 ao fechar ou reabrir",
+        "Dado a última rota migrada\nQuando a migração termina\nEntão a assinatura com lista de perfis é removida",
+        "Dado uma rota criada depois desta história\nQuando o teste de rotas roda\nEntão falha se ela usar lista de perfis em vez de capacidade"
+      ]
+    },
+    {
+      "id": "4.4",
+      "titulo": "Ids de área novos e menu",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como usuário, quero o menu com as áreas do cliente (Administrativo, Configurações, Comercial, Operação), para que eu encontre cada coisa onde o contrato diz.",
+      "criterios": [
+        "Dado a migration\nEntão users.areas é transformada por um único UPDATE com CASE (estrategico→empresa, administrativo→configuracoes, operacional→operacao) e o DEFAULT é atualizado",
+        "Dado usuários de cada combinação de áreas (inclusive vazia e as três)\nQuando a migration roda\nEntão cada um fica com o equivalente\nE rodar de novo não altera nada",
+        "Dado o backend\nQuando valida áreas\nEntão as constantes e a validação usam os ids novos e recusam os antigos",
+        "Dado o navigation.ts\nQuando o menu é montado\nEntão mostra Administrativo (DRE, fechamentos, Mapa), Configurações (carga, usuários, trilha), Comercial e Operação (\"em breve\") e o módulo de administração da plataforma passa a se chamar \"Plataforma\"\nE backend, rotas e frontend saem no mesmo release"
+      ]
+    },
+    {
+      "id": "4.5",
+      "titulo": "Usuários com perfil e departamentos",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero definir o perfil de cada usuário e os departamentos de cada Gerente, para que o escopo de cada um fique claro.",
+      "criterios": [
+        "Dado a migration\nEntão existe usuario_departamentos (user_id, departamento_id), mantida por limpar_dados_teste (é configuração)",
+        "Dado a tela de usuários\nQuando o Controller escolhe analista ou gestor\nEntão salva, e para gestor pode ligar um ou mais departamentos",
+        "Dado um perfil que não é gestor\nQuando se tenta ligar departamentos\nEntão a ligação é recusada",
+        "Dado qualquer alteração de perfil ou departamento\nQuando é salva\nEntão vai à trilha\nE só a capacidade \"gerir usuários\" acessa a tela"
+      ]
+    },
+    {
+      "id": "4.6",
+      "titulo": "Bloqueio de usuário no lugar da expiração",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero bloquear e desbloquear um usuário com motivo, para que o acesso termine quando eu decidir, e não por prazo.",
+      "criterios": [
+        "Dado a migration\nEntão users ganha bloqueado_em, bloqueado_por e motivo_bloqueio",
+        "Dado um usuário bloqueado\nQuando tenta entrar ou renovar a sessão\nEntão é recusado com mensagem clara",
+        "Dado uma sessão aberta\nQuando o usuário é bloqueado\nEntão a requisição seguinte devolve 403",
+        "Dado bloquear ou desbloquear sem motivo\nQuando envia\nEntão recusa; com motivo, grava na trilha",
+        "Dado o próprio usuário\nQuando tenta se bloquear\nEntão recusa\nE o último administrador de plataforma ativo não pode ser bloqueado",
+        "Dado a verificação por trial_ends_at\nQuando o login e o middleware rodam\nEntão ela foi removida e um usuário comum com a coluna vazia entra normalmente (teste que reproduz o caso do login)\nE a tela de usuários troca a coluna \"Trial\" por \"Bloqueado\" e o menu deixa de mostrar \"Licença vence\""
+      ]
+    },
+    {
+      "id": "4.7",
+      "titulo": "Escopo por departamento que nega por padrão",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero que o Gerente nunca receba dado de outro departamento, para que a confidencialidade não dependa da tela.",
+      "criterios": [
+        "Dado o escopo como struct {Irrestrito bool; Deptos []string} com valor zero sem acesso\nQuando um Gerente com os departamentos A e B consulta qualquer rota que devolve valor por conta\nEntão recebe só as contas de A e B",
+        "Dado um Gerente sem departamento\nQuando consulta\nEntão recebe resposta vazia, nunca tudo",
+        "Dado o Gerente pedindo outro departamento direto na API\nQuando chama\nEntão 403",
+        "Dado a rota do DRE do grupo (faturamento, margens)\nQuando o Gerente chama\nEntão 403, sem receber a base",
+        "Dado perfis sem restrição\nQuando consultam\nEntão veem tudo",
+        "Dado o casamento de conta por prefixo\nQuando é feito\nEntão acontece em Go, nunca com LIKE\nE mês fechado aplica o filtro sobre o snapshot por contas"
+      ]
+    },
+    {
+      "id": "4.8",
+      "titulo": "\"Meu departamento\" para o Gerente",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Gerente, quero ver as contas do meu departamento com Realizado, Orçado, Ano anterior e variação, para que eu entenda o meu resultado.",
+      "criterios": [
+        "Dado um Gerente com departamentos ligados\nQuando abre \"Meu departamento\"\nEntão vê as contas deles com os quatro valores, os totais e a variação",
+        "Dado o percentual sobre o Faturamento Líquido\nQuando é exibido\nEntão é calculado no servidor, sem devolver a base",
+        "Dado mês fechado\nQuando o Gerente consulta\nEntão lê do snapshot",
+        "Dado o menu\nQuando é montado\nEntão a aba aparece só para o gestor\nE nenhum outro departamento é visível, nem por URL direta"
+      ]
+    },
+    {
+      "id": "4.9",
+      "titulo": "Criar usuário da empresa",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como administrador de plataforma, quero criar o usuário da empresa com perfil e departamentos, para que o gerente entre sem cadastro público.",
+      "criterios": [
+        "Dado e-mail, nome, perfil e áreas\nQuando o administrador cria\nEntão o usuário é vinculado à empresa e recebe um link para definir a própria senha; sem SMTP configurado, a tela mostra o link para o administrador repassar",
+        "Dado o usuário criado\nQuando é gravado\nEntão não recebe nenhum prazo (o CreateUserHandler deixa de gravar os 14 dias)",
+        "Dado e-mail já existente\nQuando cria\nEntão 409",
+        "Dado a criação\nQuando termina\nEntão vai à trilha\nE só o administrador de plataforma cria; o perfil de TI, que poderá criar usuários, fica para depois"
+      ]
+    },
+    {
+      "id": "4.10",
+      "titulo": "Acompanhamento do projeto",
+      "epico": {
+        "numero": 4,
+        "nome": "Acesso seguro por perfil e departamento"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como gestor do cliente, quero ver o andamento das histórias do projeto num quadro Kanban dentro do sistema, para que eu acompanhe o que está pronto, em andamento ou aguardando resposta, sem precisar de conta em outra ferramenta.",
+      "criterios": [
+        "Dado um usuário só com a área acompanhamento\nQuando entra no sistema\nEntão cai em /acompanhamento, com cinco colunas (Backlog, Pronto, Em andamento, Em revisão, Feito), contador por coluna, filtro por épico e busca por texto\nE o cartão mostra id, título, épico e o selo \"Aguardando o cliente\" quando a história depende de resposta ou decisão do cliente",
+        "Dado um cartão\nQuando o usuário clica\nEntão vê o resumo e os critérios de aceite, sem nenhuma ação de escrita",
+        "Dado a rota GET /api/aud/acompanhamento\nQuando chamada por usuário com a área acompanhamento\nEntão devolve o JSON com cabeçalho de cache curto; qualquer método diferente de GET recebe 405\nE esse usuário recebe 403 em todas as outras rotas /api/aud/, e quem não tem a área recebe 403 nesta",
+        "Dado uma alteração em epics.md ou sprint-status.yaml\nQuando o dados.json não foi regenerado\nEntão um teste Go falha dizendo como regenerar"
+      ]
+    },
+    {
+      "id": "5.1",
+      "titulo": "Limite de desvio e Lista de aviso",
+      "epico": {
+        "numero": 5,
+        "nome": "Gerentes justificam ajustes e desvios"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero definir o limite de desvio e a Lista de aviso, para que o sistema saiba o que exige justificativa e quem avisar.",
+      "criterios": [
+        "Dado a migration\nEntão existe auditoria.config_empresa (empresa_id, chave, valor JSONB) (criada aqui se a 2.13 não existiu), mantida por limpar_dados_teste (é configuração)\nE dre_fechamentos ganha limite_desvio",
+        "Dado a tela de Configurações\nQuando o Controller define o limite em percentual e/ou valor\nEntão salva e grava na trilha\nE um analista recebe 403",
+        "Dado a Lista de aviso\nQuando o Controller informa os e-mails\nEntão salva em lista_aviso\nE e-mail com formato inválido é recusado",
+        "Dado nenhum limite definido\nQuando a tela é aberta\nEntão nenhum desvio exige justificativa e a tela mostra \"defina o limite\"",
+        "Dado Fechar\nQuando grava o fechamento\nEntão guarda o limite_desvio vigente\nE mudar o limite depois não altera a classificação de um mês fechado"
+      ]
+    },
+    {
+      "id": "5.2",
+      "titulo": "Ver os desvios que exigem justificativa",
+      "epico": {
+        "numero": 5,
+        "nome": "Gerentes justificam ajustes e desvios"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Gerente, quero ver as contas do meu departamento cujo desvio passou do limite, para que eu saiba o que preciso explicar.",
+      "criterios": [
+        "Dado o limite definido\nQuando o Gerente abre \"Desvios\"\nEntão lista só as contas do seu escopo cujo desvio contra o Orçado ou contra o Ano anterior passa do limite, com os valores e a base",
+        "Dado um desvio\nQuando é identificado\nEntão a chave é desvio:\u003cAAAA-MM\u003e:\u003cfilial\u003e:\u003cconta\u003e:\u003cbase\u003e, gerada só por dre.ChaveDesvio\nE a tela, a API e o e-mail usam a mesma função",
+        "Dado nenhuma justificativa existente\nQuando a lista é aberta\nEntão todos aparecem como \"pendente\"",
+        "Dado conta sem orçado\nQuando o desvio é calculado\nEntão não entra na base Orçado (\"sem orçado\" não é desvio)",
+        "Dado mês fechado\nQuando a lista é aberta\nEntão usa o snapshot e o limite do fechamento",
+        "Dado o Controller\nQuando abre \"Desvios\"\nEntão vê os desvios de todos os departamentos\nE a lista é paginada"
+      ]
+    },
+    {
+      "id": "5.3",
+      "titulo": "Registrar a justificativa de um desvio",
+      "epico": {
+        "numero": 5,
+        "nome": "Gerentes justificam ajustes e desvios"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Gerente, quero escrever a justificativa de um desvio do meu departamento, para que a controladoria saiba por que a área fugiu do orçado.",
+      "criterios": [
+        "Dado a migration\nEntão auditoria.justificativas (alvo_tipo, alvo_chave, texto, autor, valor_desvio, criado_em) é append-only por gatilho que respeita imutavel_salvo_em_teste\nE ela entra em limpar_dados_teste",
+        "Dado um Gerente com escopo\nQuando justifica um desvio do seu departamento\nEntão grava o texto (não vazio, até 2.000 caracteres) com autor, momento e o valor do desvio, e o status vira \"justificada\"",
+        "Dado um desvio de outro departamento (API direta)\nQuando o Gerente justifica\nEntão 403",
+        "Dado edição de uma justificativa\nQuando o Gerente salva\nEntão cria nova versão, a anterior permanece e a vigente é a de maior id",
+        "Dado o valor do desvio mudou depois, em competência aberta\nQuando a lista é aberta\nEntão o status vira \"a revisar\" (derivado, nunca gravado)",
+        "Dado a justificativa\nQuando é gravada\nEntão vai à trilha\nE a diretoria e a controladoria só leem"
+      ]
+    },
+    {
+      "id": "5.4",
+      "titulo": "Ajustes vindos do ERP no realizado",
+      "epico": {
+        "numero": 5,
+        "nome": "Gerentes justificam ajustes e desvios"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "O formato do ajuste na view de origem (coluna própria ou lançamento marcado) ainda depende do dono dos dados; esta história só é executável quando ele responder.",
+      "resumo": "Como Controller, quero que os ajustes feitos no ERP apareçam no DRE separados do valor carregado, para que o gerente veja o que foi ajustado sem que o sistema aceite ajuste manual.",
+      "criterios": [
+        "Dado a migration\nEntão lancamentos ganha tipo (lancamento ou ajuste, padrão lancamento)\nE o Ingestor é o único que grava tipo, a partir do que a fonte informa",
+        "Dado uma carga com linhas de ajuste\nQuando a importação termina\nEntão as linhas de ajuste substituem as do mesmo escopo, como qualquer lançamento (nunca duplicam)",
+        "Dado dre.Realizado\nQuando calcula o realizado\nEntão soma lançamentos e ajustes uma só vez, com o sinal do Mapa\nE o detalhe mostra o valor carregado e os ajustes separados",
+        "Dado Fechar\nQuando grava o snapshot\nEntão dre_fechamento_contas ganha a coluna ajustes e o snapshot a preenche",
+        "Dado qualquer perfil\nQuando tenta criar, editar ou apagar um ajuste pelo sistema\nEntão não existe rota para isso"
+      ]
+    },
+    {
+      "id": "5.6",
+      "titulo": "Fila de e-mail e envio",
+      "epico": {
+        "numero": 5,
+        "nome": "Gerentes justificam ajustes e desvios"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero uma fila de e-mails com envio confiável, para que nenhum e-mail se perca nem saia duplicado.",
+      "criterios": [
+        "Dado a migration\nEntão existe auditoria.outbox_email (empresa_id, tipo, chave_dedup UNIQUE, destinatarios, assunto, corpo_html, corpo_texto, status, tentativas, erro, criado_em, enviado_em), incluída em limpar_dados_teste",
+        "Dado uma função nova em services/email.go que envia HTML e texto com Message-ID estável (reaproveita sendMailSSL)\nQuando o worker drena a fila com FOR UPDATE SKIP LOCKED\nEntão envia e marca como enviado (entrega pelo menos uma vez); um teste enfileira um item sintético por dre.Envio.Enfileirar e confere os estados",
+        "Dado um item com a mesma chave_dedup\nQuando é enfileirado de novo\nEntão não duplica",
+        "Dado SMTP não configurado ou erro\nQuando o worker tenta enviar\nEntão o status é falha com a mensagem e as tentativas contam (até 3, com intervalo)",
+        "Dado o ambiente em Teste\nQuando um item é enfileirado\nEntão o destinatário é só o administrador de plataforma da empresa, nunca os destinatários originais",
+        "Dado o enfileirar e o resultado do envio\nQuando acontecem\nEntão vão à trilha"
+      ]
+    },
+    {
+      "id": "5.8",
+      "titulo": "E-mail do DRE por departamento no fechamento",
+      "epico": {
+        "numero": 5,
+        "nome": "Gerentes justificam ajustes e desvios"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Gerente, quero receber por e-mail o DRE do meu departamento quando o mês fecha, para que eu saiba o que justificar sem abrir o sistema à procura.",
+      "criterios": [
+        "Dado Fechar\nQuando grava o fechamento\nEntão na mesma transação enfileira um dre_departamento por Gerente (chave fech:\u003cid\u003e:user:\u003cuid\u003e), com o corpo renderizado do snapshot: todos os departamentos do destinatário, Realizado, Orçado, variação, a quantidade de desvios pendentes e o link para a tela \"Desvios\" (5.2), onde ele justifica",
+        "Dado o corpo do e-mail\nQuando é gerado\nEntão não contém dado de outros departamentos nem o DRE do grupo (teste com um Gerente de dois departamentos)",
+        "Dado um Gerente sem departamento ou bloqueado\nQuando o fechamento acontece\nEntão não recebe, e o motivo é registrado",
+        "Dado o ambiente em Teste\nQuando o fechamento acontece\nEntão o administrador recebe um e-mail por Gerente, com o assunto indicando o destinatário original",
+        "Dado reabertura e novo fechamento\nQuando Fechar roda de novo\nEntão a nova versão gera novo envio\nE o enfileirar e o resultado vão à trilha"
+      ]
+    },
+    {
+      "id": "5.9",
+      "titulo": "Painel de envios",
+      "epico": {
+        "numero": 5,
+        "nome": "Gerentes justificam ajustes e desvios"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero ver o estado de cada e-mail e reenviar os que falharam, para que nenhum gerente fique sem o DRE sem eu saber.",
+      "criterios": [
+        "Dado a tela de envios\nQuando o Controller escolhe uma competência\nEntão lista tipo, destinatário, status, tentativas e erro de cada e-mail, e um resumo por status",
+        "Dado um e-mail com falha\nQuando o Controller clica em \"Reenviar\"\nEntão nova tentativa com a mesma chave e o mesmo Message-ID",
+        "Dado um perfil sem a capacidade\nQuando abre a tela ou chama a API\nEntão 403\nE o reenvio vai à trilha"
+      ]
+    },
+    {
+      "id": "5.10",
+      "titulo": "Disparo semanal do acumulado do mês",
+      "epico": {
+        "numero": 5,
+        "nome": "Gerentes justificam ajustes e desvios"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Gerente, quero receber toda sexta-feira o DRE do meu departamento com o acumulado do mês, para que eu acompanhe o mês antes do fechamento.",
+      "criterios": [
+        "Dado o dia e a hora em config_empresa (padrão sexta-feira, America/Sao_Paulo)\nQuando chega o horário\nEntão enfileira para cada gerente o DRE do seu departamento com o acumulado do mês, marcado \"parcial, mês não fechado\"",
+        "Dado pg_try_advisory_lock em conexão dedicada\nQuando outra execução está em andamento\nEntão a segunda não roda e registra",
+        "Dado a chave semanal:\u003cAAAA-MM-DD\u003e:user:\u003cuid\u003e\nQuando o disparo repete na mesma sexta\nEntão não duplica",
+        "Dado o ambiente em Teste\nQuando chega o horário\nEntão o e-mail vai só ao administrador",
+        "Dado o analista ou o Controller\nQuando altera o dia, a hora ou desliga o disparo\nEntão grava na trilha, e gestor e diretoria recebem 403"
+      ]
+    },
+    {
+      "id": "6.1",
+      "titulo": "Ranking dos maiores desvios",
+      "epico": {
+        "numero": 6,
+        "nome": "Dashboards de desvios e tendência"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como diretoria, quero ver as contas com os maiores desvios do período, para que eu saiba onde olhar primeiro.",
+      "criterios": [
+        "Dado os desvios derivados por dre.ChaveDesvio (5.2)\nQuando abro o ranking\nEntão ordena do maior para o menor valor absoluto, com conta, filial, departamento, Gerente, base (Orçado ou Ano anterior), valores, variação e o status da justificativa",
+        "Dado os filtros\nQuando filtro por ano, competência, filial, departamento, Gerente ou base\nEntão o ranking e os totais respeitam o filtro",
+        "Dado o limite da 5.1\nQuando o ranking é aberto\nEntão os desvios acima dele aparecem marcados, e o ranking mostra todos",
+        "Dado um Gerente\nQuando abre o ranking\nEntão vê só o ranking do seu escopo, nem por API direta",
+        "Dado mês fechado\nQuando o ranking é aberto\nEntão usa o snapshot e o limite do fechamento\nE a lista é paginada e clicar numa linha abre o detalhe da conta (3.6)"
+      ]
+    },
+    {
+      "id": "6.2",
+      "titulo": "Desvios por departamento, Gerente, filial e ano",
+      "epico": {
+        "numero": 6,
+        "nome": "Dashboards de desvios e tendência"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como diretoria, quero agrupar os desvios por departamento, Gerente, filial ou ano, para que eu compare as áreas.",
+      "criterios": [
+        "Dado o dashboard\nQuando escolho o agrupamento\nEntão mostra para cada grupo Realizado e Orçado (gráfico e tabela), a variação e a cobertura de justificativas (justificadas entre as acima do limite)",
+        "Dado contas sem departamento\nQuando o dashboard é aberto\nEntão aparecem em \"Sem departamento\", só para perfis sem restrição",
+        "Dado qualquer total\nQuando é exibido\nEntão é exatamente a soma dos itens",
+        "Dado um Gerente\nQuando abre o dashboard\nEntão vê só o seu departamento\nE diretoria e Controller veem todos, em leitura"
+      ]
+    },
+    {
+      "id": "6.3",
+      "titulo": "Despesa sobre o Faturamento Líquido e \"Está subindo?\"",
+      "epico": {
+        "numero": 6,
+        "nome": "Dashboards de desvios e tendência"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como diretoria, quero ver quanto a despesa pesa sobre o Faturamento Líquido a cada ano e se está subindo, para que eu perceba cedo a perda de eficiência.",
+      "criterios": [
+        "Dado as linhas com os papéis faturamento líquido, comercial, logística e administrativo (AD-20)\nQuando abro \"Tendência\"\nEntão mostra por ano a despesa total sobre o Faturamento Líquido e a de cada grupo",
+        "Dado o acumulado do ano atual\nQuando é comparado\nEntão com o mesmo período do ano anterior, em pontos percentuais, indicando \"subindo\", \"estável\" ou \"caindo\" (tolerância de 0,1 ponto) para cada grupo",
+        "Dado Faturamento Líquido zero ou ano sem dado\nQuando a tendência é calculada\nEntão aparece \"não calculável\" ou vazio, nunca zero",
+        "Dado um papel não cadastrado\nQuando a tela é aberta\nEntão avisa",
+        "Dado um Gerente\nQuando abre a tendência\nEntão vê só o seu departamento, com o percentual calculado no servidor e sem a base"
+      ]
+    },
+    {
+      "id": "6.4",
+      "titulo": "Ponte do resultado",
+      "epico": {
+        "numero": 6,
+        "nome": "Dashboards de desvios e tendência"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como diretoria, quero ver por que a margem mudou de um ano para o outro, para que eu entenda o que a moveu.",
+      "criterios": [
+        "Dado dois anos no mesmo período e o alvo (Margem líquida ou Resultado após o IR, pelos papéis)\nQuando abro a ponte\nEntão mostra o alvo do ano anterior, as contribuições de Margem composta, Impostos, Comercial, Logística e Administrativo (e, para o resultado após o IR, Outras receitas e despesas e IRPJ), e o alvo do ano atual",
+        "Dado a unidade em pontos percentuais do Faturamento Líquido\nQuando a ponte é calculada\nEntão a soma das contribuições é igual à diferença total",
+        "Dado a unidade em valor\nQuando a ponte é calculada\nEntão inclui \"Volume de vendas\" e a soma fecha a diferença exata (teste com centavos)",
+        "Dado o resultado\nQuando é exibido\nEntão um texto resume a maior contribuição positiva e a maior negativa",
+        "Dado Faturamento Líquido zero em algum ano\nQuando a ponte é calculada\nEntão aparece \"não calculável\"",
+        "Dado um Gerente\nQuando abre a ponte\nEntão 403 (a ponte envolve o resultado do grupo)"
+      ]
+    },
+    {
+      "id": "6.5",
+      "titulo": "Projeção de fechamento do ano",
+      "epico": {
+        "numero": 6,
+        "nome": "Dashboards de desvios e tendência"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como diretoria, quero ver para onde o ano caminha, para que eu possa agir antes de dezembro.",
+      "criterios": [
+        "Dado o ano corrente com realizado até o mês M\nQuando abro \"Projeção\"\nEntão mostra o realizado de janeiro a M e o estimado de M+1 a dezembro, marcando o que é estimado e o método",
+        "Dado o método Orçado\nQuando é escolhido\nEntão o estimado é o orçado dos meses restantes",
+        "Dado o método Sazonal\nQuando é escolhido\nEntão o estimado é o restante do ano anterior multiplicado pela razão entre o acumulado atual e o do ano anterior; razão fora do intervalo de 0 a 3 vale 1",
+        "Dado que não há orçado\nQuando a projeção é aberta\nEntão usa o Sazonal e o método Orçado fica desabilitado",
+        "Dado M igual a 12\nQuando a projeção é aberta\nEntão a projeção é o realizado",
+        "Dado os indicadores\nQuando são exibidos\nEntão mostram Faturamento Líquido, despesas sobre o Faturamento Líquido, margem líquida e resultado após o IR, comparados ao ano anterior e ao orçado do ano",
+        "Dado um Gerente\nQuando abre a projeção\nEntão vê só a despesa projetada do seu departamento, sem o Faturamento Líquido\nE o filtro de filial funciona"
+      ]
+    },
+    {
+      "id": "6.6",
+      "titulo": "Copiar o gráfico como imagem (opcional)",
+      "epico": {
+        "numero": 6,
+        "nome": "Dashboards de desvios e tendência"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como diretoria, quero copiar ou baixar um gráfico como imagem, para que eu cole na apresentação.",
+      "criterios": [
+        "Dado qualquer gráfico dos dashboards\nQuando clico em \"Copiar imagem\" ou \"PNG\"\nEntão recebo a imagem do que está na tela, com título, período e filtros",
+        "Dado um Gerente\nQuando copia um gráfico\nEntão a imagem só contém o que ele já vê",
+        "Dado a imagem\nQuando é gerada\nEntão é gerada no navegador, e não há exportação para PDF ou Excel (fora de escopo no PRD)"
+      ]
+    },
+    {
+      "id": "7.1",
+      "titulo": "Regras de rateio",
+      "epico": {
+        "numero": 7,
+        "nome": "Rateio entre filiais"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "O épico só começa depois da resposta do cliente.",
+      "resumo": "Como analista, quero definir para cada departamento centralizado o critério de rateio, para que o sistema saiba como distribuir o custo.",
+      "criterios": [
+        "Dado a migration\nEntão departamentos ganha centralizado e existem rateio_regras (empresa_id, departamento_id, criterio, vigente_de) e rateio_percentuais (regra_id, filial, percentual), mantidas por limpar_dados_teste (são configuração)",
+        "Dado um departamento centralizado\nQuando o analista cria uma regra pelo critério uso\nEntão informa o percentual de cada filial, e a regra é recusada se a soma não for 100%",
+        "Dado o critério faturamento\nQuando a regra é criada\nEntão não pede percentuais: a distribuição será proporcional ao Faturamento Líquido de cada filial na competência (linha com o papel faturamento líquido, AD-20)",
+        "Dado várias regras do mesmo departamento\nQuando uma competência é consultada\nEntão vale a de maior vigente_de até essa competência",
+        "Dado um perfil sem a capacidade \"configurar rateio\"\nQuando tenta criar ou alterar uma regra\nEntão 403\nE cada alteração vai à trilha"
+      ]
+    },
+    {
+      "id": "7.2",
+      "titulo": "Aplicar o rateio na competência",
+      "epico": {
+        "numero": 7,
+        "nome": "Rateio entre filiais"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "O épico só começa depois da resposta do cliente.",
+      "resumo": "Como Controller, quero aplicar o rateio de uma competência, para que o custo dos departamentos centralizados seja distribuído entre as filiais.",
+      "criterios": [
+        "Dado a migration\nEntão existe rateio_aplicado (empresa_id, competencia, departamento_id, filial, valor, regra_id, aplicado_por, aplicado_em, vigente), escrita só pelo módulo dre/rateio e incluída em limpar_dados_teste",
+        "Dado uma competência aberta com regras vigentes\nQuando o Controller aplica\nEntão distribui o custo realizado de cada departamento centralizado entre as filiais pela regra, e a soma rateada é exatamente o valor do departamento",
+        "Dado que a divisão deixa centavos\nQuando o rateio é aplicado\nEntão o resto vai à filial de maior percentual (empate: menor código)",
+        "Dado o rateio já aplicado numa competência aberta\nQuando o Controller aplica de novo\nEntão substitui o anterior, sem duplicar",
+        "Dado competência fechada\nQuando o Controller tenta aplicar\nEntão 409 pela guarda de período (1.6)",
+        "Dado um perfil sem \"aplicar rateio\"\nQuando tenta aplicar\nEntão 403\nE a aplicação vai à trilha"
+      ]
+    },
+    {
+      "id": "7.3",
+      "titulo": "Aba \"Rateio\"",
+      "epico": {
+        "numero": 7,
+        "nome": "Rateio entre filiais"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "O épico só começa depois da resposta do cliente.",
+      "resumo": "Como analista, quero ver o resultado do rateio por departamento e filial, para que eu confira antes de fechar.",
+      "criterios": [
+        "Dado um rateio aplicado\nQuando abro a aba \"Rateio\"\nEntão lista, por departamento centralizado e filial, o percentual, o critério, o valor rateado e o total do departamento",
+        "Dado a soma por departamento\nQuando é exibida\nEntão é igual ao valor do departamento (conferência visível na tela)",
+        "Dado nenhum rateio aplicado\nQuando abro a aba\nEntão mostra \"não aplicado\" e as regras vigentes",
+        "Dado um Gerente\nQuando tenta abrir a aba\nEntão não acessa"
+      ]
+    },
+    {
+      "id": "7.4",
+      "titulo": "O DRE por filial mostra o rateio",
+      "epico": {
+        "numero": 7,
+        "nome": "Rateio entre filiais"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "O épico só começa depois da resposta do cliente.",
+      "resumo": "Como diretoria, quero ver o DRE de cada filial com o rateio numa linha separada, para que eu veja o custo real de cada unidade sem perder o resultado direto.",
+      "criterios": [
+        "Dado um rateio aplicado\nQuando abro o DRE de uma filial\nEntão mostra uma linha \"Rateio\" separada do realizado direto",
+        "Dado o DRE do grupo\nQuando é aberto com rateio aplicado\nEntão o total não muda: a soma da linha \"Rateio\" de todas as filiais é zero",
+        "Dado nenhum rateio aplicado\nQuando o DRE é aberto\nEntão a linha não aparece",
+        "Dado competência fechada\nQuando o DRE é aberto\nEntão lê o rateio do snapshot\nE o Gerente não vê a linha de rateio de outros departamentos"
+      ]
+    },
+    {
+      "id": "7.5",
+      "titulo": "Rateio no fechamento e na reabertura",
+      "epico": {
+        "numero": 7,
+        "nome": "Rateio entre filiais"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "O épico só começa depois da resposta do cliente.",
+      "resumo": "Como Controller, quero que o rateio entre no fechamento e saia na reabertura, para que um mês fechado nunca carregue um rateio defasado.",
+      "criterios": [
+        "Dado regras vigentes e rateio não aplicado\nQuando o Controller fecha\nEntão 409 listando os departamentos sem rateio aplicado",
+        "Dado o rateio aplicado\nQuando o Controller fecha\nEntão o snapshot por contas inclui o rateio",
+        "Dado a reabertura (1.7)\nQuando o Controller reabre\nEntão o rateio aplicado da competência fica invalidado (vigente = false) e precisa ser reaplicado antes de fechar de novo",
+        "Dado nenhuma regra vigente\nQuando o Controller fecha\nEntão o fechamento não pede rateio"
+      ]
+    },
+    {
+      "id": "8.1",
+      "titulo": "Backup diário da Auditoria, com restauração testada",
+      "epico": {
+        "numero": 8,
+        "nome": "Go-live com dado real (trilha paralela)"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero que o banco da Auditoria entre no backup diário e que eu já tenha restaurado uma cópia, para que um backup só valha se alguém provou que ele volta.",
+      "criterios": [
+        "Dado o cron das 23:00 (UTC)\nQuando a primeira execução automática com a Auditoria termina\nEntão /var/log/pg-backup.log mostra \"Dump de fb_auditoria OK\" e \"Upload de fb_auditoria OK\", e a pasta do dia no OneDrive tem o arquivo",
+        "Dado o script do servidor\nQuando é versionado\nEntão uma cópia sem e-mails nem senhas fica em ops/ no repositório",
+        "Dado um runbook docs/runbook-backup.md\nQuando é lido\nEntão descreve como localizar o contêiner, gerar um dump, restaurar num banco temporário e conferir contagens",
+        "Dado a restauração\nQuando é repetida\nEntão acontece antes da virada para Produção e a cada trimestre, com data e resultado registrados"
+      ]
+    },
+    {
+      "id": "8.2",
+      "titulo": "Autorização do cliente para o destino do backup, começar já",
+      "epico": {
+        "numero": 8,
+        "nome": "Go-live com dado real (trilha paralela)"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "Depende de resposta do cliente.",
+      "resumo": "Como dono do produto, quero a decisão do cliente sobre onde o backup dos dados dele pode ficar, para que o contrato seja respeitado.",
+      "criterios": [
+        "Dado que o dump contém dados financeiros do cliente e hoje vai sem criptografia para o OneDrive do dono do produto\nQuando a pergunta é enviada ao cliente\nEntão a data e o texto ficam registrados",
+        "Dado a resposta do cliente\nQuando chega\nEntão fica registrada uma de três decisões: aceita o destino atual; exige conta da empresa; exige criptografia",
+        "Dado a exigência de criptografia\nQuando é aplicada\nEntão o backup da Auditoria passa a usar rclone crypt só para este banco, com a chave guardada fora do servidor de backup, e a restauração é testada de novo",
+        "Dado nenhuma decisão registrada\nQuando a virada é tentada\nEntão não segue (item bloqueante da 8.4)"
+      ]
+    },
+    {
+      "id": "8.3",
+      "titulo": "Cobertura da fonte: o que ainda depende de arquivo",
+      "epico": {
+        "numero": 8,
+        "nome": "Go-live com dado real (trilha paralela)"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero ver quais contas o Oracle já cobre e quais ainda dependem de arquivo, para que eu saiba o que falta antes de virar para Produção.",
+      "criterios": [
+        "Dado as contas com lançamento\nQuando abro \"Cobertura\"\nEntão lista cada conta com a origem dona, a última competência carregada e se há lançamento do Oracle para ela",
+        "Dado o resumo\nQuando é exibido\nEntão mostra quantas contas e que parte do valor do realizado ainda depende de arquivo",
+        "Dado a lista\nQuando é comparada com o aviso da virada (1.3)\nEntão é a mesma\nE é só leitura, para perfis sem restrição"
+      ]
+    },
+    {
+      "id": "8.4",
+      "titulo": "Checklist antes de virar para Produção",
+      "epico": {
+        "numero": 8,
+        "nome": "Go-live com dado real (trilha paralela)"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como administrador de plataforma, quero um checklist na tela de virar para Produção, para que eu não vire por esquecimento.",
+      "criterios": [
+        "Dado a tela de virada (1.3)\nQuando o administrador a abre\nEntão vê cada item com o estado (verde, vermelho ou \"confirmar\") e quem confirmou e quando",
+        "Dado os itens bloqueantes\nQuando o administrador tenta virar\nEntão a virada só segue com todos verdes: cadastro público fechado (verificado pela configuração); SMTP com envio de teste concluído; paridade do mês de referência registrada como \"bate\" (3.7); decisão sobre o destino do backup registrada (8.2); backup confirmado e restauração testada nos últimos 30 dias (confirmação manual com autor e data)",
+        "Dado a cobertura (8.3)\nQuando o checklist é exibido\nEntão aparece como aviso, que não bloqueia",
+        "Dado cada confirmação manual\nQuando é feita\nEntão vai à trilha\nE a virada continua exigindo a senha de novo e a frase digitada (1.3)"
+      ]
+    },
+    {
+      "id": "8.5",
+      "titulo": "Imagens e versões sem validade vencida",
+      "epico": {
+        "numero": 8,
+        "nome": "Go-live com dado real (trilha paralela)"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como dono do produto, quero que as imagens do deploy tenham versão fixa e suportada, para que um deploy não mude de comportamento sozinho nem use base sem correção de segurança.",
+      "criterios": [
+        "Dado frontend/Dockerfile\nQuando é revisado\nEntão o node:18-alpine (sem suporte desde 2025-04-30) é trocado por uma versão LTS suportada, e o build do frontend passa (npm run typecheck, npm run lint, vite build)",
+        "Dado alpine:latest e cloudflare/cloudflared:latest\nQuando são revisados\nEntão passam a usar tags fixas",
+        "Dado go.mod\nQuando go mod tidy roda\nEntão deixa o go-ora como dependência direta\nE o deploy no Coolify é testado depois da troca, com o túnel de volta a \"Healthy\""
+      ]
+    },
+    {
+      "id": "8.6",
+      "titulo": "Apagar usuário sem quebrar a trilha",
+      "epico": {
+        "numero": 8,
+        "nome": "Go-live com dado real (trilha paralela)"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como administrador de plataforma, quero que apagar um usuário não falhe nem apague a história dele, para que a trilha continue imutável.",
+      "criterios": [
+        "Dado o DeleteUserHandler, que faz DELETE FROM users, e a chave ON DELETE SET NULL de audit_log.user_id\nQuando o administrador apaga um usuário que tem registros na trilha\nEntão o comportamento atual é registrado em teste (o gatilho de imutabilidade bloqueia o UPDATE da chave)",
+        "Dado a decisão de que usuário é desativado e nunca apagado (AD-19)\nQuando a rota é chamada para quem tem registro\nEntão passa a recusar e oferece o bloqueio",
+        "Dado um usuário sem nenhum registro\nQuando o administrador o apaga\nEntão pode ser apagado\nE a mensagem de recusa orienta para o Bloqueio de usuário"
+      ]
+    },
+    {
+      "id": "8.7",
+      "titulo": "Alerta ao administrador quando a importação ou o envio falha (opcional)",
+      "epico": {
+        "numero": 8,
+        "nome": "Go-live com dado real (trilha paralela)"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como administrador de plataforma, quero ser avisado por e-mail quando uma importação ou um envio falha, para que eu não descubra só quando alguém reclamar.",
+      "criterios": [
+        "Dado uma execução com status de falha em execucoes\nQuando termina\nEntão o administrador recebe um e-mail com a causa",
+        "Dado um e-mail da outbox que esgotou as tentativas\nQuando o worker desiste\nEntão o administrador é avisado, uma vez por item",
+        "Dado o SMTP indisponível\nQuando o alerta é tentado\nEntão não tenta de novo em laço, e a falha segue visível na tela\nE é opcional e não bloqueia a virada"
+      ]
+    }
+  ]
+}
