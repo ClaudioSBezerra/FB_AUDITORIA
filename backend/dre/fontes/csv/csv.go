@@ -163,24 +163,34 @@ func ehCabecalho(cels []string) bool {
 	return (comp && conta && valor) || (conta && vreal && mes && loja)
 }
 
-// acharCabecalho devolve o índice do cabeçalho nas primeiras 20 linhas, ou -1.
-// Sem conjunto completo, uma primeira linha com competencia ainda vale como
+// cabecalhoLancamentos reconhece o cabeçalho dos formatos de lançamentos.
+func cabecalhoLancamentos(cels []string) bool { return ehCabecalho(cels) }
+
+// primeiraComCompetencia: uma primeira linha com competencia ainda vale como
 // cabeçalho do formato do sistema (para apontar a coluna ausente).
-func acharCabecalho(rows []linha) int {
+func primeiraComCompetencia(cels []string) bool {
+	for _, c := range cels {
+		if normCab(c) == "competencia" {
+			return true
+		}
+	}
+	return false
+}
+
+// acharCabecalho devolve o índice do cabeçalho nas primeiras 20 linhas, ou -1.
+// cab reconhece o cabeçalho completo; primeira (opcional) aceita a primeira
+// linha como cabeçalho quando nenhuma linha passou em cab.
+func acharCabecalho(rows []linha, cab, primeira func([]string) bool) int {
 	for i, r := range rows {
 		if i >= maxLinhasCabecalho {
 			break
 		}
-		if ehCabecalho(r.cels) {
+		if cab(r.cels) {
 			return i
 		}
 	}
-	if len(rows) > 0 {
-		for _, c := range rows[0].cels {
-			if normCab(c) == "competencia" {
-				return 0
-			}
-		}
+	if primeira != nil && len(rows) > 0 && primeira(rows[0].cels) {
+		return 0
 	}
 	return -1
 }
@@ -239,7 +249,7 @@ func decodificar(data []byte) []byte {
 
 // lerXLSX devolve as linhas da primeira planilha que tenha o cabeçalho nas
 // primeiras 20 linhas; valores brutos das células.
-func lerXLSX(data []byte) (rows []linha, err error) {
+func lerXLSX(data []byte, cab, primeira func([]string) bool) (rows []linha, err error) {
 	defer func() {
 		if recover() != nil {
 			rows, err = nil, &dre.ErroEntrada{Msg: "XLSX corrompido ou ilegível"}
@@ -262,11 +272,52 @@ func lerXLSX(data []byte) (rows []linha, err error) {
 		for j, cc := range cels {
 			rs[j] = linha{n: j + 1, cels: cc}
 		}
-		if acharCabecalho(rs) >= 0 {
+		if acharCabecalho(rs, cab, primeira) >= 0 {
 			return rs, nil
 		}
 	}
 	return nil, nil // sem cabeçalho em nenhuma planilha
+}
+
+// tabela é o conteúdo lido de um CSV ou XLSX: as linhas, o índice do cabeçalho
+// (hi, -1 se não achado) e os problemas de leitura posteriores ao cabeçalho.
+type tabela struct {
+	rows  []linha
+	probs []dre.Problema
+	hi    int
+	xlsx  bool
+}
+
+// lerTabela decide o formato pela assinatura (ZIP é XLSX) e acha o cabeçalho com
+// cab/primeira. Serve a todas as cargas por arquivo.
+func lerTabela(data []byte, cab, primeira func([]string) bool) (tabela, error) {
+	t := tabela{hi: -1}
+	var err error
+	if bytes.HasPrefix(data, []byte("PK\x03\x04")) {
+		t.xlsx = true
+		if t.rows, err = lerXLSX(data, cab, primeira); err != nil {
+			return t, err
+		}
+		t.hi = acharCabecalho(t.rows, cab, primeira)
+		return t, nil
+	}
+	data = decodificar(data)
+	for _, sep := range []rune{';', ',', '\t'} {
+		t.rows, t.probs = lerCSV(data, sep)
+		if t.hi = acharCabecalho(t.rows, cab, primeira); t.hi >= 0 {
+			break
+		}
+	}
+	if t.hi >= 0 { // erros de parse antes do cabeçalho (títulos) são descartados
+		kept := t.probs[:0]
+		for _, p := range t.probs {
+			if p.Linha > t.rows[t.hi].n {
+				kept = append(kept, p)
+			}
+		}
+		t.probs = kept
+	}
+	return t, nil
 }
 
 const colunasEsperadas = "formato do sistema: competencia, filial, conta, valor; " +
@@ -293,34 +344,12 @@ func (f *Fonte) Ler(ctx context.Context, _ dre.Escopo) ([]dre.Lancamento, error)
 	if len(data) == 0 {
 		return nil, &dre.ErroEntrada{Msg: "CSV vazio ou ilegível"}
 	}
-	var rows []linha
-	var probs []dre.Problema
-	ehCSV := true
-	hi := -1
-	if bytes.HasPrefix(data, []byte("PK\x03\x04")) {
-		ehCSV, f.xlsx = false, true
-		if rows, err = lerXLSX(data); err != nil {
-			return nil, err
-		}
-		hi = acharCabecalho(rows)
-	} else {
-		data = decodificar(data)
-		for _, sep := range []rune{';', ',', '\t'} {
-			rows, probs = lerCSV(data, sep)
-			if hi = acharCabecalho(rows); hi >= 0 {
-				break
-			}
-		}
-		if hi >= 0 { // erros de parse antes do cabeçalho (títulos) são descartados
-			kept := probs[:0]
-			for _, p := range probs {
-				if p.Linha > rows[hi].n {
-					kept = append(kept, p)
-				}
-			}
-			probs = kept
-		}
+	t, err := lerTabela(data, cabecalhoLancamentos, primeiraComCompetencia)
+	if err != nil {
+		return nil, err
 	}
+	f.xlsx = t.xlsx
+	rows, probs, hi, ehCSV := t.rows, t.probs, t.hi, !t.xlsx
 	if hi < 0 {
 		if ehCSV && len(rows) == 0 && len(probs) == 0 {
 			return nil, &dre.ErroEntrada{Msg: "arquivo vazio ou ilegível"}

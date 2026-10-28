@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 	"unicode/utf8"
 
@@ -51,6 +52,16 @@ func (e *ErrDepartamentoCodigoEmUso) Error() string {
 type ErrDepartamentoNaoEncontrado struct{}
 
 func (e *ErrDepartamentoNaoEncontrado) Error() string { return "Departamento não encontrado" }
+
+// ErrDepartamentoEmUso recusa excluir departamento ligado a contas.
+type ErrDepartamentoEmUso struct {
+	Codigo string
+	Contas int
+}
+
+func (e *ErrDepartamentoEmUso) Error() string {
+	return fmt.Sprintf("O departamento %s não pode ser excluído: há %d conta(s) ligada(s) a ele", e.Codigo, e.Contas)
+}
 
 // ListarDepartamentos devolve os departamentos da empresa, por código.
 func (d *Dicionario) ListarDepartamentos(ctx context.Context, empresaID string) ([]Departamento, error) {
@@ -148,9 +159,8 @@ func (d *Dicionario) SalvarDepartamento(ctx context.Context, in SalvarDepartamen
 	return Departamento{ID: id, Codigo: codigo, Nome: nome, Grupo: grupo}, nil
 }
 
-// ExcluirDepartamento remove o departamento. A recusa por contas ligadas
-// (ErrDepartamentoEmUso) entra com a história 2.10, quando a tabela
-// conta_departamento passa a existir.
+// ExcluirDepartamento remove o departamento; recusa com ErrDepartamentoEmUso se
+// houver conta ligada a ele (conta_departamento).
 func (d *Dicionario) ExcluirDepartamento(ctx context.Context, empresaID, userID, id string) error {
 	if !reUUID.MatchString(id) {
 		return &ErrDepartamentoNaoEncontrado{}
@@ -182,7 +192,15 @@ func (d *Dicionario) ExcluirDepartamento(ctx context.Context, empresaID, userID,
 	return tx.Commit()
 }
 
-// verificarUsoDepartamento é o ponto de extensão da recusa por contas ligadas.
+// verificarUsoDepartamento recusa a exclusão de departamento com contas ligadas.
 func (d *Dicionario) verificarUsoDepartamento(ctx context.Context, tx *sql.Tx, empresaID string, x Departamento) error {
+	var n int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM auditoria.conta_departamento
+		WHERE empresa_id=$1::uuid AND departamento_id=$2::uuid`, empresaID, x.ID).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return &ErrDepartamentoEmUso{Codigo: x.Codigo, Contas: n}
+	}
 	return nil
 }

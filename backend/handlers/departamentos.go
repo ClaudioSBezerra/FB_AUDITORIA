@@ -85,13 +85,15 @@ func erroDicionario(w http.ResponseWriter, err error, op string) bool {
 	var entrada *dre.ErroEntrada
 	var linhas *dre.ErroLinhas
 	var codigo *dre.ErrDepartamentoCodigoEmUso
+	var emUso *dre.ErrDepartamentoEmUso
 	var naoAch *dre.ErrDepartamentoNaoEncontrado
+	var contaNaoAch *dre.ErrContaNaoEncontrada
 	switch {
 	case errors.As(err, &entrada), errors.As(err, &linhas):
 		http.Error(w, err.Error(), http.StatusBadRequest)
-	case errors.As(err, &codigo):
+	case errors.As(err, &codigo), errors.As(err, &emUso):
 		http.Error(w, err.Error(), http.StatusConflict)
-	case errors.As(err, &naoAch):
+	case errors.As(err, &naoAch), errors.As(err, &contaNaoAch):
 		http.Error(w, err.Error(), http.StatusNotFound)
 	default:
 		log.Printf("dicionario %s: %v", op, err)

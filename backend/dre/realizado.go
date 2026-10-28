@@ -76,23 +76,33 @@ func CarregarMapa(ctx context.Context, q Consultador, empresaID string) ([]MapaI
 	return out, rows.Err()
 }
 
-// ResolverConta: casamento exato vence; senão o prefixo ('%') mais longo.
-func ResolverConta(mapa []MapaItem, conta string) (MapaItem, bool) {
-	var best MapaItem
-	bestLen := -1
-	for _, m := range mapa {
-		p := m.ContaPadrao
+// MelhorPadrao é a regra única de resolução de conta (Mapa e dicionário):
+// casamento exato vence; senão o prefixo ('%' no fim) mais longo. Devolve o
+// índice do padrão escolhido entre n, ou -1.
+func MelhorPadrao(n int, padrao func(i int) string, conta string) int {
+	best, bestLen := -1, -1
+	for i := 0; i < n; i++ {
+		p := padrao(i)
 		if p == conta {
-			return m, true
+			return i
 		}
 		if strings.HasSuffix(p, "%") {
 			pre := strings.TrimSuffix(p, "%")
 			if strings.HasPrefix(conta, pre) && len(pre) > bestLen {
-				best, bestLen = m, len(pre)
+				best, bestLen = i, len(pre)
 			}
 		}
 	}
-	return best, bestLen >= 0
+	return best
+}
+
+// ResolverConta: casamento exato vence; senão o prefixo ('%') mais longo.
+func ResolverConta(mapa []MapaItem, conta string) (MapaItem, bool) {
+	i := MelhorPadrao(len(mapa), func(i int) string { return mapa[i].ContaPadrao }, conta)
+	if i < 0 {
+		return MapaItem{}, false
+	}
+	return mapa[i], true
 }
 
 // somaPorConta soma os lançamentos por conta (valor bruto, sem sinal do mapa).
