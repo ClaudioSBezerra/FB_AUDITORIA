@@ -46,7 +46,7 @@ export default function DRE() {
   const lancs = useQuery({
     queryKey: ['dre-lanc', q, drill?.codigo],
     enabled: !!drill,
-    queryFn: () => api<{ lancamentos: Lanc[]; truncado: boolean }>(`/api/aud/dre/lancamentos?${q}&linha=${drill!.codigo}`),
+    queryFn: () => api<{ lancamentos: Lanc[]; truncado: boolean; aviso?: string }>(`/api/aud/dre/lancamentos?${q}&linha=${drill!.codigo}`),
   })
 
   async function fechar() {
@@ -165,8 +165,11 @@ export default function DRE() {
           <DialogHeader><DialogTitle>{drill?.descricao} — lançamentos</DialogTitle></DialogHeader>
           {d?.congelado && (
             <p className="text-xs text-sky-800 bg-sky-50 border border-sky-200 rounded px-2.5 py-1.5">
-              Período fechado: os valores do DRE são o fechamento v{d.versao}; esta lista mostra os lançamentos atuais e pode incluir carga posterior ao fechamento.
+              Período fechado: valores e contas do fechamento v{d.versao}.
             </p>
+          )}
+          {lancs.data?.aviso && (
+            <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">{lancs.data.aviso}</p>
           )}
           <div className="overflow-auto">
             <table className="w-full text-xs">
@@ -180,7 +183,7 @@ export default function DRE() {
               </thead>
               <tbody>
                 {(lancs.data?.lancamentos ?? []).map(l => (
-                  <tr key={l.id} className="border-b last:border-0">
+                  <tr key={`${l.competencia}|${l.conta}|${l.filial}|${l.id}`} className="border-b last:border-0">
                     <td className="p-2 whitespace-nowrap">{l.competencia}</td>
                     <td className="p-2">{l.filial}</td>
                     <td className="p-2 whitespace-nowrap">{l.conta}{l.conta_desc ? ` · ${l.conta_desc}` : ''}</td>

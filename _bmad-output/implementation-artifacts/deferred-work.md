@@ -46,3 +46,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-7-fechamento-unico-reabertura.md`
   summary: Excluir um usuário que já fechou ou reabriu um mês falha fora de Teste (o gatilho de imutabilidade bloqueia o `SET NULL`); o `DeleteUserHandler` precisa tratar isso ou a rota deve bloquear.
   evidence: `fechado_por` tem `ON DELETE SET NULL`, que é um UPDATE; `006_fechamento_reabertura.sql` o bloqueia.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-8-mes-fechado-do-snapshot.md`
+  summary: O snapshot completo é reconhecido por `orcado IS NOT NULL` nas linhas; trocar por uma coluna explícita em `dre_fechamentos`.
+  evidence: `dre/leitura.go`, `Ativos`; fechamento antigo tem orçado nulo, e a regra depende disso.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-8-mes-fechado-do-snapshot.md`
+  summary: `Fechar` grava linhas e contas uma a uma por filial; com muitas filiais e contas convém gravar em lote, e os valores passam por `float64` antes do `NUMERIC(18,2)`.
+  evidence: `dre/fechamento.go`; o consolidado pode diferir da soma das filiais em centavos.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-8-mes-fechado-do-snapshot.md`
+  summary: A chave do snapshot ainda é a filial do ERP; ao entrar o Mapa de filiais (2.14) ela deve virar a filial gerencial.
+  evidence: `dre_fechamento_linhas` e `dre_fechamento_contas` guardam `filial` do lançamento.

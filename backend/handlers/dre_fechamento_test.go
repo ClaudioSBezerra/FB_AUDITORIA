@@ -380,3 +380,211 @@ func TestReabrir_MotivoLongoRecusado(t *testing.T) {
 		t.Fatalf("500 runas: esperava 200, veio %d", w.Code)
 	}
 }
+
+func detalhe(t *testing.T, f testdb.Fixture, query string) (lancs []struct {
+	ID     int64   `json:"id"`
+	Conta  string  `json:"conta"`
+	Valor  float64 `json:"valor"`
+	Linha  string  `json:"linha"`
+	Origem string  `json:"origem"`
+}) {
+	t.Helper()
+	db := testdb.Open(t)
+	r := httptest.NewRequest(http.MethodGet, "/api/aud/dre/lancamentos?"+query, nil)
+	w := chamar(DRELancamentosHandler(db), reqComCtx(r, f))
+	if w.Code != http.StatusOK {
+		t.Fatalf("detalhe: %d %s", w.Code, w.Body.String())
+	}
+	var o struct {
+		Lancamentos []struct {
+			ID     int64   `json:"id"`
+			Conta  string  `json:"conta"`
+			Valor  float64 `json:"valor"`
+			Linha  string  `json:"linha"`
+			Origem string  `json:"origem"`
+		} `json:"lancamentos"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &o); err != nil {
+		t.Fatal(err)
+	}
+	return o.Lancamentos
+}
+
+// Mês fechado: o detalhe por conta vem do snapshot; mudar o Mapa não o altera.
+func TestDetalhe_MesFechadoVemDoSnapshot(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d %s", w.Code, w.Body.String())
+	}
+	if _, err := db.Exec(`UPDATE auditoria.dre_mapa SET linha_codigo='CMV' WHERE empresa_id=$1::uuid AND conta_padrao='3.1'`, f.EmpresaID); err != nil {
+		t.Fatal(err)
+	}
+	l := detalhe(t, f, "ano=2026&mes=9&visao=mensal&linha=RB")
+	if len(l) != 1 || l[0].Conta != "3.1" || l[0].Valor != 1000 || l[0].Origem != "snapshot" || l[0].ID != 0 {
+		t.Fatalf("detalhe congelado: %+v", l)
+	}
+	if c, _, _, _, rb := estadoDRE(t, f, ""); !c || rb != 1000 {
+		t.Errorf("DRE congelado: %v %v", c, rb)
+	}
+}
+
+func jsonDe(t *testing.T, h http.Handler, f testdb.Fixture, url string) map[string]any {
+	t.Helper()
+	w := chamar(h, reqComCtx(httptest.NewRequest(http.MethodGet, url, nil), f))
+	if w.Code != http.StatusOK {
+		t.Fatalf("%s: %d %s", url, w.Code, w.Body.String())
+	}
+	var o map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &o); err != nil {
+		t.Fatal(err)
+	}
+	return o
+}
+
+type linhaDet struct {
+	Competencia string
+	Conta       string
+	Valor       float64
+	Origem      string
+}
+
+func detalheLista(o map[string]any) []linhaDet {
+	var out []linhaDet
+	for _, x := range o["lancamentos"].([]any) {
+		m := x.(map[string]any)
+		out = append(out, linhaDet{m["competencia"].(string), m["conta"].(string), m["valor"].(float64), m["origem"].(string)})
+	}
+	return out
+}
+
+func exec(t *testing.T, q string, args ...any) {
+	t.Helper()
+	if _, err := testdb.Open(t).Exec(q, args...); err != nil {
+		t.Fatalf("%s: %v", q, err)
+	}
+}
+
+// (a) lançamento novo na mesma conta e linha não aparece no detalhe de mês fechado.
+func TestDetalhe_MesFechadoIgnoraLancamentoNovo(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d", w.Code)
+	}
+	exec(t, `INSERT INTO auditoria.lancamentos (empresa_id, competencia, conta, valor) VALUES ($1::uuid,'2026-09-01','3.1',77)`, f.EmpresaID)
+	l := detalheLista(jsonDe(t, DRELancamentosHandler(db), f, "/x?ano=2026&mes=9&visao=mensal&linha=RB"))
+	if len(l) != 1 || l[0].Valor != 1000 || l[0].Origem != "snapshot" {
+		t.Fatalf("esperava só o snapshot: %+v", l)
+	}
+}
+
+// (b) fechamento legado: sem contas, com aviso citando o mês.
+func TestDetalhe_FechamentoLegadoTemAviso(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	exec(t, `INSERT INTO auditoria.dre_fechamentos (empresa_id, competencia, versao, filial) VALUES ($1::uuid,'2026-09-01',1,'')`, f.EmpresaID)
+	o := jsonDe(t, DRELancamentosHandler(db), f, "/x?ano=2026&mes=9&visao=mensal&linha=RB")
+	if a, _ := o["aviso"].(string); !strings.Contains(a, "2026-09") {
+		t.Errorf("aviso ausente: %v", o["aviso"])
+	}
+	if l := detalheLista(o); len(l) != 0 {
+		t.Errorf("legado sem contas: %+v", l)
+	}
+}
+
+// (c) período misto: mês fechado do snapshot + mês vivo, ordenados por competência e conta.
+func TestDetalhe_PeriodoMistoOrdenado(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d", w.Code)
+	}
+	exec(t, `INSERT INTO auditoria.lancamentos (empresa_id, competencia, conta, valor) VALUES ($1::uuid,'2026-08-01','4.1',9),($1::uuid,'2026-08-01','3.1',5)`, f.EmpresaID)
+	l := detalheLista(jsonDe(t, DRELancamentosHandler(db), f, "/x?ano=2026&mes=9&visao=acumulada&linha=LB"))
+	if len(l) != 5 {
+		t.Fatalf("esperava 5 linhas: %+v", l)
+	}
+	for i := 1; i < len(l); i++ {
+		a, b := l[i-1], l[i]
+		if a.Competencia > b.Competencia || (a.Competencia == b.Competencia && a.Conta > b.Conta) {
+			t.Errorf("fora de ordem: %+v antes de %+v", a, b)
+		}
+	}
+	if l[0].Origem == "snapshot" || l[4].Origem != "snapshot" {
+		t.Errorf("origens: %+v", l)
+	}
+}
+
+// (d) filial sobre mês fechado: valores da filial, do snapshot.
+func TestDetalhe_FilialSobreMesFechado(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	exec(t, `INSERT INTO auditoria.lancamentos (empresa_id, competencia, filial, conta, valor) VALUES ($1::uuid,'2026-09-01','01','3.1',40)`, f.EmpresaID)
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d", w.Code)
+	}
+	exec(t, `UPDATE auditoria.lancamentos SET valor=1 WHERE empresa_id=$1::uuid`, f.EmpresaID)
+	l := detalheLista(jsonDe(t, DRELancamentosHandler(db), f, "/x?ano=2026&mes=9&visao=mensal&linha=RB&filial=01"))
+	if len(l) != 1 || l[0].Valor != 40 || l[0].Origem != "snapshot" {
+		t.Fatalf("filial 01: %+v", l)
+	}
+}
+
+func valorLinha(o map[string]any, cod, campo string) float64 {
+	for _, x := range o["linhas"].([]any) {
+		m := x.(map[string]any)
+		if m["codigo"] == cod {
+			return m[campo].(float64)
+		}
+	}
+	return -1
+}
+
+// (e) DRE de mês fechado: orçado e ano anterior congelados; congelado com filtro de filial.
+func TestDRE_FechadoTrazOrcadoEAnoAnteriorCongelados(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	exec(t, `INSERT INTO auditoria.lancamentos (empresa_id, competencia, filial, conta, valor) VALUES ($1::uuid,'2026-09-01','01','3.1',40),($1::uuid,'2025-09-01','','3.1',800)`, f.EmpresaID)
+	exec(t, `INSERT INTO auditoria.dre_orcado (empresa_id, competencia, filial, linha_codigo, valor) VALUES ($1::uuid,'2026-09-01','','RB',1200)`, f.EmpresaID)
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d", w.Code)
+	}
+	exec(t, `UPDATE auditoria.dre_orcado SET valor=1 WHERE empresa_id=$1::uuid`, f.EmpresaID)
+	exec(t, `UPDATE auditoria.lancamentos SET valor=1 WHERE empresa_id=$1::uuid AND competencia='2025-09-01'`, f.EmpresaID)
+	o := jsonDe(t, DREHandler(db), f, "/x?ano=2026&mes=9&visao=mensal")
+	if valorLinha(o, "RB", "orcado") != 1200 || valorLinha(o, "RB", "ano_anterior") != 800 {
+		t.Errorf("orcado/aa: %v %v", valorLinha(o, "RB", "orcado"), valorLinha(o, "RB", "ano_anterior"))
+	}
+	if o["congelado"] != true {
+		t.Error("congelado esperado")
+	}
+	if o01 := jsonDe(t, DREHandler(db), f, "/x?ano=2026&mes=9&visao=mensal&filial=01"); o01["congelado"] != true || valorLinha(o01, "RB", "realizado") != 40 {
+		t.Errorf("filial 01: congelado=%v RB=%v", o01["congelado"], valorLinha(o01, "RB", "realizado"))
+	}
+}
+
+// (f) renomear/reordenar linha depois do fechamento não muda o mês fechado.
+func TestDRE_EstruturaCongeladaNoMesFechado(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+	if w := fechar(t, f, corpoSetembro); w.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d", w.Code)
+	}
+	antes := jsonDe(t, DREHandler(db), f, "/x?ano=2026&mes=9&visao=mensal")["linhas"]
+	exec(t, `UPDATE auditoria.dre_linhas SET descricao='Outro nome', ordem=999 WHERE empresa_id=$1::uuid AND codigo='RB'`, f.EmpresaID)
+	exec(t, `DELETE FROM auditoria.dre_linhas WHERE empresa_id=$1::uuid AND codigo='OP'`, f.EmpresaID)
+	depois := jsonDe(t, DREHandler(db), f, "/x?ano=2026&mes=9&visao=mensal")["linhas"]
+	a, _ := json.Marshal(antes)
+	b, _ := json.Marshal(depois)
+	if string(a) != string(b) {
+		t.Errorf("estrutura do mês fechado mudou:\n%s\n%s", a, b)
+	}
+}

@@ -156,6 +156,7 @@ func TestFecharFalhaTardiaDesfazTudo(t *testing.T) {
 	for _, q := range []string{
 		`SELECT COUNT(*) FROM auditoria.dre_fechamentos WHERE empresa_id=$1::uuid`,
 		`SELECT COUNT(*) FROM auditoria.dre_fechamento_linhas l JOIN auditoria.dre_fechamentos f ON f.id=l.fechamento_id WHERE f.empresa_id=$1::uuid`,
+		`SELECT COUNT(*) FROM auditoria.dre_fechamento_contas WHERE empresa_id=$1::uuid`,
 		`SELECT COUNT(*) FROM auditoria.audit_log WHERE empresa_id=$1::uuid AND entidade='dre_fechamento'`,
 	} {
 		if n := contar(t, db, q, f.EmpresaID); n != 0 {

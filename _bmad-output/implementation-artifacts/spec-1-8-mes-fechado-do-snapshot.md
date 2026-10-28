@@ -2,7 +2,8 @@
 title: 'Story 1.8: Mês fechado lido do que foi congelado (AD-17)'
 type: 'feature'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: 'e41fc684e6f1de48848ccf4d8f9f23331c621e49'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -67,6 +68,8 @@ _Nenhuma._
 
 Tamanho do plano: cerca de 2050 tokens (estimativa), acima de 1600, porque a história cruza banco, backend e testes; sem divisão proposta.
 
+Limitações: o alvo de subtotal no detalhe por conta (quais linhas 'conta' compõem o subtotal) ainda vem da estrutura viva; e em período misto (mês fechado com mês vivo) a lista de linhas exibida é a estrutura viva. Estrutura do snapshot só quando todos os meses são fechados (usa o fechamento do último mês).
+
 ## Design Notes
 
 Os subtotais são congelados como valor, e não recalculados pela estrutura atual; por isso o acumulado soma linha a linha (subtotal com subtotal) em vez de recomputar a partir das contas. O drill-down de mês fechado perde o nível de lançamento: era um recurso que o requisito do fechamento chama de dado posterior ao fechamento, e a fonte atual já é agregada por mês.
@@ -76,3 +79,23 @@ Os subtotais são congelados como valor, e não recalculados pela estrutura atua
 **Commands:**
 - `cd backend && go build ./... && go vet ./... && go test -p 1 ./...` -- expected: sem erro
 - `cd frontend && npm run typecheck` -- expected: só o erro anterior em `ResetPassword.tsx(13,9)`, que não é desta história (`npm run lint` não roda)
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| Mês fechado montado com a estrutura viva (nome, ordem, linhas) | high | patch | `EstruturaCongelada` lê o snapshot (agora com `tipo`); período misto usa a estrutura viva, registrado nas Implementation Notes |
+| `Ativos` com `Ini` fora do dia 1 não acha o fechamento | medium | patch | normalização para o primeiro dia |
+| Detalhe do mês fechado lista contas com realizado zero | low | patch | filtro `realizado <> 0` |
+| Erros do cálculo sem log | low | patch | `log.Printf` |
+| Chave React repetida (`id` 0) | low | patch | chave composta |
+| Detalhe de mês fechado após carga posterior, fechamento legado, período misto, filial, orçado e ano anterior e estrutura mudada sem teste de handler | medium | patch | seis testes novos (a a f) |
+| Filial só com ano anterior ou só com orçado sem teste; atomicidade de `dre_fechamento_contas` sem prova | medium | patch | testes novos |
+| Snapshot lido em READ COMMITTED | low | rejeitado | `Fechar` e `Importar` tomam o mesmo lock do período (1.6); carga não entra no meio |
+| Mais de um ativo no mesmo mês (legados) | false | rejeitado | o índice único da 1.7 garante um ativo por empresa e competência |
+| "Completo" inferido por `orcado IS NOT NULL` | low | defer | `Fechar` sempre grava estrutura com orçado; coluna explícita é mais segura |
+| Ano anterior de conta sem mapa descartado em silêncio | low | rejeitado | igual ao modo ao vivo |
+| Inserts linha a linha e soma de `float64` entre filiais e consolidado | low | defer | otimização e decimal pendentes |
+| Gatilho de contas e cascata; nome da chave primária; índice em `empresa_id` | low | rejeitado | cascata coberta pelos testes de limpeza; migrações conhecidas |
+| Limite de 2000 do detalhe não conta as contas do snapshot | low | rejeitado | sem efeito prático hoje |
+| Trilha do fechamento sem contagens | low | rejeitado | fora da spec |

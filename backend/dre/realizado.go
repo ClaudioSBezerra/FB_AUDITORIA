@@ -95,32 +95,67 @@ func ResolverConta(mapa []MapaItem, conta string) (MapaItem, bool) {
 	return best, bestLen >= 0
 }
 
-// Realizado devolve o realizado já normalizado (sinal do mapa) por linha
-// 'conta', além do que ficou sem mapa. É o único caminho que calcula o
-// realizado exibido ou congelado.
-func Realizado(ctx context.Context, q Consultador, empresaID, filial string, p Periodo, mapa []MapaItem) (map[string]float64, map[string]float64, error) {
+// somaPorConta soma os lançamentos por conta (valor bruto, sem sinal do mapa).
+func somaPorConta(ctx context.Context, q Consultador, empresaID, filial string, p Periodo) (map[string]float64, error) {
 	rows, err := q.QueryContext(ctx, `SELECT conta, SUM(valor) FROM auditoria.lancamentos
 		WHERE empresa_id = $1::uuid AND competencia BETWEEN $2 AND $3 AND ($4 = '' OR filial = $4)
 		GROUP BY conta`, empresaID, p.Ini, p.Fim, filial)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer rows.Close()
-	por := map[string]float64{}
-	sem := map[string]float64{}
+	out := map[string]float64{}
 	for rows.Next() {
 		var conta string
 		var v float64
 		if err := rows.Scan(&conta, &v); err != nil {
-			return nil, nil, err
+			return nil, err
 		}
+		out[conta] = v
+	}
+	return out, rows.Err()
+}
+
+// Realizado devolve o realizado já normalizado (sinal do mapa) por linha
+// 'conta', além do que ficou sem mapa. É o único caminho que calcula o
+// realizado exibido ou congelado.
+func Realizado(ctx context.Context, q Consultador, empresaID, filial string, p Periodo, mapa []MapaItem) (map[string]float64, map[string]float64, error) {
+	contas, err := somaPorConta(ctx, q, empresaID, filial, p)
+	if err != nil {
+		return nil, nil, err
+	}
+	por := map[string]float64{}
+	sem := map[string]float64{}
+	for conta, v := range contas {
 		if m, ok := ResolverConta(mapa, conta); ok {
 			por[m.LinhaCodigo] += v * float64(m.Sinal)
 		} else {
 			sem[conta] += v
 		}
 	}
-	return por, sem, rows.Err()
+	return por, sem, nil
+}
+
+// ContaValor é o realizado de uma conta já normalizado, com a linha do mapa.
+type ContaValor struct {
+	Linha string
+	Valor float64
+}
+
+// RealizadoPorConta é o detalhe por conta do mesmo cálculo de Realizado
+// (contas sem mapa ficam de fora).
+func RealizadoPorConta(ctx context.Context, q Consultador, empresaID, filial string, p Periodo, mapa []MapaItem) (map[string]ContaValor, error) {
+	contas, err := somaPorConta(ctx, q, empresaID, filial, p)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]ContaValor{}
+	for conta, v := range contas {
+		if m, ok := ResolverConta(mapa, conta); ok {
+			out[conta] = ContaValor{Linha: m.LinhaCodigo, Valor: v * float64(m.Sinal)}
+		}
+	}
+	return out, nil
 }
 
 // AplicarSubtotais completa as linhas 'subtotal' a partir de soma_de ("-X" subtrai).

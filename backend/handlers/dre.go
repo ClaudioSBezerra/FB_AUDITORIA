@@ -97,26 +97,6 @@ func parsePeriodo(r *http.Request) (periodo, string, bool) {
 	return periodo{Ini: ini, Fim: fim}, visao, true
 }
 
-func orcadoPorLinha(db *sql.DB, empresaID, filial string, p periodo) (map[string]float64, error) {
-	rows, err := db.Query(`SELECT linha_codigo, SUM(valor) FROM auditoria.dre_orcado
-		WHERE empresa_id = $1::uuid AND competencia BETWEEN $2 AND $3 AND ($4 = '' OR filial = $4)
-		GROUP BY linha_codigo`, empresaID, p.Ini, p.Fim, filial)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]float64{}
-	for rows.Next() {
-		var c string
-		var v float64
-		if err := rows.Scan(&c, &v); err != nil {
-			return nil, err
-		}
-		out[c] = v
-	}
-	return out, rows.Err()
-}
-
 func pct(atual, base float64) *float64 {
 	if base == 0 {
 		return nil
@@ -154,63 +134,36 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Período congelado (só mensal): serve o snapshot do fechamento ativo
-		// (a leitura completa do snapshot é a história 1.8).
-		var real map[string]float64
+		// Leitura mês a mês: mês fechado vem do snapshot do fechamento ativo,
+		// mês aberto ou reaberto ao vivo (dre.Leitor).
+		res0, err := (dre.Leitor{Q: db}).Ler(r.Context(), c.EmpresaID, filial, p, linhas, mapa)
+		if err != nil {
+			log.Printf("dre ler: %v", err)
+			http.Error(w, "Erro ao calcular o DRE", http.StatusInternalServerError)
+			return
+		}
+		// Estrutura exibida: se todos os meses vêm do snapshot, a do fechamento
+		// (renomear/reordenar/apagar linha depois não muda o mês fechado). Em
+		// período misto vale a estrutura viva.
+		if cong, ok, err := (dre.Leitor{Q: db}).EstruturaCongelada(r.Context(), filial, p, res0.Ativos); err != nil {
+			log.Printf("dre estrutura congelada: %v", err)
+			http.Error(w, "Erro ao calcular o DRE", http.StatusInternalServerError)
+			return
+		} else if ok {
+			linhas = cong
+		}
+		real, aa, orc, sem := res0.Real, res0.AA, res0.Orc, res0.Sem
 		congelado, versao := false, 0
-		var fechID int64
+		fechAtivo, fechVersao := false, 0
 		if visao == "mensal" {
-			err := db.QueryRow(`SELECT id, versao FROM auditoria.dre_fechamentos
-				WHERE empresa_id = $1::uuid AND competencia = $2 AND filial = $3 AND reaberto_em IS NULL
-				ORDER BY versao DESC LIMIT 1`, c.EmpresaID, p.Fim, filial).Scan(&fechID, &versao)
-			if err == nil {
-				if rows, err := db.Query(`SELECT linha_codigo, valor FROM auditoria.dre_fechamento_linhas WHERE fechamento_id = $1`, fechID); err == nil {
-					real = map[string]float64{}
-					for rows.Next() {
-						var cod string
-						var v float64
-						if rows.Scan(&cod, &v) == nil {
-							real[cod] = v
-						}
-					}
-					rows.Close()
-					congelado = true
+			if a, ok := res0.Ativos[p.Fim.Format("2006-01")]; ok {
+				// Existe fechamento ativo do mês (qualquer filial)? Independe do filtro.
+				fechAtivo, fechVersao = true, a.Versao
+				if a.Origem(filial) != dre.Vivo {
+					congelado, versao = true, a.Versao
 				}
 			}
 		}
-		// Existe fechamento ativo do mês (qualquer filial)? Independe do filtro de filial.
-		fechAtivo, fechVersao := false, 0
-		if visao == "mensal" {
-			if err := db.QueryRow(`SELECT versao FROM auditoria.dre_fechamentos
-				WHERE empresa_id = $1::uuid AND competencia = $2 AND reaberto_em IS NULL
-				ORDER BY versao DESC LIMIT 1`, c.EmpresaID, p.Fim).Scan(&fechVersao); err == nil {
-				fechAtivo = true
-			}
-		}
-		var sem map[string]float64
-		if real == nil {
-			real, sem, err = dre.Realizado(r.Context(), db, c.EmpresaID, filial, p, mapa)
-			if err != nil {
-				http.Error(w, "Erro ao calcular realizado", http.StatusInternalServerError)
-				return
-			}
-			dre.AplicarSubtotais(linhas, real)
-		}
-
-		pAA := periodo{Ini: p.Ini.AddDate(-1, 0, 0), Fim: p.Fim.AddDate(-1, 0, 0)}
-		aa, _, err := dre.Realizado(r.Context(), db, c.EmpresaID, filial, pAA, mapa)
-		if err != nil {
-			http.Error(w, "Erro ao calcular ano anterior", http.StatusInternalServerError)
-			return
-		}
-		dre.AplicarSubtotais(linhas, aa)
-
-		orc, err := orcadoPorLinha(db, c.EmpresaID, filial, p)
-		if err != nil {
-			http.Error(w, "Erro ao carregar orçado", http.StatusInternalServerError)
-			return
-		}
-		dre.AplicarSubtotais(linhas, orc)
 
 		type out struct {
 			Codigo      string   `json:"codigo"`
@@ -296,10 +249,30 @@ func DRELancamentosHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Erro", http.StatusInternalServerError)
 			return
 		}
+		// Mês fechado vem do snapshot (contas congeladas); só os meses ao vivo
+		// consultam lançamentos.
+		leitor := dre.Leitor{Q: db}
+		ativos, err := leitor.Ativos(r.Context(), c.EmpresaID, p)
+		if err != nil {
+			http.Error(w, "Erro", http.StatusInternalServerError)
+			return
+		}
+		congeladas := []string{}
+		for _, a := range ativos {
+			if a.Origem(filial) != dre.Vivo {
+				congeladas = append(congeladas, a.Competencia.Format("2006-01-02"))
+			}
+		}
+		contasCong, semContas, err := leitor.ContasCongeladas(r.Context(), filial, ativos, alvo)
+		if err != nil {
+			http.Error(w, "Erro ao consultar o fechamento", http.StatusInternalServerError)
+			return
+		}
 		rows, err := db.Query(`SELECT id, competencia, filial, centro_custo, canal, conta, conta_desc, valor,
 			origem, tipo_doc, doc_ref, historico FROM auditoria.lancamentos
 			WHERE empresa_id = $1::uuid AND competencia BETWEEN $2 AND $3 AND ($4 = '' OR filial = $4)
-			ORDER BY competencia, conta, id`, c.EmpresaID, p.Ini, p.Fim, filial)
+			AND NOT (competencia = ANY($5::date[]))
+			ORDER BY competencia, conta, id`, c.EmpresaID, p.Ini, p.Fim, filial, pq.Array(congeladas))
 		if err != nil {
 			http.Error(w, "Erro ao consultar lançamentos", http.StatusInternalServerError)
 			return
@@ -321,6 +294,10 @@ func DRELancamentosHandler(db *sql.DB) http.HandlerFunc {
 			Historico   string  `json:"historico"`
 		}
 		out := []lanc{}
+		for _, cc := range contasCong {
+			out = append(out, lanc{Competencia: cc.Competencia.Format("2006-01"), Filial: filial, Conta: cc.Conta,
+				Valor: cc.Valor, Linha: cc.Linha, Origem: "snapshot"})
+		}
 		const limite = 2000
 		for rows.Next() {
 			var l lanc
@@ -341,7 +318,18 @@ func DRELancamentosHandler(db *sql.DB) http.HandlerFunc {
 				break
 			}
 		}
-		writeJSON(w, map[string]any{"lancamentos": out, "truncado": len(out) >= limite})
+		sort.SliceStable(out, func(i, j int) bool {
+			if out[i].Competencia != out[j].Competencia {
+				return out[i].Competencia < out[j].Competencia
+			}
+			return out[i].Conta < out[j].Conta
+		})
+		resp := map[string]any{"lancamentos": out, "truncado": len(out) >= limite}
+		if len(semContas) > 0 {
+			sort.Strings(semContas)
+			resp["aviso"] = "Fechamento anterior ao detalhe por conta: sem contas congeladas em " + strings.Join(semContas, ", ") + "."
+		}
+		writeJSON(w, resp)
 	}
 }
 

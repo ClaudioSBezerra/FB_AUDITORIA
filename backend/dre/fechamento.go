@@ -120,6 +120,11 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 		return FecharOut{}, &ErrContasSemMapa{Contas: contas, Total: total}
 	}
 	AplicarSubtotais(linhas, real)
+	pAA := Periodo{Ini: comp.AddDate(-1, 0, 0), Fim: comp.AddDate(-1, 0, 0)}
+	filiais, err := filiaisDoSnapshot(ctx, tx, in.EmpresaID, comp)
+	if err != nil {
+		return FecharOut{}, err
+	}
 
 	var versao int
 	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(versao),0)+1 FROM auditoria.dre_fechamentos
@@ -131,10 +136,53 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 		VALUES ($1::uuid,$2,$3,'',$4::uuid,$5) RETURNING id`, in.EmpresaID, comp, versao, in.UserID, in.Observacao).Scan(&id); err != nil {
 		return FecharOut{}, err
 	}
-	for _, l := range linhas {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_linhas (fechamento_id, linha_codigo, descricao, nivel, ordem, valor)
-			VALUES ($1,$2,$3,$4,$5,$6)`, id, l.Codigo, l.Descricao, l.Nivel, l.Ordem, real[l.Codigo]); err != nil {
+	// Snapshot completo: o consolidado do grupo ('') e cada filial, na mesma transação.
+	for _, filial := range append([]string{""}, filiais...) {
+		r := real
+		if filial != "" {
+			if r, _, err = Realizado(ctx, tx, in.EmpresaID, filial, Periodo{Ini: comp, Fim: comp}, mapa); err != nil {
+				return FecharOut{}, err
+			}
+			AplicarSubtotais(linhas, r)
+		}
+		aa, _, err := Realizado(ctx, tx, in.EmpresaID, filial, pAA, mapa)
+		if err != nil {
 			return FecharOut{}, err
+		}
+		AplicarSubtotais(linhas, aa)
+		orc, err := OrcadoPorLinha(ctx, tx, in.EmpresaID, filial, Periodo{Ini: comp, Fim: comp})
+		if err != nil {
+			return FecharOut{}, err
+		}
+		AplicarSubtotais(linhas, orc)
+		for _, l := range linhas {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_linhas (fechamento_id, filial, linha_codigo, descricao, nivel, ordem, valor, orcado, ano_anterior, tipo)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, id, filial, l.Codigo, l.Descricao, l.Nivel, l.Ordem, r[l.Codigo], orc[l.Codigo], aa[l.Codigo], l.Tipo); err != nil {
+				return FecharOut{}, err
+			}
+		}
+		cr, err := RealizadoPorConta(ctx, tx, in.EmpresaID, filial, Periodo{Ini: comp, Fim: comp}, mapa)
+		if err != nil {
+			return FecharOut{}, err
+		}
+		ca, err := RealizadoPorConta(ctx, tx, in.EmpresaID, filial, pAA, mapa)
+		if err != nil {
+			return FecharOut{}, err
+		}
+		for conta, v := range cr {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_contas (fechamento_id, empresa_id, filial, conta, linha_codigo, realizado, ano_anterior)
+				VALUES ($1,$2::uuid,$3,$4,$5,$6,$7)`, id, in.EmpresaID, filial, conta, v.Linha, v.Valor, ca[conta].Valor); err != nil {
+				return FecharOut{}, err
+			}
+		}
+		for conta, v := range ca {
+			if _, ok := cr[conta]; ok {
+				continue
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_contas (fechamento_id, empresa_id, filial, conta, linha_codigo, realizado, ano_anterior)
+				VALUES ($1,$2::uuid,$3,$4,$5,0,$6)`, id, in.EmpresaID, filial, conta, v.Linha, v.Valor); err != nil {
+				return FecharOut{}, err
+			}
 		}
 	}
 	if err := trilha.Gravar(tx, in.EmpresaID, in.UserID, "dre_fechamento", strconv.FormatInt(id, 10), "fechar",
@@ -206,4 +254,29 @@ func (f *Fechamento) Reabrir(ctx context.Context, in ReabrirIn) (ReabrirOut, err
 		return ReabrirOut{}, err
 	}
 	return ReabrirOut{ID: id, Versao: versao}, nil
+}
+
+// filiaisDoSnapshot lista as filiais com lançamento na competência ou no mesmo
+// mês do ano anterior, ou com orçado na competência (as que entram no snapshot
+// além do consolidado).
+func filiaisDoSnapshot(ctx context.Context, tx *sql.Tx, empresaID string, comp time.Time) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT filial FROM auditoria.lancamentos
+			WHERE empresa_id = $1::uuid AND filial <> '' AND competencia IN ($2, $3)
+		UNION
+		SELECT filial FROM auditoria.dre_orcado
+			WHERE empresa_id = $1::uuid AND filial <> '' AND competencia = $2
+		ORDER BY 1`, empresaID, comp, comp.AddDate(-1, 0, 0))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var f string
+		if err := rows.Scan(&f); err != nil {
+			return nil, err
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
 }

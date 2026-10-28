@@ -43,7 +43,7 @@ development_status:
   1-5-fechamento-passa-pelo-serviço-dre-ad-1: review
   1-6-guarda-de-período-e-bloqueio-de-escrita-em-mês-fechado-fr-11: review
   1-7-um-fechamento-ativo-por-mês-e-reabertura-com-motivo-fr-9-fr: review
-  1-8-mês-fechado-lido-do-que-foi-congelado-ad-17: backlog
+  1-8-mês-fechado-lido-do-que-foi-congelado-ad-17: review
   1-9-nenhum-endereço-do-banco-do-cliente-no-repositório-nfr7: backlog
   epic-1-retrospective: optional
 
