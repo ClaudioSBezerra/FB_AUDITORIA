@@ -424,6 +424,7 @@ func main() {
 	http.HandleFunc("/api/aud/ambiente/virar", withAud(handlers.AmbienteVirarHandler, ""))
 	http.HandleFunc("/api/aud/usuarios", withAud(handlers.AudUsuariosHandler, handlers.AreaConfiguracoes, "controladoria"))
 	http.HandleFunc("/api/aud/filiais-gerenciais", withAud(handlers.FiliaisGerenciaisHandler, handlers.AreaConfiguracoes))
+	http.HandleFunc("/api/aud/departamentos", withAud(handlers.DepartamentosHandler, handlers.AreaConfiguracoes))
 	http.HandleFunc("/api/aud/audit-log", withAud(handlers.AuditLogHandler, handlers.AreaConfiguracoes, "controladoria", "auditoria"))
 
 	// ── Administrativo (área empresa) — DRE ────────────────────────────────────────────────────

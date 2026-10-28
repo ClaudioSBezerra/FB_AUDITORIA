@@ -38,6 +38,7 @@ export const modules: Record<string, ModuleConfig> = {
     tabs: [
       { label: 'Carga de lançamentos', path: '/configuracoes/carga', perfis: ['controladoria'] },
       { label: 'Filiais',             path: '/configuracoes/filiais', perfis: ['controladoria', 'auditoria'] },
+      { label: 'Departamentos',       path: '/configuracoes/departamentos', perfis: ['controladoria', 'auditoria'] },
       { label: 'Usuários e perfis',    path: '/configuracoes/usuarios', perfis: ['controladoria'] },
       { label: 'Trilha de auditoria',  path: '/configuracoes/trilha', perfis: ['controladoria', 'auditoria'] },
     ],
