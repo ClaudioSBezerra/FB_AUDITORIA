@@ -19,3 +19,20 @@ Só estrutura e regras. Os e-mails dos gerentes, a lista de aviso e os percentua
 - **Épico 7 (rateio):** deixa de depender de resposta do cliente. Já há regra: visão por faturamento, matriz de inclusão, percentual editável por filial.
 - **Épico 2/8:** destinatários e percentuais precisam de tela ou carga, e não de seed no repositório.
 - **Folha:** consolidada por departamento, sem dado individual (também é questão de LGPD).
+
+## Relatório da rotina 124 (balancete por lançamento) — o que ele mostra
+
+O arquivo de exemplo (um grupo de despesas, quinzena de janeiro) não vai para o repositório; só a estrutura.
+
+- **Agrupamento:** grupo (código de 3 dígitos mais nome, que é o departamento do rateio) > conta (7 dígitos, os 3 primeiros iguais ao código do grupo) > lançamentos, com total por conta, por grupo e geral.
+- **Campos por lançamento:** data de pagamento, número do lançamento, histórico, número do documento, código e nome do fornecedor, valor pago (despesa negativa, receita e estorno positivos), banco/cheque, transação, filial, usuário que lançou.
+- **Parâmetros do relatório:** lista de filiais (mais filiais do que as 8 do rateio), período, "desconsiderar ST" e "desconsiderar beneficiamento".
+- **Conclusão:** este é o realizado por conta gerencial, ao nível de lançamento, que faltava (a lacuna das views). O sinal vem do próprio valor. Contas de acerto de estoque e ICMS sobre ajuste de inventário aparecem como lançamentos comuns: é o "ajuste que vem do ERP".
+- **Folha:** os lançamentos de salário são pagamentos agregados por filial; mesmo assim o histórico de outras contas traz nome de pessoas (rescisões, vales). O sistema não deve guardar nem exibir o histórico dessas contas sem decisão de LGPD.
+
+### Perguntas novas para o dono dos dados (Keslley)
+
+1. De qual tabela ou view do Oracle sai esse relatório (rotina 124), e dá para ter uma view só de leitura por lançamento, como as do consolidado e do orçado?
+2. O DRE é por **data de pagamento** (o relatório) ou por **competência**? O histórico traz meses de referência diferentes do mês do pagamento.
+3. Os parâmetros "desconsiderar ST" e "desconsiderar beneficiamento" valem NÃO no DRE?
+4. As filiais do relatório (cerca de 20) são todas do mesmo CNPJ/empresa, e só 8 entram no rateio?
