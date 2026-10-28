@@ -49,7 +49,7 @@ development_status:
 
   epic-2: in-progress
   2-1-uma-conta-uma-fonte-ad-16: backlog
-  2-2-csv-no-formato-da-planilha-atual-fr-3: backlog
+  2-2-csv-no-formato-da-planilha-atual-fr-3: in-progress
   2-3-ler-o-realizado-consolidado-do-oracle-fr-1-ad-2-ad-4: backlog
   2-4-registrar-cada-importação-e-a-posse-das-contas-fr-1-ad-15-ad: backlog
   2-5-tela-importar-do-banco-do-cliente: backlog
@@ -76,6 +76,7 @@ development_status:
   3-7-paridade-do-dre-com-a-planilha: backlog
   3-8-primeira-demonstração-ao-cliente-marco: backlog
   3-9-detalhe-até-o-lançamento-em-mês-fechado: backlog
+  3-10-visão-por-trimestre-fr-7: backlog
   epic-3-retrospective: optional
 
   epic-4: in-progress

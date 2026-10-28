@@ -96,3 +96,10 @@ Só estrutura e regras; composição de filiais e dados reais ficam no sistema.
 - Nome e colunas da view de realizado por conta (Keslley); as colunas data de pagamento, fornecedor e documento precisam estar nela (3.9).
 - Formato exato da planilha para a história 2.2 (cabeçalho e se é CSV ou .xlsx).
 - Frequência e formato da atualização das views, alinhados entre o Keslley e o Marcos (semanal).
+
+## Pedido do Marcos: visão por trimestre, e o bloco de faturamento da planilha (28/10/2026)
+
+- **Trimestres:** a planilha enviada não tem a visão por trimestre, e o Marcos quer. Nova história **3.10** (T1 a T4 e o total do ano, com realizado, orçado, ano anterior e percentual).
+- **Estrutura do bloco que a planilha mostra** (valores reais não registrados aqui): colunas Código, Conta, Vl. Realizado, Ajuste e Saldo. Linhas: Faturamento Bruto (código 1), Devoluções de Cliente (2), Devoluções avulsas (2), Outros Faturamentos (código de transferência), Faturamento Líquido, CMV Devolução (3), CMV devolução avulsa (3), CMV (3) e Saldo Bruto.
+- **Convenção de sinal confirmada pelo exemplo:** o `Vl. Realizado` vem positivo e a coluna `Saldo` traz o valor com o sinal do DRE (devoluções e CMV negativos). O Faturamento Líquido é bruto mais outros faturamentos menos devoluções; o Saldo Bruto é o líquido menos o CMV, mais o CMV de devolução. O sinal fica em `dre_mapa.sinal`, como já decidido.
+- **Pergunta nova ao Marcos:** o bloco de exemplo inclui **Outros Faturamentos** no Faturamento Líquido, mas a resposta anterior dizia que "Outros Faturamentos" não deve aparecer no DRE. Qual vale: incluir no Faturamento Líquido, mostrar à parte ou ocultar?

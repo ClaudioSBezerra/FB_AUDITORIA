@@ -238,6 +238,36 @@ So that eu veja data, fornecedor, nota, valor e filial de cada lançamento.
 **When** abre contas fora do seu departamento
 **Then** `403` (escopo da 4.7)
 
+### Story 3.10: Visão por trimestre (FR-7)
+
+As a Gerente,
+I want ver o DRE por trimestre do ano (T1 a T4 e o total do ano),
+So that eu compare os trimestres sem somar meses na mão.
+
+**Nota:** pedido do Marcos (28/10/2026): a planilha enviada não tem a visão dos trimestres. Um trimestre é a soma de três meses (T1 de janeiro a março etc.); vale para realizado, orçado e ano anterior, e para o percentual sobre o Faturamento Líquido. O período por intervalo já existe no `dre.Leitor` (cada mês fechado vem do snapshot e cada mês aberto, ao vivo), então esta história é consulta e tela.
+
+**Acceptance Criteria:**
+
+**Given** um ano e uma filial (ou agrupamento, ou o grupo todo)
+**When** o usuário escolhe "Trimestres"
+**Then** vê colunas T1, T2, T3, T4 e Ano, cada uma com realizado, orçado, ano anterior e percentual sobre o Faturamento Líquido
+
+**Given** um trimestre com algum mês aberto
+**When** a tela o mostra
+**Then** marca o trimestre como "parcial" e diz quais meses estão fechados
+
+**Given** um trimestre com os três meses fechados
+**When** o Mapa ou a estrutura mudam depois
+**Then** o valor do trimestre não muda (vem do snapshot, mês a mês)
+
+**Given** um gerente
+**When** abre a visão
+**Then** vê só os grupos do seu departamento (escopo da 4.7)
+
+**Given** o ano em curso
+**When** um trimestre ainda não começou
+**Then** a coluna aparece vazia, sem erro
+
 ## Epic 4: Acesso seguro por perfil e departamento
 Cada pessoa vê e faz só o que cabe ao seu papel, o Gerente enxerga apenas o seu departamento, e o cadastro público deixa de existir.
 **FRs covered:** FR-18, FR-19, FR-22
