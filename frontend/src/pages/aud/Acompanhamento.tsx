@@ -21,13 +21,14 @@ interface Historia {
 }
 interface Dados { gerado_em: string; versao: string; historias: Historia[] }
 
-const COLUNAS = ['Backlog', 'Pronto', 'Em andamento', 'Em revisão', 'Feito'] as const
+const COLUNAS = ['Backlog', 'Pronto', 'Em andamento', 'Em revisão', 'Feito', 'Aguardando o cliente'] as const
 const COR_COLUNA: Record<string, string> = {
   'Backlog': 'bg-gray-400',
   'Pronto': 'bg-sky-500',
   'Em andamento': 'bg-amber-500',
   'Em revisão': 'bg-violet-500',
   'Feito': 'bg-emerald-500',
+  'Aguardando o cliente': 'bg-orange-500',
 }
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -130,7 +131,9 @@ export default function Acompanhamento() {
 
       <div className="flex gap-3 overflow-x-auto pb-3 snap-x">
         {COLUNAS.map(col => {
-          const cards = filtradas.filter(h => h.status === col)
+          // Histórias que dependem do cliente ficam só na coluna própria; o status
+          // original aparece no cartão.
+          const cards = filtradas.filter(h => col === 'Aguardando o cliente' ? h.bloqueada_cliente : !h.bloqueada_cliente && h.status === col)
           return (
             <section key={col} className="snap-start shrink-0 w-[270px] flex-1 min-w-[270px] rounded-lg bg-gray-50 border p-2" aria-label={col}>
               <header className="flex items-center justify-between px-1 pb-2">
@@ -149,7 +152,7 @@ export default function Acompanhamento() {
                       <span className="truncate" title={h.epico.nome}>Épico {h.epico.numero}</span>
                     </div>
                     <p className="text-sm mt-0.5 leading-snug">{h.titulo}</p>
-                    {h.bloqueada_cliente && <div className="mt-1.5"><SeloCliente pequeno /></div>}
+                    {h.bloqueada_cliente && <p className="mt-1 text-[11px] text-muted-foreground">Situação: {h.status}</p>}
                   </button>
                 ))}
                 {cards.length === 0 && <p className="text-xs text-muted-foreground px-1 py-2">Nenhuma história.</p>}
