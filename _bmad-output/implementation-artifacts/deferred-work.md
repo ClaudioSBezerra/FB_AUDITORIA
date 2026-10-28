@@ -37,3 +37,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-4-importacao-csv-ingestor.md`
   summary: O valor do lançamento passa por `float64` antes do `NUMERIC(18,2)`; o ideal é decimal ou centavos.
   evidence: herdado do handler antigo; `fontes/csv` usa `strconv.ParseFloat`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-5-fechamento-servico-dre.md`
+  summary: A guarda de arquitetura do fechamento só olha `INSERT INTO` em `handlers/`; deveria cobrir UPDATE e DELETE, outros espaçamentos e todos os pacotes fora de `dre`.
+  evidence: `backend/arquitetura_test.go`, `TestSoODreEscreveFechamento`; não há violação hoje.

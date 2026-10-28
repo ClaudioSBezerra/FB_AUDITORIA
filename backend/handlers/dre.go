@@ -4,33 +4,25 @@ package handlers
 // drill-down até o lançamento, mapa de-para, orçado e fechamento versionado.
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
+	"fb_auditoria/dre"
+
 	"github.com/lib/pq"
 )
 
-type dreLinha struct {
-	ID        int64    `json:"id,omitempty"`
-	Codigo    string   `json:"codigo"`
-	Descricao string   `json:"descricao"`
-	Nivel     int      `json:"nivel"`
-	Ordem     int      `json:"ordem"`
-	Tipo      string   `json:"tipo"`
-	SomaDe    []string `json:"soma_de"`
-	Ativo     bool     `json:"ativo"`
-}
+type dreLinha = dre.Linha
 
-type dreMapaItem struct {
-	ContaPadrao string `json:"conta_padrao"`
-	LinhaCodigo string `json:"linha_codigo"`
-	Sinal       int    `json:"sinal"`
-}
+type dreMapaItem = dre.MapaItem
 
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -57,24 +49,12 @@ var dreLinhasPadrao = []dreLinha{
 }
 
 func carregarLinhas(db *sql.DB, empresaID string) ([]dreLinha, error) {
-	rows, err := db.Query(`SELECT id, codigo, descricao, nivel, ordem, tipo, soma_de, ativo
-		FROM auditoria.dre_linhas WHERE empresa_id = $1::uuid AND ativo ORDER BY ordem`, empresaID)
+	out, err := dre.CarregarLinhas(context.Background(), db, empresaID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []dreLinha
-	for rows.Next() {
-		var l dreLinha
-		var soma pq.StringArray
-		if err := rows.Scan(&l.ID, &l.Codigo, &l.Descricao, &l.Nivel, &l.Ordem, &l.Tipo, &soma, &l.Ativo); err != nil {
-			return nil, err
-		}
-		l.SomaDe = []string(soma)
-		out = append(out, l)
-	}
 	if len(out) > 0 {
-		return out, rows.Err()
+		return out, nil
 	}
 	// Primeira vez: semeia a estrutura padrão (a controladoria ajusta depois).
 	for i, l := range dreLinhasPadrao {
@@ -91,45 +71,12 @@ func carregarLinhas(db *sql.DB, empresaID string) ([]dreLinha, error) {
 }
 
 func carregarMapa(db *sql.DB, empresaID string) ([]dreMapaItem, error) {
-	rows, err := db.Query(`SELECT conta_padrao, linha_codigo, sinal FROM auditoria.dre_mapa
-		WHERE empresa_id = $1::uuid ORDER BY conta_padrao`, empresaID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []dreMapaItem{}
-	for rows.Next() {
-		var m dreMapaItem
-		if err := rows.Scan(&m.ContaPadrao, &m.LinhaCodigo, &m.Sinal); err != nil {
-			return nil, err
-		}
-		out = append(out, m)
-	}
-	return out, rows.Err()
-}
-
-// resolverConta: casamento exato vence; senão o prefixo ('%') mais longo.
-func resolverConta(mapa []dreMapaItem, conta string) (dreMapaItem, bool) {
-	var best dreMapaItem
-	bestLen := -1
-	for _, m := range mapa {
-		p := m.ContaPadrao
-		if p == conta {
-			return m, true
-		}
-		if strings.HasSuffix(p, "%") {
-			pre := strings.TrimSuffix(p, "%")
-			if strings.HasPrefix(conta, pre) && len(pre) > bestLen {
-				best, bestLen = m, len(pre)
-			}
-		}
-	}
-	return best, bestLen >= 0
+	return dre.CarregarMapa(context.Background(), db, empresaID)
 }
 
 // ── Período ──────────────────────────────────────────────────────────────────
 
-type periodo struct{ Ini, Fim time.Time }
+type periodo = dre.Periodo
 
 func parsePeriodo(r *http.Request) (periodo, string, bool) {
 	q := r.URL.Query()
@@ -147,34 +94,7 @@ func parsePeriodo(r *http.Request) (periodo, string, bool) {
 	if visao == "acumulada" {
 		ini = time.Date(ano, 1, 1, 0, 0, 0, 0, time.UTC)
 	}
-	return periodo{ini, fim}, visao, true
-}
-
-// somaPorLinha devolve realizado já normalizado (sinal do mapa) por linha 'conta',
-// além do que ficou sem mapa.
-func somaPorLinha(db *sql.DB, empresaID, filial string, p periodo, mapa []dreMapaItem) (map[string]float64, map[string]float64, error) {
-	rows, err := db.Query(`SELECT conta, SUM(valor) FROM auditoria.lancamentos
-		WHERE empresa_id = $1::uuid AND competencia BETWEEN $2 AND $3 AND ($4 = '' OR filial = $4)
-		GROUP BY conta`, empresaID, p.Ini, p.Fim, filial)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-	por := map[string]float64{}
-	sem := map[string]float64{}
-	for rows.Next() {
-		var conta string
-		var v float64
-		if err := rows.Scan(&conta, &v); err != nil {
-			return nil, nil, err
-		}
-		if m, ok := resolverConta(mapa, conta); ok {
-			por[m.LinhaCodigo] += v * float64(m.Sinal)
-		} else {
-			sem[conta] += v
-		}
-	}
-	return por, sem, rows.Err()
+	return periodo{Ini: ini, Fim: fim}, visao, true
 }
 
 func orcadoPorLinha(db *sql.DB, empresaID, filial string, p periodo) (map[string]float64, error) {
@@ -195,24 +115,6 @@ func orcadoPorLinha(db *sql.DB, empresaID, filial string, p periodo) (map[string
 		out[c] = v
 	}
 	return out, rows.Err()
-}
-
-// aplicarSubtotais completa as linhas 'subtotal' a partir de soma_de ("-X" subtrai).
-func aplicarSubtotais(linhas []dreLinha, v map[string]float64) {
-	for _, l := range linhas {
-		if l.Tipo != "subtotal" {
-			continue
-		}
-		var s float64
-		for _, c := range l.SomaDe {
-			if strings.HasPrefix(c, "-") {
-				s -= v[strings.TrimPrefix(c, "-")]
-			} else {
-				s += v[c]
-			}
-		}
-		v[l.Codigo] = s
-	}
 }
 
 func pct(atual, base float64) *float64 {
@@ -277,28 +179,28 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 		}
 		var sem map[string]float64
 		if real == nil {
-			real, sem, err = somaPorLinha(db, c.EmpresaID, filial, p, mapa)
+			real, sem, err = dre.Realizado(r.Context(), db, c.EmpresaID, filial, p, mapa)
 			if err != nil {
 				http.Error(w, "Erro ao calcular realizado", http.StatusInternalServerError)
 				return
 			}
-			aplicarSubtotais(linhas, real)
+			dre.AplicarSubtotais(linhas, real)
 		}
 
-		pAA := periodo{p.Ini.AddDate(-1, 0, 0), p.Fim.AddDate(-1, 0, 0)}
-		aa, _, err := somaPorLinha(db, c.EmpresaID, filial, pAA, mapa)
+		pAA := periodo{Ini: p.Ini.AddDate(-1, 0, 0), Fim: p.Fim.AddDate(-1, 0, 0)}
+		aa, _, err := dre.Realizado(r.Context(), db, c.EmpresaID, filial, pAA, mapa)
 		if err != nil {
 			http.Error(w, "Erro ao calcular ano anterior", http.StatusInternalServerError)
 			return
 		}
-		aplicarSubtotais(linhas, aa)
+		dre.AplicarSubtotais(linhas, aa)
 
 		orc, err := orcadoPorLinha(db, c.EmpresaID, filial, p)
 		if err != nil {
 			http.Error(w, "Erro ao carregar orçado", http.StatusInternalServerError)
 			return
 		}
-		aplicarSubtotais(linhas, orc)
+		dre.AplicarSubtotais(linhas, orc)
 
 		type out struct {
 			Codigo      string   `json:"codigo"`
@@ -416,7 +318,7 @@ func DRELancamentosHandler(db *sql.DB) http.HandlerFunc {
 				&l.Origem, &l.TipoDoc, &l.DocRef, &l.Historico); err != nil {
 				continue
 			}
-			m, ok := resolverConta(mapa, l.Conta)
+			m, ok := dre.ResolverConta(mapa, l.Conta)
 			if !ok || !alvo[m.LinhaCodigo] {
 				continue
 			}
@@ -644,52 +546,30 @@ func DREFechamentoHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "ano/mes inválidos", http.StatusBadRequest)
 			return
 		}
-		comp := time.Date(req.Ano, time.Month(req.Mes), 1, 0, 0, 0, 0, time.UTC)
-		linhas, err := carregarLinhas(db, c.EmpresaID)
-		mapa, err2 := carregarMapa(db, c.EmpresaID)
-		if err != nil || err2 != nil {
+		// Garante a estrutura padrão semeada (primeira vez) antes de fechar.
+		if _, err := carregarLinhas(db, c.EmpresaID); err != nil {
 			http.Error(w, "Erro ao carregar DRE", http.StatusInternalServerError)
 			return
 		}
-		real, sem, err := somaPorLinha(db, c.EmpresaID, req.Filial, periodo{comp, comp}, mapa)
+		out, err := (&dre.Fechamento{DB: db}).Fechar(r.Context(), dre.FecharIn{
+			EmpresaID: c.EmpresaID, UserID: c.UserID, Ano: req.Ano, Mes: req.Mes, Filial: req.Filial, Observacao: req.Observacao,
+		})
+		var semMapa *dre.ErrContasSemMapa
+		if errors.As(err, &semMapa) {
+			http.Error(w, semMapa.Error(), http.StatusConflict)
+			return
+		}
+		var entrada *dre.ErroEntrada
+		if errors.As(err, &entrada) {
+			http.Error(w, entrada.Msg, http.StatusBadRequest)
+			return
+		}
 		if err != nil {
-			http.Error(w, "Erro ao calcular", http.StatusInternalServerError)
-			return
-		}
-		if len(sem) > 0 {
-			http.Error(w, "Existem contas sem mapeamento no período — mapeie antes de fechar", http.StatusConflict)
-			return
-		}
-		aplicarSubtotais(linhas, real)
-
-		tx, err := db.Begin()
-		if err != nil {
-			http.Error(w, "Erro", http.StatusInternalServerError)
-			return
-		}
-		defer tx.Rollback()
-		var versao int
-		_ = tx.QueryRow(`SELECT COALESCE(MAX(versao),0)+1 FROM auditoria.dre_fechamentos
-			WHERE empresa_id=$1::uuid AND competencia=$2 AND filial=$3`, c.EmpresaID, comp, req.Filial).Scan(&versao)
-		var id int64
-		if err := tx.QueryRow(`INSERT INTO auditoria.dre_fechamentos (empresa_id, competencia, versao, filial, fechado_por, observacao)
-			VALUES ($1::uuid,$2,$3,$4,$5::uuid,$6) RETURNING id`, c.EmpresaID, comp, versao, req.Filial, c.UserID, req.Observacao).Scan(&id); err != nil {
+			log.Printf("dre fechar: %v", err)
 			http.Error(w, "Erro ao fechar período", http.StatusInternalServerError)
 			return
 		}
-		for _, l := range linhas {
-			if _, err := tx.Exec(`INSERT INTO auditoria.dre_fechamento_linhas (fechamento_id, linha_codigo, descricao, nivel, ordem, valor)
-				VALUES ($1,$2,$3,$4,$5,$6)`, id, l.Codigo, l.Descricao, l.Nivel, l.Ordem, real[l.Codigo]); err != nil {
-				http.Error(w, "Erro ao gravar fechamento", http.StatusInternalServerError)
-				return
-			}
-		}
-		if err := writeAuditLogTx(tx, c.EmpresaID, c.UserID, "dre_fechamento", strconv.FormatInt(id, 10), "fechar",
-			map[string]any{"competencia": comp.Format("2006-01"), "versao": versao, "filial": req.Filial}); err != nil || tx.Commit() != nil {
-			http.Error(w, "Erro ao registrar auditoria", http.StatusInternalServerError)
-			return
-		}
 		w.WriteHeader(http.StatusCreated)
-		writeJSON(w, map[string]any{"id": id, "versao": versao})
+		writeJSON(w, map[string]any{"id": out.ID, "versao": out.Versao})
 	}
 }

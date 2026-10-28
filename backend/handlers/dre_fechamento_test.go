@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -95,6 +96,9 @@ func TestFechamento_ContaSemMapa_409_NadaGravado(t *testing.T) {
 	if w.Code != http.StatusConflict {
 		t.Fatalf("esperava 409, veio %d: %s", w.Code, w.Body.String())
 	}
+	if !strings.Contains(w.Body.String(), "9.9") {
+		t.Errorf("corpo deveria listar a conta 9.9: %s", w.Body.String())
+	}
 	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.dre_fechamentos WHERE empresa_id=$1::uuid`, f.EmpresaID); n != 0 {
 		t.Errorf("dre_fechamentos: esperado 0, veio %d", n)
 	}
@@ -137,4 +141,74 @@ func versaoDaResposta(t *testing.T, corpo []byte) int {
 		t.Fatalf("resposta não é JSON: %v: %s", err, corpo)
 	}
 	return r.Versao
+}
+
+func TestFechamento_409_TruncaEm20Contas(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	for i := 0; i < 25; i++ {
+		if _, err := db.Exec(`INSERT INTO auditoria.lancamentos (empresa_id, competencia, conta, valor) VALUES ($1::uuid,'2026-09-01',$2,1)`,
+			f.EmpresaID, fmt.Sprintf("8.%02d", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := fechar(t, f, corpoSetembro)
+	if w.Code != http.StatusConflict {
+		t.Fatalf("esperava 409, veio %d: %s", w.Code, w.Body.String())
+	}
+	corpo := w.Body.String()
+	if !strings.Contains(corpo, "(25)") || !strings.Contains(corpo, "e mais 5") {
+		t.Errorf("total/truncamento ausentes: %s", corpo)
+	}
+	if !strings.Contains(corpo, "8.19") || strings.Contains(corpo, "8.20") {
+		t.Errorf("lista deveria ter exatamente 20 contas: %s", corpo)
+	}
+}
+
+func TestDRE_ExibidoIgualAoCongelado(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	semearMapaELancamentos(t, f, false)
+
+	r := httptest.NewRequest(http.MethodGet, "/api/aud/dre?ano=2026&mes=9&visao=mensal", nil)
+	w := chamar(DREHandler(db), reqComCtx(r, f))
+	if w.Code != http.StatusOK {
+		t.Fatalf("DRE: %d %s", w.Code, w.Body.String())
+	}
+	var exib struct {
+		Congelado bool `json:"congelado"`
+		Linhas    []struct {
+			Codigo    string  `json:"codigo"`
+			Realizado float64 `json:"realizado"`
+		} `json:"linhas"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &exib); err != nil || exib.Congelado {
+		t.Fatalf("resposta inesperada: %v %s", err, w.Body.String())
+	}
+	if wf := fechar(t, f, corpoSetembro); wf.Code != http.StatusCreated {
+		t.Fatalf("fechar: %d %s", wf.Code, wf.Body.String())
+	}
+	rows, err := db.Query(`SELECT l.linha_codigo, l.valor FROM auditoria.dre_fechamento_linhas l
+		JOIN auditoria.dre_fechamentos f ON f.id = l.fechamento_id WHERE f.empresa_id = $1::uuid`, f.EmpresaID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	congelado := map[string]float64{}
+	for rows.Next() {
+		var c string
+		var v float64
+		if err := rows.Scan(&c, &v); err != nil {
+			t.Fatal(err)
+		}
+		congelado[c] = v
+	}
+	if len(exib.Linhas) == 0 || len(exib.Linhas) != len(congelado) {
+		t.Fatalf("linhas: exibidas %d, congeladas %d", len(exib.Linhas), len(congelado))
+	}
+	for _, l := range exib.Linhas {
+		if l.Realizado != congelado[l.Codigo] {
+			t.Errorf("%s: exibido %v, congelado %v", l.Codigo, l.Realizado, congelado[l.Codigo])
+		}
+	}
 }

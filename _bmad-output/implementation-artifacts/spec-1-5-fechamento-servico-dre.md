@@ -2,7 +2,8 @@
 title: 'Story 1.5: Fechamento passa pelo serviço `dre` (AD-1)'
 type: 'refactor'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: '261753bfd682353b1b70b2224e0318d1dde151e9'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -75,3 +76,18 @@ Tamanho do plano: cerca de 1850 tokens (estimativa), acima de 1600, porque a his
 **Commands:**
 - `cd backend && go build ./... && go vet ./... && go test -p 1 ./...` -- expected: sem erro; os testes da 1.1 passam sem edição
 - `grep -n "somaPorLinha\|resolverConta" backend/handlers/*.go` -- expected: vazio
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| Teste de contexto cancelado não prova o tudo-ou-nada | medium | patch | `TestFecharFalhaTardiaDesfazTudo` (gatilho em `audit_log` depois do INSERT) |
+| `Fechar` não valida mês e ano | medium | patch | validação e `ErroEntrada`; o handler passou a mapear para 400 |
+| 500 do fechamento sem log | low | patch | `log.Printf` |
+| 409 sem asserção do corpo nem do corte em 20 | low | patch | `TestFechamento_409_TruncaEm20Contas` |
+| DRE exibido e fechamento sem prova do mesmo caminho | medium | patch | `TestDRE_ExibidoIgualAoCongelado` |
+| Corrida na versão `MAX(versao)+1` | low | defer | pertence à trava da 1.6 e ao índice único da 1.7 |
+| Guarda de arquitetura estreita (UPDATE, DELETE, outros pacotes) | low | defer | sem violação hoje |
+| Consulta de linhas e mapa com `context.Background()`; `COALESCE` no `SUM`; seed fora da transação | low | rejeitado | comportamento herdado, sem dano demonstrado |
+| `float64` no snapshot | low | rejeitado | já registrado na 1.4 |
+| `semear` abre outra conexão de teste | false | rejeitado | `testdb.Open` devolve o mesmo banco |

@@ -65,3 +65,14 @@ func TestCamadasDoDre(t *testing.T) {
 		}
 	}
 }
+
+func TestSoODreEscreveFechamento(t *testing.T) {
+	for p, src := range arquivosGo(t) {
+		if strings.HasSuffix(p, "_test.go") || !strings.HasPrefix(p, "handlers/") {
+			continue
+		}
+		if strings.Contains(strings.ToLower(src), "insert into auditoria.dre_fechamento") {
+			t.Errorf("%s escreve em dre_fechamento*; só backend/dre pode", p)
+		}
+	}
+}
