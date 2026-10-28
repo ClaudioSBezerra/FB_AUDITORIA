@@ -284,7 +284,7 @@ func (l Leitor) EstruturaCongelada(ctx context.Context, filial string, p Periodo
 		}
 	}
 	a := ativos[chaveMes(ms[len(ms)-1])]
-	rows, err := l.Q.QueryContext(ctx, `SELECT linha_codigo, descricao, nivel, ordem, COALESCE(tipo,'conta')
+	rows, err := l.Q.QueryContext(ctx, `SELECT linha_codigo, descricao, nivel, ordem, COALESCE(tipo,'conta'), COALESCE(papel,'')
 		FROM auditoria.dre_fechamento_linhas WHERE fechamento_id = $1 AND filial = '' ORDER BY ordem`, a.ID)
 	if err != nil {
 		return nil, false, err
@@ -293,7 +293,7 @@ func (l Leitor) EstruturaCongelada(ctx context.Context, filial string, p Periodo
 	var out []Linha
 	for rows.Next() {
 		var x Linha
-		if err := rows.Scan(&x.Codigo, &x.Descricao, &x.Nivel, &x.Ordem, &x.Tipo); err != nil {
+		if err := rows.Scan(&x.Codigo, &x.Descricao, &x.Nivel, &x.Ordem, &x.Tipo, &x.Papel); err != nil {
 			return nil, false, err
 		}
 		x.Ativo = true

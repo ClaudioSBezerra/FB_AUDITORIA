@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from './util'
 
-interface Linha { codigo: string; descricao: string; tipo: string; soma_de: string[] }
+interface Linha { codigo: string; descricao: string; tipo: string; soma_de: string[]; papel?: string }
 interface Mapa { conta_padrao: string; linha_codigo: string; sinal: number }
 
 // De-para conta contábil/gerencial → linha do DRE. A controladoria ajusta aqui,
@@ -30,6 +30,16 @@ export default function DREMapa() {
         body: JSON.stringify({ conta_padrao: conta, linha_codigo: linha || contas[0]?.codigo, sinal }),
       })
       setConta(''); qc.invalidateQueries({ queryKey: ['dre-mapa'] }); toast.success('Mapeamento salvo')
+    } catch (e: any) { toast.error(e.message) }
+  }
+  async function marcarFaturamento(codigo: string, marcar: boolean) {
+    try {
+      await api('/api/aud/dre/linhas/papel', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo, papel: marcar ? 'faturamento_liquido' : '' }),
+      })
+      qc.invalidateQueries({ queryKey: ['dre-linhas'] }); qc.invalidateQueries({ queryKey: ['dre'] })
+      toast.success(marcar ? 'Base dos percentuais definida' : 'Marca removida')
     } catch (e: any) { toast.error(e.message) }
   }
   async function remover(c: string) {
@@ -83,6 +93,13 @@ export default function DREMapa() {
           {(linhas.data ?? []).map(l => (
             <li key={l.codigo} className={`p-2.5 ${l.tipo === 'subtotal' ? 'bg-gray-50 font-medium' : ''}`}>
               {l.descricao}
+              {l.papel === 'faturamento_liquido' && <span className="ml-2 text-[11px] rounded-full bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 font-normal">Faturamento Líquido</span>}
+              {editar && (
+                <button className="ml-2 text-[11px] font-normal text-muted-foreground hover:text-foreground underline"
+                  onClick={() => marcarFaturamento(l.codigo, l.papel !== 'faturamento_liquido')}>
+                  {l.papel === 'faturamento_liquido' ? 'desmarcar' : 'usar como Faturamento Líquido'}
+                </button>
+              )}
               {l.tipo === 'subtotal' && <span className="block text-[11px] text-muted-foreground font-normal">{l.soma_de.join(' ').replace(/ -/g, ' − ')}</span>}
             </li>
           ))}

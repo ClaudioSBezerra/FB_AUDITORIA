@@ -156,8 +156,8 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 		}
 		AplicarSubtotais(linhas, orc)
 		for _, l := range linhas {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_linhas (fechamento_id, filial, linha_codigo, descricao, nivel, ordem, valor, orcado, ano_anterior, tipo)
-				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, id, filial, l.Codigo, l.Descricao, l.Nivel, l.Ordem, r[l.Codigo], orc[l.Codigo], aa[l.Codigo], l.Tipo); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.dre_fechamento_linhas (fechamento_id, filial, linha_codigo, descricao, nivel, ordem, valor, orcado, ano_anterior, tipo, papel)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NULLIF($11,''))`, id, filial, l.Codigo, l.Descricao, l.Nivel, l.Ordem, r[l.Codigo], orc[l.Codigo], aa[l.Codigo], l.Tipo, l.Papel); err != nil {
 				return FecharOut{}, err
 			}
 		}

@@ -145,12 +145,26 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 		// Estrutura exibida: se todos os meses vêm do snapshot, a do fechamento
 		// (renomear/reordenar/apagar linha depois não muda o mês fechado). Em
 		// período misto vale a estrutura viva.
+		vivas := linhas
+		estruturaCongelada := false
 		if cong, ok, err := (dre.Leitor{Q: db}).EstruturaCongelada(r.Context(), filial, p, res0.Ativos); err != nil {
 			log.Printf("dre estrutura congelada: %v", err)
 			http.Error(w, "Erro ao calcular o DRE", http.StatusInternalServerError)
 			return
 		} else if ok {
-			linhas = cong
+			linhas, estruturaCongelada = cong, true
+		}
+		// Linha-base dos percentuais: o papel da estrutura exibida; fechamento
+		// anterior à 3.4 (sem papel gravado) usa o papel vivo, se a linha existir nele.
+		codFat := dre.CodigoComPapel(linhas, dre.PapelFaturamentoLiquido)
+		if codFat == "" && estruturaCongelada {
+			if c := dre.CodigoComPapel(vivas, dre.PapelFaturamentoLiquido); c != "" {
+				for _, l := range linhas {
+					if l.Codigo == c {
+						codFat = c
+					}
+				}
+			}
 		}
 		real, aa, orc, sem := res0.Real, res0.AA, res0.Orc, res0.Sem
 		congelado, versao := false, 0
@@ -175,11 +189,13 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 			AnoAnterior float64  `json:"ano_anterior"`
 			VarOrcado   *float64 `json:"var_orcado_pct"`
 			VarAno      *float64 `json:"var_ano_pct"`
+			PctFat      *float64 `json:"pct_faturamento"`
 		}
+		pcts, pctStatus := dre.PercentuaisSobreFaturamento(linhas, real, codFat)
 		res := make([]out, 0, len(linhas))
 		for _, l := range linhas {
 			res = append(res, out{l.Codigo, l.Descricao, l.Nivel, l.Tipo, real[l.Codigo], orc[l.Codigo], aa[l.Codigo],
-				pct(real[l.Codigo], orc[l.Codigo]), pct(real[l.Codigo], aa[l.Codigo])})
+				pct(real[l.Codigo], orc[l.Codigo]), pct(real[l.Codigo], aa[l.Codigo]), pcts[l.Codigo]})
 		}
 		type nm struct {
 			Conta string  `json:"conta"`
@@ -192,7 +208,12 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 		sort.Slice(naoMapeado, func(i, j int) bool { return absf(naoMapeado[i].Valor) > absf(naoMapeado[j].Valor) })
 
 		writeAuditLog(db, c.EmpresaID, c.UserID, "dre", p.Fim.Format("2006-01"), "visualizar", map[string]any{"visao": visao, "filial": filial})
+		aviso := ""
+		if pctStatus == dre.PctSemPapel {
+			aviso = "Nenhuma linha do DRE está marcada como Faturamento Líquido — marque uma em Mapa do DRE para ver os percentuais."
+		}
 		writeJSON(w, map[string]any{
+			"pct_status": pctStatus, "faturamento_liquido_linha": codFat, "aviso_faturamento": aviso,
 			"ini": p.Ini.Format("2006-01-02"), "fim": p.Fim.Format("2006-01-02"), "visao": visao,
 			"congelado": congelado, "versao": versao,
 			"fechamento_ativo": fechAtivo, "fechamento_versao": fechVersao, "linhas": res, "nao_mapeado": naoMapeado,
@@ -630,5 +651,59 @@ func DREReabrirHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, map[string]any{"id": out.ID, "versao": out.Versao})
+	}
+}
+
+// DRELinhaPapelHandler — PUT {codigo, papel}: marca a linha com o papel
+// (hoje 'faturamento_liquido'); papel vazio desmarca. A marca anterior da
+// empresa sai na mesma transação. Só controladoria (rota).
+func DRELinhaPapelHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPut {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		c := GetAudContext(r)
+		if !c.Tem("controladoria") {
+			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
+			return
+		}
+		var req struct {
+			Codigo string `json:"codigo"`
+			Papel  string `json:"papel"`
+		}
+		if json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req) != nil || req.Codigo == "" ||
+			(req.Papel != "" && req.Papel != dre.PapelFaturamentoLiquido) {
+			http.Error(w, "codigo e papel (faturamento_liquido ou vazio) obrigatórios", http.StatusBadRequest)
+			return
+		}
+		tx, err := db.Begin()
+		if err != nil {
+			http.Error(w, "Erro", http.StatusInternalServerError)
+			return
+		}
+		defer tx.Rollback()
+		var id int64
+		if err := tx.QueryRow(`SELECT id FROM auditoria.dre_linhas WHERE empresa_id=$1::uuid AND codigo=$2 AND ativo FOR UPDATE`,
+			c.EmpresaID, req.Codigo).Scan(&id); err != nil {
+			http.Error(w, "linha não encontrada", http.StatusNotFound)
+			return
+		}
+		if req.Papel != "" {
+			if _, err := tx.Exec(`UPDATE auditoria.dre_linhas SET papel = NULL WHERE empresa_id=$1::uuid AND papel=$2 AND id<>$3`,
+				c.EmpresaID, req.Papel, id); err != nil {
+				http.Error(w, "Erro ao salvar", http.StatusInternalServerError)
+				return
+			}
+		}
+		if _, err := tx.Exec(`UPDATE auditoria.dre_linhas SET papel = NULLIF($2,'') WHERE id=$1`, id, req.Papel); err != nil {
+			http.Error(w, "Erro ao salvar", http.StatusInternalServerError)
+			return
+		}
+		if err := writeAuditLogTx(tx, c.EmpresaID, c.UserID, "dre_linha", req.Codigo, "definir_papel", req); err != nil || tx.Commit() != nil {
+			http.Error(w, "Erro ao registrar auditoria", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, req)
 	}
 }

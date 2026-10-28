@@ -11,11 +11,12 @@ import { api, brl, pctFmt, MESES } from './util'
 interface Linha {
   codigo: string; descricao: string; nivel: number; tipo: 'conta' | 'subtotal'
   realizado: number; orcado: number; ano_anterior: number
-  var_orcado_pct: number | null; var_ano_pct: number | null
+  var_orcado_pct: number | null; var_ano_pct: number | null; pct_faturamento: number | null
 }
 interface DreResp {
   congelado: boolean; versao: number; fechamento_ativo: boolean; fechamento_versao: number; visao: string; linhas: Linha[]
   nao_mapeado: { conta: string; valor: number }[]
+  pct_status: 'ok' | 'sem_papel' | 'zero'; aviso_faturamento: string
 }
 interface Lanc {
   id: number; competencia: string; filial: string; centro_custo: string; canal: string
@@ -128,6 +129,13 @@ export default function DRE() {
         </div>
       )}
 
+      {d?.pct_status === 'sem_papel' && (
+        <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+          <div>{d.aviso_faturamento}</div>
+        </div>
+      )}
+
       {dre.isError && <p className="text-sm text-red-600">{(dre.error as Error).message}</p>}
       <div className="rounded-lg border bg-white overflow-x-auto">
         <table className="w-full text-sm">
@@ -135,6 +143,7 @@ export default function DRE() {
             <tr className="border-b bg-gray-50 text-xs text-muted-foreground">
               <th className="text-left font-medium p-2.5">Linha</th>
               <th className="text-right font-medium p-2.5">Realizado</th>
+              <th className="text-right font-medium p-2.5" title="Percentual sobre o Faturamento Líquido">% Fat. Líq.</th>
               <th className="text-right font-medium p-2.5">Orçado</th>
               <th className="text-right font-medium p-2.5">Δ Orçado</th>
               <th className="text-right font-medium p-2.5">Ano anterior</th>
@@ -148,13 +157,17 @@ export default function DRE() {
                 onClick={() => setDrill(l)}>
                 <td className="p-2.5" style={{ paddingLeft: 10 + l.nivel * 14 }}>{l.descricao}</td>
                 <td className="p-2.5 text-right tabular-nums">{brl(l.realizado)}</td>
+                <td className="p-2.5 text-right tabular-nums text-muted-foreground">
+                  {l.pct_faturamento != null ? pctFmt(l.pct_faturamento)
+                    : d?.pct_status === 'zero' ? <span title="Faturamento Líquido zero">não calculável</span> : '—'}
+                </td>
                 <td className="p-2.5 text-right tabular-nums text-muted-foreground">{brl(l.orcado)}</td>
                 <td className="p-2.5 text-right tabular-nums"><Var v={l.var_orcado_pct} /></td>
                 <td className="p-2.5 text-right tabular-nums text-muted-foreground">{brl(l.ano_anterior)}</td>
                 <td className="p-2.5 text-right tabular-nums"><Var v={l.var_ano_pct} /></td>
               </tr>
             ))}
-            {dre.isLoading && <tr><td colSpan={6} className="p-6 text-center text-muted-foreground">Carregando…</td></tr>}
+            {dre.isLoading && <tr><td colSpan={7} className="p-6 text-center text-muted-foreground">Carregando…</td></tr>}
           </tbody>
         </table>
       </div>

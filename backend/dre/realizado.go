@@ -3,6 +3,7 @@ package dre
 import (
 	"context"
 	"database/sql"
+	"math"
 	"strings"
 	"time"
 
@@ -19,6 +20,8 @@ type Linha struct {
 	Tipo      string   `json:"tipo"`
 	SomaDe    []string `json:"soma_de"`
 	Ativo     bool     `json:"ativo"`
+	// Papel marca a linha-base de percentuais ('' = nenhum); ver PapelFaturamentoLiquido.
+	Papel string `json:"papel,omitempty"`
 }
 
 // MapaItem liga uma conta padrão (ou prefixo terminado em '%') a uma linha.
@@ -38,7 +41,7 @@ type Consultador interface {
 
 // CarregarLinhas lê as linhas ativas da estrutura (sem semear).
 func CarregarLinhas(ctx context.Context, q Consultador, empresaID string) ([]Linha, error) {
-	rows, err := q.QueryContext(ctx, `SELECT id, codigo, descricao, nivel, ordem, tipo, soma_de, ativo
+	rows, err := q.QueryContext(ctx, `SELECT id, codigo, descricao, nivel, ordem, tipo, soma_de, ativo, COALESCE(papel,'')
 		FROM auditoria.dre_linhas WHERE empresa_id = $1::uuid AND ativo ORDER BY ordem`, empresaID)
 	if err != nil {
 		return nil, err
@@ -48,7 +51,7 @@ func CarregarLinhas(ctx context.Context, q Consultador, empresaID string) ([]Lin
 	for rows.Next() {
 		var l Linha
 		var soma pq.StringArray
-		if err := rows.Scan(&l.ID, &l.Codigo, &l.Descricao, &l.Nivel, &l.Ordem, &l.Tipo, &soma, &l.Ativo); err != nil {
+		if err := rows.Scan(&l.ID, &l.Codigo, &l.Descricao, &l.Nivel, &l.Ordem, &l.Tipo, &soma, &l.Ativo, &l.Papel); err != nil {
 			return nil, err
 		}
 		l.SomaDe = []string(soma)
@@ -182,6 +185,10 @@ func AplicarSubtotais(linhas []Linha, v map[string]float64) {
 				s += v[c]
 			}
 		}
-		v[l.Codigo] = s
+		v[l.Codigo] = arredondaCentavos(s)
 	}
 }
+
+// arredondaCentavos elimina o resíduo binário da soma de valores de 2 casas
+// (0,1+0,2 vira 0,3 exato), de modo que o subtotal seja exatamente a soma.
+func arredondaCentavos(x float64) float64 { return math.Round(x*100) / 100 }
