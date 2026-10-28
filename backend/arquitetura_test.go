@@ -127,3 +127,35 @@ func TestEscritaEmLancamentosPassaPorGuardar(t *testing.T) {
 		t.Error("nenhuma escrita em lancamentos encontrada em dre/; o teste perdeu o alvo")
 	}
 }
+
+// História 4.6 (AD-19): o bloqueio de usuário vale em TODA rota autenticada. A
+// validação do JWT sem consulta ao bloqueio (authJWT) só pode ser chamada por
+// AuthMiddleware (auth.go) e autenticaAud (auditoria_auth.go, que checa o
+// bloqueio na própria consulta do perfil).
+func TestAuthJWTSoEUsadaPorQuemChecaBloqueio(t *testing.T) {
+	for p, src := range arquivosGo(t) {
+		if strings.HasSuffix(p, "_test.go") {
+			continue
+		}
+		if p == "handlers/auth.go" || p == "handlers/auditoria_auth.go" {
+			continue
+		}
+		if strings.Contains(src, "authJWT(") {
+			t.Errorf("%s chama authJWT direto: use AuthMiddleware(db, ...) para o bloqueio valer", p)
+		}
+	}
+	if !strings.Contains(lerFonte(t, "handlers/auditoria_auth.go"), "bloqueadoEm.Valid") {
+		t.Error("autenticaAud deixou de checar o bloqueio")
+	}
+	// A coluna trial_ends_at fica no banco, mas nenhum código a lê nem grava (comentário pode citá-la).
+	for p, src := range arquivosGo(t) {
+		if strings.HasSuffix(p, "_test.go") || !strings.HasPrefix(p, "handlers/") {
+			continue
+		}
+		for _, l := range strings.Split(src, "\n") {
+			if !strings.HasPrefix(strings.TrimSpace(l), "//") && (strings.Contains(l, "trial_ends_at") || strings.Contains(l, "TrialEndsAt")) {
+				t.Errorf("%s usa trial_ends_at: %s", p, strings.TrimSpace(l))
+			}
+		}
+	}
+}

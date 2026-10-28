@@ -133,6 +133,8 @@ type esperado struct{ leitura, escrita []string }
 
 var comportamentoDeHoje = map[string]esperado{
 	"/api/aud/usuarios":                 {soCtrl, soCtrl},
+	"/api/aud/usuarios/bloquear":        {soCtrl, soCtrl},
+	"/api/aud/usuarios/desbloquear":     {soCtrl, soCtrl},
 	"/api/aud/filiais-gerenciais":       {todos4, soCtrl},
 	"/api/aud/agrupamentos-filiais":     {todos4, soCtrl},
 	"/api/aud/departamentos":            {todos4, soCtrl},

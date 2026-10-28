@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
@@ -32,7 +31,8 @@ interface User {
   email: string;
   full_name: string;
   is_verified: boolean;
-  trial_ends_at: string;
+  bloqueado: boolean;
+  motivo_bloqueio: string;
   role: string;
   created_at: string;
   environment_id: string | null;
@@ -146,8 +146,6 @@ export default function AdminUsers() {
 
   // State for Promote/Edit
   const [newRole, setNewRole] = useState<string>("user");
-  const [extendDays, setExtendDays] = useState<number>(0);
-  const [isOfficial, setIsOfficial] = useState<boolean>(false);
   const [showReassign, setShowReassign] = useState(false);
   const [reassignEnvId, setReassignEnvId] = useState("");
   const [reassignGroupId, setReassignGroupId] = useState("");
@@ -226,14 +224,14 @@ export default function AdminUsers() {
   });
 
   const promoteMutation = useMutation({
-    mutationFn: async (data: { userId: string, role: string, extendDays: number, isOfficial: boolean }) => {
+    mutationFn: async (data: { userId: string, role: string }) => {
       const response = await fetch(`/api/admin/users/promote?id=${data.userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ role: data.role, extend_days: data.extendDays, is_official: data.isOfficial })
+        body: JSON.stringify({ role: data.role })
       });
       if (!response.ok) throw new Error('Failed to update user');
       return response.json();
@@ -298,8 +296,6 @@ export default function AdminUsers() {
   const handleOpenPromote = (user: User) => {
     setSelectedUser(user);
     setNewRole(user.role);
-    setExtendDays(0);
-    setIsOfficial(false);
     setShowReassign(false);
     setReassignEnvId("");
     setReassignGroupId("");
@@ -321,8 +317,6 @@ export default function AdminUsers() {
     promoteMutation.mutate({
       userId: selectedUser.id,
       role: newRole,
-      extendDays: extendDays,
-      isOfficial: isOfficial
     });
   };
 
@@ -354,7 +348,7 @@ export default function AdminUsers() {
               <TableHead className="text-[10px] uppercase tracking-wide py-1.5 px-2">Ambiente</TableHead>
               <TableHead className="text-[10px] uppercase tracking-wide py-1.5 px-2">Grupo</TableHead>
               <TableHead className="text-[10px] uppercase tracking-wide py-1.5 px-2">Empresa</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-wide py-1.5 px-2">Trial</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-wide py-1.5 px-2">Bloqueado</TableHead>
               <TableHead className="text-[10px] uppercase tracking-wide py-1.5 px-2">Criado</TableHead>
               <TableHead className="text-[10px] uppercase tracking-wide py-1.5 px-2 text-right">Ações</TableHead>
             </TableRow>
@@ -386,9 +380,13 @@ export default function AdminUsers() {
                   {user.company_name || <span className="italic">—</span>}
                 </TableCell>
                 <TableCell className="text-xs py-1 px-2 whitespace-nowrap">
-                  {new Date(user.trial_ends_at).toLocaleDateString('pt-BR')}
-                  {new Date(user.trial_ends_at) < new Date() && (
-                    <span className="ml-1 text-[10px] text-red-500 font-medium">Exp.</span>
+                  {user.bloqueado ? (
+                    <span title={user.motivo_bloqueio}>
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 bg-red-50 text-red-700 border-red-200">Bloqueado</Badge>
+                      {user.motivo_bloqueio && <span className="ml-1 text-[10px] text-muted-foreground">{user.motivo_bloqueio}</span>}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
                 <TableCell className="text-xs text-muted-foreground py-1 px-2 whitespace-nowrap">
@@ -502,7 +500,7 @@ export default function AdminUsers() {
           <DialogHeader>
             <DialogTitle>Editar Usuário</DialogTitle>
             <DialogDescription>
-              Alterar permissões ou estender período de trial para {selectedUser?.full_name}.
+              Alterar o papel de plataforma de {selectedUser?.full_name}.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -517,30 +515,6 @@ export default function AdminUsers() {
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="extendDays" className="text-right">Estender (dias)</Label>
-              <Input
-                id="extendDays"
-                type="number"
-                value={extendDays}
-                onChange={(e) => setExtendDays(Number(e.target.value))}
-                className="col-span-3"
-                disabled={isOfficial}
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="isOfficial" className="text-right">Cliente Oficial</Label>
-              <div className="col-span-3 flex items-center space-x-2">
-                <Checkbox
-                  id="isOfficial"
-                  checked={isOfficial}
-                  onCheckedChange={(checked) => setIsOfficial(checked as boolean)}
-                />
-                <label htmlFor="isOfficial" className="text-sm font-medium leading-none">
-                  Definir como cliente permanente (Até 2099)
-                </label>
-              </div>
             </div>
 
             {/* Hierarchy Section */}

@@ -91,3 +91,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-10-visao-por-trimestre.md`
   summary: O seletor de recorte da 2.15 estava pendente e foi entregue com a 3.10 nas telas do DRE e do DRE por departamento; o detalhe antigo por lançamento (`/api/aud/dre/lancamentos`, usado pelo gestor) continua só com `?filial=`.
   evidence: `frontend/src/pages/aud/DRE.tsx` (`qLegado`).
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-6-bloqueio-de-usuario.md`
+  summary: A coluna `users.trial_ends_at` ficou no banco (dados existentes) e nenhum código a usa mais; remover numa limpeza futura de schema, junto com `extend_days`/`is_official` ignorados em `PromoteUserHandler`.
+  evidence: `backend/migrations/001_baseline_auth.sql`; `backend/handlers/admin.go`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-4-6-bloqueio-de-usuario.md`
+  summary: A tela de plataforma (`AdminUsers`) só mostra o bloqueio; bloquear e desbloquear são feitos pela tela de usuários da empresa ativa (`/api/aud/usuarios/bloquear`). Um usuário fora da empresa ativa só é bloqueado trocando de empresa.
+  evidence: `frontend/src/pages/AdminUsers.tsx`; `backend/handlers/aud_usuarios_bloqueio.go`.

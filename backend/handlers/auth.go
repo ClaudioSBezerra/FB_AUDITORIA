@@ -25,13 +25,12 @@ type contextKey string
 const ClaimsKey contextKey = "claims"
 
 type User struct {
-	ID          string    `json:"id"`
-	Email       string    `json:"email"`
-	FullName    string    `json:"full_name"`
-	IsVerified  bool      `json:"is_verified"`
-	TrialEndsAt time.Time `json:"trial_ends_at"`
-	Role        string    `json:"role"`
-	CreatedAt   string    `json:"created_at"`
+	ID         string `json:"id"`
+	Email      string `json:"email"`
+	FullName   string `json:"full_name"`
+	IsVerified bool   `json:"is_verified"`
+	Role       string `json:"role"`
+	CreatedAt  string `json:"created_at"`
 }
 
 type RegisterRequest struct {
@@ -202,9 +201,9 @@ func GetMeHandler(db *sql.DB) http.HandlerFunc {
 
 		var user User
 		err := db.QueryRow(`
-			SELECT id, email, full_name, is_verified, COALESCE(trial_ends_at, NOW()), COALESCE(role, 'user'), created_at
+			SELECT id, email, full_name, is_verified, COALESCE(role, 'user'), created_at
 			FROM users WHERE id = $1
-		`, userID).Scan(&user.ID, &user.Email, &user.FullName, &user.IsVerified, &user.TrialEndsAt, &user.Role, &user.CreatedAt)
+		`, userID).Scan(&user.ID, &user.Email, &user.FullName, &user.IsVerified, &user.Role, &user.CreatedAt)
 
 		if err != nil {
 			http.Error(w, "User not found", http.StatusNotFound)
@@ -216,7 +215,57 @@ func GetMeHandler(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func AuthMiddleware(next http.HandlerFunc, requiredRole string) http.HandlerFunc {
+// AuthMiddleware valida o JWT e recusa (403) o usuário bloqueado a cada
+// requisição, também quando a sessão já estava aberta (história 4.6, AD-19).
+// Toda rota autenticada passa por aqui ou por autenticaAud; authJWT sozinha não
+// consulta o bloqueio e por isso não é usada fora desses dois.
+func AuthMiddleware(db *sql.DB, next http.HandlerFunc, requiredRole string) http.HandlerFunc {
+	return authJWT(func(w http.ResponseWriter, r *http.Request) {
+		bloqueado, motivo, existe, err := estadoDeBloqueio(db, GetUserIDFromContext(r))
+		if err != nil {
+			log.Printf("[Auth] erro ao consultar bloqueio: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if !existe {
+			http.Error(w, "User not found", http.StatusUnauthorized)
+			return
+		}
+		if bloqueado {
+			http.Error(w, mensagemBloqueio(motivo), http.StatusForbidden)
+			return
+		}
+		next(w, r)
+	}, requiredRole)
+}
+
+// estadoDeBloqueio lê o bloqueio do usuário. existe=false se o usuário não existe mais.
+func estadoDeBloqueio(db *sql.DB, userID string) (bloqueado bool, motivo string, existe bool, err error) {
+	if userID == "" {
+		return false, "", false, nil
+	}
+	var em sql.NullTime
+	var mot sql.NullString
+	err = db.QueryRow(`SELECT bloqueado_em, motivo_bloqueio FROM users WHERE id = $1::uuid`, userID).Scan(&em, &mot)
+	if err == sql.ErrNoRows {
+		return false, "", false, nil
+	}
+	if err != nil {
+		return false, "", false, err
+	}
+	return em.Valid, mot.String, true, nil
+}
+
+func mensagemBloqueio(motivo string) string {
+	m := "Acesso bloqueado pelo administrador."
+	if motivo != "" {
+		m += " Motivo: " + motivo + "."
+	}
+	return m + " Procure o responsável pelo seu acesso."
+}
+
+// authJWT valida o token e o papel; não consulta o banco.
+func authJWT(next http.HandlerFunc, requiredRole string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
@@ -523,13 +572,12 @@ func RegisterHandler(db *sql.DB) http.HandlerFunc {
 		// 3. Create User
 		var userID string
 		var role string
-		trialEnds := time.Now().Add(time.Hour * 24 * 14) // 14 days
-		// Ensure role column is populated (default 'user') and returned
+		// Sem prazo de licença: o acesso termina por bloqueio (história 4.6), não por data.
 		err = tx.QueryRow(`
-			INSERT INTO users (email, password_hash, full_name, trial_ends_at, is_verified, role)
-			VALUES ($1, $2, $3, $4, $5, 'user')
+			INSERT INTO users (email, password_hash, full_name, is_verified, role)
+			VALUES ($1, $2, $3, $4, 'user')
 			RETURNING id, role
-		`, req.Email, hash, req.FullName, trialEnds, false).Scan(&userID, &role)
+		`, req.Email, hash, req.FullName, false).Scan(&userID, &role)
 
 		if err != nil {
 			log.Printf("[Register] Error creating user: %v", err)
@@ -608,12 +656,11 @@ func RegisterHandler(db *sql.DB) http.HandlerFunc {
 		json.NewEncoder(w).Encode(AuthResponse{
 			Token: token,
 			User: User{
-				ID:          userID,
-				Email:       req.Email,
-				FullName:    req.FullName,
-				IsVerified:  false,
-				TrialEndsAt: trialEnds,
-				Role:        "user",
+				ID:         userID,
+				Email:      req.Email,
+				FullName:   req.FullName,
+				IsVerified: false,
+				Role:       "user",
 			},
 			Environment: envName,
 			Group:       groupName,
@@ -658,11 +705,14 @@ func LoginHandler(db *sql.DB) http.HandlerFunc {
 		// sobre lower(email); esta condição é o que faz o login funcionar para
 		// quem foi cadastrado antes dela.
 		//
-		// Use COALESCE for role and trial_ends_at to handle NULLs safely
+		// COALESCE no papel para tratar NULL. Não há prazo de licença: antes da 4.6,
+		// COALESCE(trial_ends_at, NOW()) transformava a coluna vazia em "vencido agora".
+		var bloqueadoEm sql.NullTime
+		var motivoBloqueio sql.NullString
 		err := db.QueryRow(`
-			SELECT id, email, full_name, password_hash, is_verified, COALESCE(trial_ends_at, NOW()), COALESCE(role, 'user'), created_at
+			SELECT id, email, full_name, password_hash, is_verified, COALESCE(role, 'user'), created_at, bloqueado_em, motivo_bloqueio
 			FROM users WHERE lower(email) = lower($1)
-		`, req.Email).Scan(&user.ID, &user.Email, &user.FullName, &hash, &user.IsVerified, &user.TrialEndsAt, &user.Role, &user.CreatedAt)
+		`, req.Email).Scan(&user.ID, &user.Email, &user.FullName, &hash, &user.IsVerified, &user.Role, &user.CreatedAt, &bloqueadoEm, &motivoBloqueio)
 
 		if err == sql.ErrNoRows {
 			log.Printf("[Login] User not found: %s", req.Email)
@@ -695,12 +745,12 @@ func LoginHandler(db *sql.DB) http.HandlerFunc {
 		LoginRL.Reset(ip)
 		LoginByAccountRL.Reset(accountKey)
 
-		// Check Trial Status
-		if user.Role != "admin" && user.TrialEndsAt.Before(time.Now()) {
-			log.Printf("[Login] Trial expired for: %s", req.Email)
+		// Bloqueio (AD-19): só depois da senha certa, para não revelar o estado da conta a quem não a tem.
+		if bloqueadoEm.Valid {
+			log.Printf("[Login] Usuário bloqueado: %s", req.Email)
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusForbidden)
-			json.NewEncoder(w).Encode("Período de teste expirado. Entre em contato para assinar.")
+			json.NewEncoder(w).Encode(mensagemBloqueio(motivoBloqueio.String))
 			return
 		}
 
@@ -1138,6 +1188,23 @@ func RefreshHandler(db *sql.DB) http.HandlerFunc {
 			refreshTokenStore.Delete(cookie.Value)
 			clearRefreshCookie(w, r)
 			http.Error(w, "Refresh token expired", http.StatusUnauthorized)
+			return
+		}
+
+		// Usuário bloqueado (ou apagado) não renova a sessão.
+		bloqueado, motivo, existe, errB := estadoDeBloqueio(db, data.UserID)
+		if errB != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		if !existe || bloqueado {
+			refreshTokenStore.Delete(cookie.Value)
+			clearRefreshCookie(w, r)
+			if !existe {
+				http.Error(w, "Invalid refresh token", http.StatusUnauthorized)
+				return
+			}
+			http.Error(w, mensagemBloqueio(motivo), http.StatusForbidden)
 			return
 		}
 

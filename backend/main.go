@@ -320,7 +320,7 @@ func main() {
 				http.Error(w, "Database initializing...", http.StatusServiceUnavailable)
 				return
 			}
-			handlers.AuthMiddleware(f(database), role)(w, r)
+			handlers.AuthMiddleware(database, f(database), role)(w, r)
 		}
 	}
 	// withAud: JWT + empresa ativa + perfil + área do menu (ver auditoria_auth.go).
@@ -414,9 +414,9 @@ func main() {
 			return
 		}
 		if r.Method == http.MethodPost {
-			handlers.AuthMiddleware(handlers.UploadEmpresaLogoHandler(database), "admin")(w, r)
+			handlers.AuthMiddleware(database, handlers.UploadEmpresaLogoHandler(database), "admin")(w, r)
 		} else {
-			handlers.AuthMiddleware(handlers.ServeEmpresaLogoHandler(database), "")(w, r)
+			handlers.AuthMiddleware(database, handlers.ServeEmpresaLogoHandler(database), "")(w, r)
 		}
 	})
 
@@ -426,6 +426,8 @@ func main() {
 	http.HandleFunc("/api/aud/ambiente/virar", withAud(handlers.AmbienteVirarHandler, ""))
 	http.HandleFunc("/api/aud/acompanhamento", withAud(handlers.AcompanhamentoHandler, handlers.AreaAcompanhamento))
 	http.HandleFunc("/api/aud/usuarios", withAud(handlers.AudUsuariosHandler, handlers.AreaConfiguracoes, handlers.CapGerirUsuarios))
+	http.HandleFunc("/api/aud/usuarios/bloquear", withAud(handlers.AudUsuarioBloquearHandler, handlers.AreaConfiguracoes, handlers.CapGerirUsuarios))
+	http.HandleFunc("/api/aud/usuarios/desbloquear", withAud(handlers.AudUsuarioDesbloquearHandler, handlers.AreaConfiguracoes, handlers.CapGerirUsuarios))
 	http.HandleFunc("/api/aud/filiais-gerenciais", withAud(handlers.FiliaisGerenciaisHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo, handlers.CapEditarEstrutura))
 	http.HandleFunc("/api/aud/agrupamentos-filiais", withAud(handlers.AgrupamentosFiliaisHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo, handlers.CapEditarEstrutura))
 	http.HandleFunc("/api/aud/departamentos", withAud(handlers.DepartamentosHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo, handlers.CapEditarEstrutura))

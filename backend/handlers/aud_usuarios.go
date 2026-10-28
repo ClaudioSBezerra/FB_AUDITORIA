@@ -2,7 +2,7 @@ package handlers
 
 // aud_usuarios.go — gestão de perfil, áreas e departamentos dos usuários DA
 // empresa ativa (capacidade gerir_usuarios). O admin de plataforma continua
-// usando /api/admin/users.
+// usando /api/admin/users. Bloqueio: aud_usuarios_bloqueio.go.
 
 import (
 	"database/sql"
@@ -86,7 +86,9 @@ func AudUsuariosHandler(db *sql.DB) http.HandlerFunc {
 }
 
 func listarUsuarios(w http.ResponseWriter, db *sql.DB, c *AudContext) {
-	rows, err := db.Query(`SELECT u.id, u.full_name, u.email, u.perfil, u.areas
+	rows, err := db.Query(`SELECT u.id, u.full_name, u.email, u.perfil, u.areas,
+		u.bloqueado_em IS NOT NULL, COALESCE(u.motivo_bloqueio,''),
+		COALESCE(to_char(u.bloqueado_em AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),''), u.role = 'admin'
 		FROM users u WHERE `+usuariosDaEmpresa("$1")+` ORDER BY u.full_name`, c.EmpresaID)
 	if err != nil {
 		log.Printf("aud usuarios listar: %v", err)
@@ -101,12 +103,16 @@ func listarUsuarios(w http.ResponseWriter, db *sql.DB, c *AudContext) {
 		Perfil        string     `json:"perfil"`
 		Areas         []string   `json:"areas"`
 		Departamentos []DeptoRef `json:"departamentos"`
+		Bloqueado     bool       `json:"bloqueado"`
+		Motivo        string     `json:"motivo_bloqueio"`
+		BloqueadoEm   string     `json:"bloqueado_em"`
+		AdminPlat     bool       `json:"admin_plataforma"`
 	}
 	out := []u{}
 	for rows.Next() {
 		var x u
 		var areas pq.StringArray
-		if err := rows.Scan(&x.ID, &x.Nome, &x.Email, &x.Perfil, &areas); err != nil {
+		if err := rows.Scan(&x.ID, &x.Nome, &x.Email, &x.Perfil, &areas, &x.Bloqueado, &x.Motivo, &x.BloqueadoEm, &x.AdminPlat); err != nil {
 			log.Printf("aud usuarios listar: %v", err)
 			http.Error(w, "Erro", http.StatusInternalServerError)
 			return

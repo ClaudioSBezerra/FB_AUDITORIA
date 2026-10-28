@@ -117,10 +117,6 @@ export function AppRail() {
     .join('')
     .toUpperCase() ?? '?'
 
-  const trialDate = user?.trial_ends_at
-    ? new Date(user.trial_ends_at).toLocaleDateString('pt-BR')
-    : null
-
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex flex-col w-14 shrink-0 border-r bg-white h-screen z-20">
@@ -203,17 +199,6 @@ export function AppRail() {
                 <p className="text-xs font-semibold leading-tight truncate">{user?.full_name}</p>
                 <p className="text-[10px] text-muted-foreground font-normal truncate mt-0.5">{company}</p>
               </DropdownMenuLabel>
-
-              {trialDate && (
-                <>
-                  <DropdownMenuSeparator />
-                  <div className="px-2 py-1">
-                    <span className="inline-flex items-center text-[10px] bg-yellow-50 text-yellow-700 border border-yellow-200 px-1.5 py-0.5 rounded font-medium">
-                      Licença vence: {trialDate}
-                    </span>
-                  </div>
-                </>
-              )}
 
               <DropdownMenuSeparator />
               <DropdownMenuItem className="text-xs cursor-pointer" onClick={() => setPwDialog(true)}>

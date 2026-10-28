@@ -4,7 +4,6 @@ interface User {
   id: string;
   email: string;
   full_name: string;
-  trial_ends_at: string;
   role?: string;
 }
 
@@ -181,7 +180,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       companyIdRef.current = storedCompanyId;
       setCnpj(storedCnpj);
 
-      // Refresh user profile from server to ensure role and trial status are up to date
+      // Refresh user profile from server to ensure role and block status are up to date
       fetch('/api/auth/me', {
         headers: { Authorization: `Bearer ${storedToken}` }
       })

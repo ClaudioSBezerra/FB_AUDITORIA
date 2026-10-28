@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-28",
-  "versao": "f2ad047",
+  "versao": "a87fdf4",
   "historias": [
     {
       "id": "1.1",
@@ -745,7 +745,7 @@
         "nome": "Acesso seguro por perfil e departamento"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como Controller, quero bloquear e desbloquear um usuário com motivo, para que o acesso termine quando eu decidir, e não por prazo.",
       "criterios": [

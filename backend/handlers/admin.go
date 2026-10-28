@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -47,13 +46,13 @@ func CreateUserHandler(db *sql.DB) http.HandlerFunc {
 			req.Role = "user"
 		}
 
-		trialEnds := time.Now().Add(time.Hour * 24 * 14)
+		// Sem prazo de licença (história 4.6): o acesso termina por bloqueio.
 		var userID string
 		err = db.QueryRow(`
-			INSERT INTO users (email, password_hash, full_name, trial_ends_at, is_verified, role)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO users (email, password_hash, full_name, is_verified, role)
+			VALUES ($1, $2, $3, $4, $5)
 			RETURNING id
-		`, req.Email, hash, req.FullName, trialEnds, true, req.Role).Scan(&userID)
+		`, req.Email, hash, req.FullName, true, req.Role).Scan(&userID)
 		if err != nil {
 			log.Printf("Error creating user: %v", err)
 			http.Error(w, "Error creating user (email might be taken)", http.StatusConflict)
@@ -84,19 +83,20 @@ func CreateUserHandler(db *sql.DB) http.HandlerFunc {
 
 // AdminUser extends User with hierarchy info for admin listing
 type AdminUser struct {
-	ID              string    `json:"id"`
-	Email           string    `json:"email"`
-	FullName        string    `json:"full_name"`
-	IsVerified      bool      `json:"is_verified"`
-	TrialEndsAt     time.Time `json:"trial_ends_at"`
-	Role            string    `json:"role"`
-	CreatedAt       string    `json:"created_at"`
-	EnvironmentID   *string   `json:"environment_id"`
-	EnvironmentName *string   `json:"environment_name"`
-	GroupID         *string   `json:"group_id"`
-	GroupName       *string   `json:"group_name"`
-	CompanyID       *string   `json:"company_id"`
-	CompanyName     *string   `json:"company_name"`
+	ID              string  `json:"id"`
+	Email           string  `json:"email"`
+	FullName        string  `json:"full_name"`
+	IsVerified      bool    `json:"is_verified"`
+	Role            string  `json:"role"`
+	CreatedAt       string  `json:"created_at"`
+	Bloqueado       bool    `json:"bloqueado"`
+	MotivoBloqueio  string  `json:"motivo_bloqueio"`
+	EnvironmentID   *string `json:"environment_id"`
+	EnvironmentName *string `json:"environment_name"`
+	GroupID         *string `json:"group_id"`
+	GroupName       *string `json:"group_name"`
+	CompanyID       *string `json:"company_id"`
+	CompanyName     *string `json:"company_name"`
 }
 
 // ListUsersHandler returns all users with hierarchy info (Admin only)
@@ -104,7 +104,8 @@ func ListUsersHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.Query(`
 			SELECT DISTINCT ON (u.id)
-			       u.id, u.email, u.full_name, u.is_verified, u.trial_ends_at, u.role, u.created_at,
+			       u.id, u.email, u.full_name, u.is_verified, u.role, u.created_at,
+			       u.bloqueado_em IS NOT NULL, COALESCE(u.motivo_bloqueio, ''),
 			       e.id, e.name,
 			       eg.id, eg.name,
 			       c.id, c.name
@@ -126,7 +127,8 @@ func ListUsersHandler(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var u AdminUser
 			if err := rows.Scan(
-				&u.ID, &u.Email, &u.FullName, &u.IsVerified, &u.TrialEndsAt, &u.Role, &u.CreatedAt,
+				&u.ID, &u.Email, &u.FullName, &u.IsVerified, &u.Role, &u.CreatedAt,
+				&u.Bloqueado, &u.MotivoBloqueio,
 				&u.EnvironmentID, &u.EnvironmentName,
 				&u.GroupID, &u.GroupName,
 				&u.CompanyID, &u.CompanyName,
@@ -152,7 +154,8 @@ type PromoteUserRequest struct {
 	IsOfficial bool   `json:"is_official"`
 }
 
-// PromoteUserHandler updates user role or trial (Admin only)
+// PromoteUserHandler updates the user role (Admin only). O prazo de teste foi
+// removido na história 4.6; extend_days e is_official são aceitos e ignorados.
 func PromoteUserHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID := r.URL.Query().Get("id")
@@ -170,28 +173,6 @@ func PromoteUserHandler(db *sql.DB) http.HandlerFunc {
 		if req.Role != "" {
 			if _, err := db.Exec("UPDATE users SET role = $1 WHERE id = $2", req.Role, userID); err != nil {
 				http.Error(w, "Failed to update role", http.StatusInternalServerError)
-				return
-			}
-		}
-
-		if req.IsOfficial {
-			newEnd := time.Date(2099, 12, 31, 23, 59, 59, 0, time.UTC)
-			if _, err := db.Exec("UPDATE users SET trial_ends_at = $1 WHERE id = $2", newEnd, userID); err != nil {
-				http.Error(w, "Failed to update trial status", http.StatusInternalServerError)
-				return
-			}
-		} else if req.ExtendDays > 0 {
-			var currentEnd time.Time
-			if err := db.QueryRow("SELECT trial_ends_at FROM users WHERE id = $1", userID).Scan(&currentEnd); err != nil {
-				http.Error(w, "User not found", http.StatusNotFound)
-				return
-			}
-			if currentEnd.Before(time.Now()) {
-				currentEnd = time.Now()
-			}
-			newEnd := currentEnd.Add(time.Duration(req.ExtendDays) * 24 * time.Hour)
-			if _, err := db.Exec("UPDATE users SET trial_ends_at = $1 WHERE id = $2", newEnd, userID); err != nil {
-				http.Error(w, "Failed to update trial", http.StatusInternalServerError)
 				return
 			}
 		}
