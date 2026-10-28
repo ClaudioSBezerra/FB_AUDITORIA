@@ -14,7 +14,8 @@ Só estrutura e regras. Os e-mails dos gerentes, a lista de aviso e os percentua
 
 ## Impacto no planejamento (a decidir)
 
-- **Épico 5:** o "ajuste manual imutável" (FR-4) provavelmente perde o sentido: precisa ser reinterpretado ("direto no sistema" = lançamento dentro do sistema?). Perguntar ao cliente. Disparo semanal e disparo de fechamento manual entram no outbox de e-mail (AD de e-mail).
+- **Confirmado pelo cliente (28/10/2026): o ajuste vem do ERP e chega ao sistema pelo banco, junto da ingestão. O sistema não tem lançamento manual de ajuste.** Consequência: a FR-4 como escrita (lançar ajuste no sistema) cai; as histórias 5.4, 5.5 e 5.7 e o AD-6 precisam ser reescritos. Mudança ainda não aplicada no `epics.md`, no PRD, na arquitetura nem no quadro.
+- **Épico 5 (antes da confirmação):** o "ajuste manual imutável" (FR-4) provavelmente perde o sentido: precisa ser reinterpretado ("direto no sistema" = lançamento dentro do sistema?). Perguntar ao cliente. Disparo semanal e disparo de fechamento manual entram no outbox de e-mail (AD de e-mail).
 - **Épico 7 (rateio):** deixa de depender de resposta do cliente. Já há regra: visão por faturamento, matriz de inclusão, percentual editável por filial.
 - **Épico 2/8:** destinatários e percentuais precisam de tela ou carga, e não de seed no repositório.
 - **Folha:** consolidada por departamento, sem dado individual (também é questão de LGPD).
