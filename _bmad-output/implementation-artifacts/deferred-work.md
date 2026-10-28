@@ -64,3 +64,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-2-planilha-csv-xlsx.md`
   summary: O formato antigo do CSV não normaliza a filial (`01` fica `01`) e o da planilha remove zeros à esquerda (`01` vira `1`); uma mesma filial pode entrar com chaves diferentes nas duas origens.
   evidence: `backend/dre/fontes/csv/csv.go`, `normFilial`; alinhar quando entrar o resolvedor de filial gerencial (2.14) na ingestão.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-15-agrupamentos-de-filiais.md`
+  summary: `?agrupamento=` e `?grupo=1` leem uma filial do ERP por vez (`Leitor.LerFiliais` soma N chamadas de `Ler`); com muitas filiais convém uma leitura em lote (`filial = ANY($)`), junto da troca da chave do snapshot para a filial gerencial.
+  evidence: `backend/dre/agrupamentos.go`, `LerFiliais` e `ContasPorDepartamentoFiliais`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-15-agrupamentos-de-filiais.md`
+  summary: A tela do DRE ainda não tem seletor de agrupamento nem de Grupo; os endpoints aceitam os parâmetros. O detalhe por lançamento (`/api/aud/dre/lancamentos`) segue só com `?filial=`.
+  evidence: `frontend/src/pages/aud/`; `backend/handlers/dre.go`, `DRELancamentosHandler`.

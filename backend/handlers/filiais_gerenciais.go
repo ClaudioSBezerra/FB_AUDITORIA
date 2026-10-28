@@ -96,6 +96,8 @@ func erroFilial(w http.ResponseWriter, err error, op string) bool {
 	var igual *dre.ErrCodigoIgualFilial
 	var emUso *dre.ErrFilialEmUso
 	var naoAch *dre.ErrFilialNaoEncontrada
+	var colide *dre.ErrCodigoColide
+	var emAgr *dre.ErrFilialEmAgrupamento
 	switch {
 	case errors.As(err, &entrada):
 		http.Error(w, entrada.Msg, http.StatusBadRequest)
@@ -107,6 +109,10 @@ func erroFilial(w http.ResponseWriter, err error, op string) bool {
 		http.Error(w, igual.Error(), http.StatusConflict)
 	case errors.As(err, &emUso):
 		http.Error(w, emUso.Error(), http.StatusConflict)
+	case errors.As(err, &colide):
+		http.Error(w, colide.Error(), http.StatusConflict)
+	case errors.As(err, &emAgr):
+		http.Error(w, emAgr.Error(), http.StatusConflict)
 	case errors.As(err, &naoAch):
 		http.Error(w, naoAch.Error(), http.StatusNotFound)
 	default:

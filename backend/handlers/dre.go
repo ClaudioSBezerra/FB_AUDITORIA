@@ -112,7 +112,7 @@ func absf(f float64) float64 {
 	return f
 }
 
-// DREHandler — GET /api/aud/dre?ano=&mes=&visao=mensal|acumulada&filial=
+// DREHandler — GET /api/aud/dre?ano=&mes=&visao=mensal|acumulada&filial=|agrupamento=<codigo>|grupo=1
 func DREHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c := GetAudContext(r)
@@ -121,7 +121,10 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "ano/mes inválidos", http.StatusBadRequest)
 			return
 		}
-		filial := r.URL.Query().Get("filial")
+		rec, ok := resolverRecorte(w, r, db, c.EmpresaID)
+		if !ok {
+			return
+		}
 
 		linhas, err := carregarLinhas(db, c.EmpresaID)
 		if err != nil {
@@ -136,7 +139,7 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 
 		// Leitura mês a mês: mês fechado vem do snapshot do fechamento ativo,
 		// mês aberto ou reaberto ao vivo (dre.Leitor).
-		res0, err := (dre.Leitor{Q: db}).Ler(r.Context(), c.EmpresaID, filial, p, linhas, mapa)
+		res0, err := (dre.Leitor{Q: db}).LerFiliais(r.Context(), c.EmpresaID, rec.Filiais, p, linhas, mapa)
 		if err != nil {
 			log.Printf("dre ler: %v", err)
 			http.Error(w, "Erro ao calcular o DRE", http.StatusInternalServerError)
@@ -147,7 +150,7 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 		// período misto vale a estrutura viva.
 		vivas := linhas
 		estruturaCongelada := false
-		if cong, ok, err := (dre.Leitor{Q: db}).EstruturaCongelada(r.Context(), filial, p, res0.Ativos); err != nil {
+		if cong, ok, err := (dre.Leitor{Q: db}).EstruturaCongelada(r.Context(), rec.Filiais[0], p, res0.Ativos); err != nil {
 			log.Printf("dre estrutura congelada: %v", err)
 			http.Error(w, "Erro ao calcular o DRE", http.StatusInternalServerError)
 			return
@@ -164,7 +167,7 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 			if a, ok := res0.Ativos[p.Fim.Format("2006-01")]; ok {
 				// Existe fechamento ativo do mês (qualquer filial)? Independe do filtro.
 				fechAtivo, fechVersao = true, a.Versao
-				if a.Origem(filial) != dre.Vivo {
+				if a.OrigemFiliais(rec.Filiais) != dre.Vivo {
 					congelado, versao = true, a.Versao
 				}
 			}
@@ -198,7 +201,7 @@ func DREHandler(db *sql.DB) http.HandlerFunc {
 		}
 		sort.Slice(naoMapeado, func(i, j int) bool { return absf(naoMapeado[i].Valor) > absf(naoMapeado[j].Valor) })
 
-		writeAuditLog(db, c.EmpresaID, c.UserID, "dre", p.Fim.Format("2006-01"), "visualizar", map[string]any{"visao": visao, "filial": filial})
+		writeAuditLog(db, c.EmpresaID, c.UserID, "dre", p.Fim.Format("2006-01"), "visualizar", rec.comVisao(visao))
 		aviso := ""
 		if pctStatus == dre.PctSemPapel {
 			aviso = "Nenhuma linha do DRE está marcada como Faturamento Líquido — marque uma em Mapa do DRE para ver os percentuais."
@@ -699,7 +702,7 @@ func DRELinhaPapelHandler(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// DREDepartamentosHandler — GET /api/aud/dre/departamentos?ano=&mes=&visao=&filial=
+// DREDepartamentosHandler — GET /api/aud/dre/departamentos?ano=&mes=&visao=&filial=|agrupamento=<codigo>|grupo=1
 // DRE por departamento (Comercial, Logística, Administrativo), com as contas, o
 // total e o percentual sobre o Faturamento Líquido. O perfil `gestor` (sem escopo
 // até o épico 4) não recebe dado de departamento: 403, fail closed. "Sem
@@ -718,7 +721,10 @@ func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "ano/mes inválidos", http.StatusBadRequest)
 			return
 		}
-		filial := r.URL.Query().Get("filial")
+		rec, ok := resolverRecorte(w, r, db, c.EmpresaID)
+		if !ok {
+			return
+		}
 		erro := func(err error) {
 			log.Printf("dre departamentos: %v", err)
 			http.Error(w, "Erro ao calcular o DRE por departamento", http.StatusInternalServerError)
@@ -734,13 +740,13 @@ func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		leitor := dre.Leitor{Q: db}
-		lei, err := leitor.Ler(r.Context(), c.EmpresaID, filial, p, linhas, mapa)
+		lei, err := leitor.LerFiliais(r.Context(), c.EmpresaID, rec.Filiais, p, linhas, mapa)
 		if err != nil {
 			erro(err)
 			return
 		}
 		exibidas, congelada := linhas, false
-		if cong, ok, err := leitor.EstruturaCongelada(r.Context(), filial, p, lei.Ativos); err != nil {
+		if cong, ok, err := leitor.EstruturaCongelada(r.Context(), rec.Filiais[0], p, lei.Ativos); err != nil {
 			erro(err)
 			return
 		} else if ok {
@@ -752,7 +758,7 @@ func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 		if codFat != "" {
 			base = lei.Real[codFat]
 		}
-		contas, semContas, err := leitor.ContasPorDepartamento(r.Context(), c.EmpresaID, filial, p, mapa, lei.Ativos)
+		contas, semContas, err := leitor.ContasPorDepartamentoFiliais(r.Context(), c.EmpresaID, rec.Filiais, p, mapa, lei.Ativos)
 		if err != nil {
 			erro(err)
 			return
@@ -775,7 +781,7 @@ func DREDepartamentosHandler(db *sql.DB) http.HandlerFunc {
 		if len(semContas) > 0 {
 			avisos = append(avisos, "Fechamento anterior ao detalhe por conta: sem contas por departamento em "+strings.Join(semContas, ", ")+".")
 		}
-		writeAuditLog(db, c.EmpresaID, c.UserID, "dre_departamentos", p.Fim.Format("2006-01"), "visualizar", map[string]any{"visao": visao, "filial": filial})
+		writeAuditLog(db, c.EmpresaID, c.UserID, "dre_departamentos", p.Fim.Format("2006-01"), "visualizar", rec.comVisao(visao))
 		writeJSON(w, map[string]any{
 			"ini": p.Ini.Format("2006-01-02"), "fim": p.Fim.Format("2006-01-02"), "visao": visao,
 			"pct_status": status, "faturamento_liquido_linha": codFat, "faturamento_liquido": base,

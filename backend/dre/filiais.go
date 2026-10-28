@@ -172,6 +172,9 @@ func (f *Filiais) Salvar(ctx context.Context, in SalvarFilialIn) (FilialGerencia
 	if utf8.RuneCountInString(codigo) > maxCodigoFilial || utf8.RuneCountInString(nome) > maxNomeFilial {
 		return FilialGerencial{}, &ErroEntrada{Msg: "código: no máximo 40 caracteres; nome: no máximo 120"}
 	}
+	if strings.EqualFold(codigo, CodigoReservadoGrupo) {
+		return FilialGerencial{}, &ErrCodigoColide{Codigo: codigo, Com: "é a palavra reservada da visão de todas as filiais"}
+	}
 	if in.ID != "" && !reUUID.MatchString(in.ID) {
 		return FilialGerencial{}, &ErrFilialNaoEncontrada{}
 	}
@@ -184,6 +187,15 @@ func (f *Filiais) Salvar(ctx context.Context, in SalvarFilialIn) (FilialGerencia
 		return FilialGerencial{}, err
 	}
 	defer tx.Rollback()
+
+	var doAgrupamento bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM auditoria.agrupamentos_filiais
+		WHERE empresa_id=$1::uuid AND codigo=$2)`, in.EmpresaID, codigo).Scan(&doAgrupamento); err != nil {
+		return FilialGerencial{}, err
+	}
+	if doAgrupamento {
+		return FilialGerencial{}, &ErrCodigoColide{Codigo: codigo, Com: "já é o código de um agrupamento"}
+	}
 
 	id := in.ID
 	acao := "criar"
@@ -289,6 +301,16 @@ func (f *Filiais) Excluir(ctx context.Context, empresaID, userID, id string) err
 		return &ErrFilialNaoEncontrada{}
 	}
 	if err != nil {
+		return err
+	}
+	var agrup string
+	err = tx.QueryRowContext(ctx, `SELECT a.codigo FROM auditoria.agrupamentos_filiais_membros m
+		JOIN auditoria.agrupamentos_filiais a ON a.id = m.agrupamento_id AND a.empresa_id = m.empresa_id
+		WHERE m.empresa_id=$1::uuid AND m.filial_gerencial_id=$2::uuid ORDER BY a.codigo LIMIT 1`, empresaID, id).Scan(&agrup)
+	if err == nil {
+		return &ErrFilialEmAgrupamento{Filial: codigo, Agrupamento: agrup}
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
 	atuais, err := listarFiliais(ctx, tx, empresaID, id)

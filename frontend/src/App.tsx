@@ -24,6 +24,7 @@ const DREFechamentos = lazy(() => import('./pages/aud/DREFechamentos'))
 const AdmCarga = lazy(() => import('./pages/aud/AdmCarga'))
 const AdmUsuarios = lazy(() => import('./pages/aud/AdmUsuarios'))
 const AdmFiliais = lazy(() => import('./pages/aud/AdmFiliais'))
+const AdmAgrupamentos = lazy(() => import('./pages/aud/AdmAgrupamentos'))
 const AdmDepartamentos = lazy(() => import('./pages/aud/AdmDepartamentos'))
 const AdmDicionario = lazy(() => import('./pages/aud/AdmDicionario'))
 const AdmTrilha = lazy(() => import('./pages/aud/AdmTrilha'))
@@ -165,6 +166,7 @@ function AppLayout() {
               <Route path="/configuracoes" element={<AreaRoute area="configuracoes"><AreaHome moduleId="configuracoes" /></AreaRoute>} />
               <Route path="/configuracoes/carga" element={<AreaRoute area="configuracoes" perfis={['controladoria']}><AdmCarga /></AreaRoute>} />
               <Route path="/configuracoes/filiais" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmFiliais /></AreaRoute>} />
+              <Route path="/configuracoes/agrupamentos" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmAgrupamentos /></AreaRoute>} />
               <Route path="/configuracoes/departamentos" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmDepartamentos /></AreaRoute>} />
               <Route path="/configuracoes/dicionario" element={<AreaRoute area="configuracoes" perfis={['controladoria', 'auditoria']}><AdmDicionario /></AreaRoute>} />
               <Route path="/configuracoes/usuarios" element={<AreaRoute area="configuracoes" perfis={['controladoria']}><AdmUsuarios /></AreaRoute>} />
