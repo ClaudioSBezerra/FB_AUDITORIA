@@ -7,3 +7,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-1-fechar-cadastro-publico.md`
   summary: `frontend/src/pages/Register.tsx` ficou sem uso depois de a rota `/register` passar a redirecionar; pode ser apagado quando o cadastro público for descartado de vez.
   evidence: `App.tsx` não importa mais a página e nada mais referencia `/register`; foi mantido de propósito por ser reversível.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-1-testes-fechamento-importacao.md`
+  summary: Nenhum teste de handler passa pelo `AuditoriaAuthMiddleware` nem verifica isolamento entre empresas (perfil e área negados, dado da empresa A invisível à B).
+  evidence: os testes da 1.1 injetam `AudContext` direto na requisição; a política do projeto exige validação de perfil e áreas no backend.

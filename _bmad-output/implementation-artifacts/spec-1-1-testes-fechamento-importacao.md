@@ -2,7 +2,8 @@
 title: 'Story 1.1: Testes que registram o fechamento e a importação de hoje'
 type: 'chore'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: '07b2ef806a35665b847ecfddbb9199b648e89bec'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -79,3 +80,20 @@ Tamanho do plano: cerca de 1900 tokens (estimativa), acima de 1600, porque a his
 - `cd backend && go build ./... && go vet ./...` -- expected: sem erro
 - `cd backend && go test -p 1 ./...` -- expected: todos passam; `fb_auditoria_test` recriado
 - `psql -h localhost -U postgres -lqt | cut -d'|' -f1 | grep fb_auditoria` -- expected: `fb_auditoria` com a mesma data de antes e `fb_auditoria_test` presente
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| Guarda valida só o nome, não o host (DROP DATABASE em servidor remoto) | medium | patch | `Abrir` aceitava qualquer `TEST_DB_HOST`; agora só localhost, 127.0.0.1 e ::1 |
+| `part.Write` e `mw.Close` sem checagem de erro em `importar` | low | patch | corrigido com `t.Fatal` |
+| `"versao":1` por substring | low | patch | substituído por decodificação JSON (`versaoDaResposta`) |
+| Nenhum teste passa pelo `AuditoriaAuthMiddleware`; sem isolamento entre empresas | medium | defer | a spec fixa os handlers chamados direto; vai para as histórias de acesso (Épico 4) |
+| Cobertura fina (filial, sinal negativo, mes inválido, CSV malformado, reimportação) | low | rejeitado | fora da matriz da spec; as histórias 1.4 a 1.6 cobrem esses ramos ao mover o código |
+| `sync.Once` ignora o nome e não fecha o pool | low | rejeitado | só há um banco e um pacote; a nota de `-p 1` já está na spec |
+| Senha com caracteres especiais no DSN | low | rejeitado | padrão local simples; correção acrescenta complexidade |
+| `DROP ... WITH (FORCE)` exige Postgres 13 | false | rejeitado | produção e local usam Postgres 15 |
+| Helper não usa `schema_migrations` | low | rejeitado | já declarado na spec (helper repete só a ordem dos arquivos) |
+| Guarda de nome aceita outro `*_test` | low | rejeitado | a spec define o padrão `_test`; o host local limita o dano |
+| Teste de nome acoplado ao texto "inacessível" | low | rejeitado | negligível |
+| Demais (limpeza de fixtures, mensagem do 409, `-trimpath`) | low | rejeitado | sem dano real demonstrado |
