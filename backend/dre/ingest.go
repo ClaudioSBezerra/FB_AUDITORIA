@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sort"
 	"strconv"
+	"time"
 
 	"fb_auditoria/trilha"
 )
@@ -45,6 +46,9 @@ func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte
 		if l.Filial == "" {
 			probs = append(probs, Problema{l.Linha, "filial obrigatória"})
 		}
+		if l.Competencia.IsZero() {
+			probs = append(probs, Problema{l.Linha, "competência ausente"})
+		}
 	}
 	if len(probs) > 0 {
 		sort.SliceStable(probs, func(i, j int) bool { return probs[i].Linha < probs[j].Linha })
@@ -74,6 +78,31 @@ func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte
 		return Resultado{}, err
 	}
 	defer tx.Rollback()
+	// Guarda de período (AD-8): trava todas as competências em ordem crescente
+	// e recusa o arquivo inteiro se alguma estiver fechada. Antes de qualquer escrita.
+	comps := map[string]time.Time{}
+	for _, l := range lancs {
+		c := time.Date(l.Competencia.Year(), l.Competencia.Month(), 1, 0, 0, 0, 0, time.UTC)
+		comps[c.Format("2006-01-02")] = c
+	}
+	ordem := make([]time.Time, 0, len(comps))
+	for _, c := range comps {
+		ordem = append(ordem, c)
+	}
+	sort.Slice(ordem, func(i, j int) bool { return ordem[i].Before(ordem[j]) })
+	var recusados []EscopoFechado
+	for _, c := range ordem {
+		if err := (Periodo{}).Guardar(ctx, tx, empresaID, c); err != nil {
+			var pf *ErrPeriodoFechado
+			if !errors.As(err, &pf) {
+				return Resultado{}, err
+			}
+			recusados = append(recusados, pf.Escopos...)
+		}
+	}
+	if len(recusados) > 0 {
+		return Resultado{}, &ErrPeriodoFechado{Escopos: recusados}
+	}
 	var cargaID int64
 	if err := tx.QueryRowContext(ctx, `INSERT INTO auditoria.cargas (empresa_id, user_id, arquivo) VALUES ($1::uuid,$2::uuid,$3) RETURNING id`,
 		empresaID, userID, arquivo).Scan(&cargaID); err != nil {

@@ -53,11 +53,15 @@ func (f *Fechamento) Fechar(ctx context.Context, in FecharIn) (FecharOut, error)
 		return FecharOut{}, &ErroEntrada{Msg: "ano/mes inválidos"}
 	}
 	comp := time.Date(in.Ano, time.Month(in.Mes), 1, 0, 0, 0, 0, time.UTC)
-	tx, err := f.DB.BeginTx(ctx, nil)
+	tx, err := f.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
 	if err != nil {
 		return FecharOut{}, err
 	}
 	defer tx.Rollback()
+	// Mesmo lock de Guardar: serializa com importações da competência.
+	if err := travar(ctx, tx, in.EmpresaID, comp); err != nil {
+		return FecharOut{}, err
+	}
 
 	linhas, err := CarregarLinhas(ctx, tx, in.EmpresaID)
 	if err != nil {

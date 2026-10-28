@@ -40,3 +40,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-5-fechamento-servico-dre.md`
   summary: A guarda de arquitetura do fechamento só olha `INSERT INTO` em `handlers/`; deveria cobrir UPDATE e DELETE, outros espaçamentos e todos os pacotes fora de `dre`.
   evidence: `backend/arquitetura_test.go`, `TestSoODreEscreveFechamento`; não há violação hoje.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-6-guarda-de-periodo.md`
+  summary: Quem espera o lock do período (Fechar ou outra importação) fica bloqueado sem limite enquanto uma importação longa não termina; falta `lock_timeout` com resposta 409 ou 503.
+  evidence: `Periodo.Guardar` e `travar` tomam `pg_advisory_xact_lock` e o mantêm até o commit.

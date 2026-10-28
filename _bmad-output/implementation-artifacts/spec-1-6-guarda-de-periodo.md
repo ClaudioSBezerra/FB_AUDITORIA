@@ -2,7 +2,8 @@
 title: 'Story 1.6: Guarda de período e bloqueio de escrita em mês fechado (FR-11, AD-8)'
 type: 'feature'
 created: '2026-10-28'
-status: 'ready-for-dev'
+status: 'done'
+baseline_commit: 'd2ea78334e4ed590864b524215ce529bc6dc75b7'
 route: 'dispatch'
 review_loop_iteration: 0
 context:
@@ -72,3 +73,19 @@ O lock é de transação (`xact`), então se solta no `Commit` ou `Rollback`, se
 **Commands:**
 - `cd backend && go build ./... && go vet ./... && go test -p 1 ./...` -- expected: sem erro
 - `cd backend && go test -p 1 -count=20 -run Corrida ./dre/` -- expected: passa nas 20 repetições
+
+## Review Triage Log
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| `Guardar` compara a data exata e a chave do lock é do mês: competência fora do dia 1 passa como aberta | medium | patch | normalizada para o dia 1 no lock e na consulta; `TestGuardaNormalizaDiaENullFilial` |
+| Filial NULL em `dre_fechamentos` quebraria o `Scan` (500 em vez de 409) | low | patch | `COALESCE(filial,'')` |
+| Lançamento com competência zerada fura a guarda | medium | patch | rejeitado antes da transação, com a linha (`ErroLinhas`) |
+| Ordem crescente dos locks sem teste | medium | patch | `TestOrdemDosLocksSemDeadlock` |
+| `t.Fatal` dentro de goroutine nos testes | low | patch | `importarErr` |
+| Guarda recusa mês com fechamento de qualquer filial | low | rejeitado | é o que a spec define |
+| Teste AST contornável (const, ordem da chamada, receptor, `dre/fontes`) | low | defer | mesma guarda estreita já registrada na 1.5 |
+| Espera de lock sem `lock_timeout` | low | defer | importação longa segura o lock; observar |
+| `Fechar` não checa fechamento já existente | low | defer | é a regra de ativo único da 1.7 |
+| Sleep de 500 ms e poucas repetições nos testes de corrida; chave FNV e caixa do UUID | low | rejeitado | sem falha demonstrada |
+| Sem trilha para importação recusada | low | rejeitado | a spec não pede |

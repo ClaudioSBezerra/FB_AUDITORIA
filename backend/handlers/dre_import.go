@@ -35,7 +35,10 @@ func DREImportarHandler(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			var ee *dre.ErroEntrada
 			var el *dre.ErroLinhas
+			var pf *dre.ErrPeriodoFechado
 			switch {
+			case errors.As(err, &pf):
+				http.Error(w, err.Error(), http.StatusConflict)
 			case errors.As(err, &ee), errors.As(err, &el):
 				http.Error(w, err.Error(), http.StatusBadRequest)
 			default:

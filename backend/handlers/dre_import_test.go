@@ -70,9 +70,8 @@ func TestImportar_SeparadorEquivalente(t *testing.T) {
 	}
 }
 
-// Hoje a importação em competência com fechamento é aceita (muda na 1.6:
-// passa a ser recusada com 409).
-func TestImportar_MesFechado_Aceita_MudaNa1_6(t *testing.T) {
+// Competência com fechamento recusa a importação (409) e nada é gravado (FR-11).
+func TestImportar_MesFechado_Recusa409(t *testing.T) {
 	db := testdb.Open(t)
 	f := testdb.NovaEmpresa(t, db)
 	if _, err := db.Exec(`INSERT INTO auditoria.dre_fechamentos (empresa_id, competencia, versao, filial, fechado_por)
@@ -80,11 +79,11 @@ func TestImportar_MesFechado_Aceita_MudaNa1_6(t *testing.T) {
 		t.Fatal(err)
 	}
 	w := importar(t, f, "fechado.csv", csvPontoEVirgula)
-	if w.Code != http.StatusOK {
-		t.Fatalf("esperava aceitar em mês fechado (hoje), veio %d: %s", w.Code, w.Body.String())
+	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "2026-09") || !strings.Contains(w.Body.String(), "reabrir") {
+		t.Fatalf("esperava 409 com escopo e pedido de reabrir, veio %d: %s", w.Code, w.Body.String())
 	}
-	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid`, f.EmpresaID); n != 2 {
-		t.Errorf("esperava 2 lançamentos gravados, vieram %d", n)
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid`, f.EmpresaID); n != 0 {
+		t.Errorf("esperava nada gravado, vieram %d", n)
 	}
 }
 
