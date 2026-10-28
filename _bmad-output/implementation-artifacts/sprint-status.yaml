@@ -1,0 +1,126 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 10-28-2026 00:05
+last_updated: 10-28-2026 00:05
+project: FB_AUDITORIA
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+development_status:
+  epic-1: backlog
+  1-1-testes-que-registram-o-fechamento-e-a-importação-de-hoje: backlog
+  1-2-marcador-teste-produção-e-apagar-os-dados-de-teste-fr-21-ad: backlog
+  1-3-virar-para-produção-e-faixa-de-ambiente-fr-21: backlog
+  1-4-importação-csv-passa-pelo-ingestor-ad-1-ad-2-ad-3: backlog
+  1-5-fechamento-passa-pelo-serviço-dre-ad-1: backlog
+  1-6-guarda-de-período-e-bloqueio-de-escrita-em-mês-fechado-fr-11: backlog
+  1-7-um-fechamento-ativo-por-mês-e-reabertura-com-motivo-fr-9-fr: backlog
+  1-8-mês-fechado-lido-do-que-foi-congelado-ad-17: backlog
+  1-9-nenhum-endereço-do-banco-do-cliente-no-repositório-nfr7: backlog
+  epic-1-retrospective: optional
+
+  epic-2: backlog
+  2-1-uma-conta-uma-fonte-ad-16: backlog
+  2-2-csv-no-formato-da-planilha-atual-fr-3: backlog
+  2-3-ler-o-realizado-consolidado-do-oracle-fr-1-ad-2-ad-4: backlog
+  2-4-registrar-cada-importação-e-a-posse-das-contas-fr-1-ad-15-ad: backlog
+  2-5-tela-importar-do-banco-do-cliente: backlog
+  2-6-orçado-do-oracle-por-conta-fr-2-ad-5: backlog
+  2-7-o-dre-lê-o-orçado-por-conta-ad-5: backlog
+  2-8-trocar-a-dona-da-conta-ad-16: backlog
+  2-9-cadastro-de-departamentos: backlog
+  2-10-dicionário-de-contas-por-arquivo-fr-20-ad-2: backlog
+  2-11-dicionário-inicial-validado-com-o-cliente-tarefa-de-dados: backlog
+  2-12-conferir-o-oracle-contra-a-planilha: backlog
+  2-13-importação-automática-diária-opcional-ad-15: backlog
+  epic-2-retrospective: optional
+
+  epic-3: backlog
+  3-1-estrutura-do-dre-editável-fr-5: backlog
+  3-2-carregar-estrutura-e-mapa-por-arquivo-fr-5-fr-6: backlog
+  3-3-estrutura-e-mapa-iniciais-derivados-da-planilha-tarefa-de-da: backlog
+  3-4-dre-com-percentual-sobre-o-faturamento-líquido-fr-7: backlog
+  3-5-dre-por-departamento-fr-6-fr-7: backlog
+  3-6-orçado-e-ano-anterior-sem-orçado-e-detalhe-até-a-filial-fr-8: backlog
+  3-7-paridade-do-dre-com-a-planilha: backlog
+  3-8-primeira-demonstração-ao-cliente-marco: backlog
+  epic-3-retrospective: optional
+
+  epic-4: in-progress
+  4-1-fechar-o-cadastro-público-fr-19-ar-14-a-primeira-a-sair: done
+  4-2-perfil-analista-e-matriz-de-capacidades-ad-11: backlog
+  4-3-migrar-as-rotas-para-capacidades-ad-11: backlog
+  4-4-ids-de-área-novos-e-menu-ad-12: backlog
+  4-5-usuários-com-perfil-e-departamentos-fr-18-ad-10: backlog
+  4-6-bloqueio-de-usuário-no-lugar-da-expiração-fr-22-ad-19: backlog
+  4-7-escopo-por-departamento-que-nega-por-padrão-fr-18-ad-10: backlog
+  4-8-meu-departamento-para-o-gerente-fr-18-fr-8: backlog
+  4-9-criar-usuário-da-empresa-fr-19: backlog
+  epic-4-retrospective: optional
+
+  epic-5: backlog
+  5-1-limite-de-desvio-e-lista-de-aviso-fr-13: backlog
+  5-2-ver-os-desvios-que-exigem-justificativa-fr-12: backlog
+  5-3-registrar-a-justificativa-de-um-desvio-fr-12-ad-7: backlog
+  5-4-ajuste-imutável-com-motivo-fr-4-ad-6: backlog
+  5-5-justificar-os-ajustes-fr-4-fr-12: backlog
+  5-6-fila-de-e-mail-e-envio-ad-13: backlog
+  5-7-aviso-de-ajuste-por-e-mail-fr-4: backlog
+  5-8-e-mail-do-dre-por-departamento-no-fechamento-fr-14: backlog
+  5-9-painel-de-envios-fr-14: backlog
+  epic-5-retrospective: optional
+
+  epic-6: backlog
+  6-1-ranking-dos-maiores-desvios-fr-16: backlog
+  6-2-desvios-por-departamento-gerente-filial-e-ano-fr-16: backlog
+  6-3-despesa-sobre-o-faturamento-líquido-e-está-subindo-fr-17: backlog
+  6-4-ponte-do-resultado-fr-17: backlog
+  6-5-projeção-de-fechamento-do-ano-fr-17: backlog
+  6-6-copiar-o-gráfico-como-imagem-opcional: backlog
+  epic-6-retrospective: optional
+
+  epic-7: backlog
+  7-1-regras-de-rateio-fr-15: backlog
+  7-2-aplicar-o-rateio-na-competência-fr-15-ad-14-ad-8: backlog
+  7-3-aba-rateio-fr-15: backlog
+  7-4-o-dre-por-filial-mostra-o-rateio-fr-15: backlog
+  7-5-rateio-no-fechamento-e-na-reabertura-ad-14-ad-17: backlog
+  epic-7-retrospective: optional
+
+  epic-8: backlog
+  8-1-backup-diário-da-auditoria-com-restauração-testada-nfr6-ar-1: backlog
+  8-2-autorização-do-cliente-para-o-destino-do-backup-nfr6-começar: backlog
+  8-3-cobertura-da-fonte-o-que-ainda-depende-de-arquivo-p11: backlog
+  8-4-checklist-antes-de-virar-para-produção-nfr6-nfr7: backlog
+  8-5-imagens-e-versões-sem-validade-vencida-ar-16: backlog
+  8-6-apagar-usuário-sem-quebrar-a-trilha-ar-16: backlog
+  8-7-alerta-ao-administrador-quando-a-importação-ou-o-envio-falha: backlog
+  epic-8-retrospective: optional
