@@ -19,7 +19,7 @@ Este documento decompõe os requisitos do PRD e as decisões da arquitetura da R
 FR-1: Importar o Realizado consolidado do banco do cliente, por Competência e Filial, sem escrever no banco do cliente; reimportar substitui, não duplica; competência fechada é recusada.
 FR-2: Importar o Orçado por ano, Filial e Conta gerencial, convertendo as 12 colunas de mês em um Lançamento de Orçado por Competência; nulo é "sem orçado", não zero.
 FR-3: Carregar o Realizado por Conta gerencial por arquivo CSV (provisório), com validação antes de gravar e recusa em competência fechada.
-FR-4: Lançar Ajuste em Conta gerencial de Competência aberta, com valor e motivo obrigatório; avisar a Lista de aviso por e-mail; exigir Justificativa dos Gerentes afetados; o Ajuste é imutável.
+FR-4 (EM REVISÃO: o ajuste vem do ERP, sem lançamento manual no sistema): Lançar Ajuste em Conta gerencial de Competência aberta, com valor e motivo obrigatório; avisar a Lista de aviso por e-mail; exigir Justificativa dos Gerentes afetados; o Ajuste é imutável.
 FR-5: Manter a estrutura de Linhas do DRE (descrição, ordem, nível, tipo conta ou subtotal, linhas somadas).
 FR-6: Manter o Mapa de contas (Conta gerencial para Linha do DRE com sinal, e para Departamento); a associação mais específica prevalece.
 FR-7: Exibir o DRE mensal e acumulado, por Filial ou grupo, com subtotais exatos e percentual sobre o Faturamento Líquido; competência fechada usa os valores congelados.
@@ -1329,6 +1329,9 @@ So that a controladoria saiba por que a área fugiu do orçado.
 
 ### Story 5.4: Ajuste imutável com motivo (FR-4, AD-6)
 
+> **REVISÃO 28/10/2026 (decisão do cliente):** o ajuste vem do ERP e chega pelo banco, junto da ingestão; o sistema não tem lançamento manual de ajuste. Esta história, como escrita, está **suspensa**: será reescrita (ajuste como componente do realizado ingerido, com a justificativa e o aviso ligados a ele) depois das respostas do dono dos dados sobre a fonte. Não implementar. Ver `respostas-cliente-2026-10-28.md`.
+
+
 As a analista,
 I want lançar um ajuste numa conta de mês aberto, com motivo,
 So that a correção fique registrada sem alterar o dado original.
@@ -1364,6 +1367,9 @@ So that a correção fique registrada sem alterar o dado original.
 **And** reimportar não toca nos ajustes, e gestor ou diretoria recebem `403`
 
 ### Story 5.5: Justificar os ajustes (FR-4, FR-12)
+
+> **REVISÃO 28/10/2026 (decisão do cliente):** o ajuste vem do ERP e chega pelo banco, junto da ingestão; o sistema não tem lançamento manual de ajuste. Esta história, como escrita, está **suspensa**: será reescrita (ajuste como componente do realizado ingerido, com a justificativa e o aviso ligados a ele) depois das respostas do dono dos dados sobre a fonte. Não implementar. Ver `respostas-cliente-2026-10-28.md`.
+
 
 As a Gerente,
 I want ver e justificar os ajustes feitos nas contas do meu departamento,
@@ -1420,6 +1426,9 @@ So that nenhum e-mail se perca nem saia duplicado.
 **Then** vão à trilha
 
 ### Story 5.7: Aviso de ajuste por e-mail (FR-4)
+
+> **REVISÃO 28/10/2026 (decisão do cliente):** o ajuste vem do ERP e chega pelo banco, junto da ingestão; o sistema não tem lançamento manual de ajuste. Esta história, como escrita, está **suspensa**: será reescrita (ajuste como componente do realizado ingerido, com a justificativa e o aviso ligados a ele) depois das respostas do dono dos dados sobre a fonte. Não implementar. Ver `respostas-cliente-2026-10-28.md`.
+
 
 As a Controller,
 I want que a Lista de aviso seja avisada quando um ajuste é lançado,

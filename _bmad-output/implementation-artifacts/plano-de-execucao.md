@@ -20,6 +20,10 @@ Complementa o `sprint-status.yaml`, que não tem estado "bloqueado". Atualizado 
 1.1 a 1.9; 2.1 a 2.10, 2.12; 3.1, 3.2, 3.4 a 3.7; 4.2 a 4.9; 5.1 a 5.9; 6.1 a 6.5; 8.3 a 8.6.
 Opcionais (só se sobrar tempo e nada mais estiver pendente): 2.13, 6.6, 8.7.
 
+## Histórias suspensas por mudança de requisito (28/10/2026)
+
+5.4, 5.5 e 5.7: o ajuste vem do ERP, sem lançamento manual. Não executar até reescrever. Novo requisito sem história: disparo semanal (sexta) do acumulado do mês por e-mail. O Épico 7 (rateio) deixou de depender do cliente: regras em `respostas-cliente-2026-10-28.md`.
+
 ## Histórias que dependem de decisão humana ou de ação fora do repositório (não executar)
 
 - **2.11** Dicionário inicial validado com o cliente (precisa da área de negócio dele).
