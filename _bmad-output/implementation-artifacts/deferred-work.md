@@ -55,3 +55,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-8-mes-fechado-do-snapshot.md`
   summary: A chave do snapshot ainda é a filial do ERP; ao entrar o Mapa de filiais (2.14) ela deve virar a filial gerencial.
   evidence: `dre_fechamento_linhas` e `dre_fechamento_contas` guardam `filial` do lançamento.
+- source_spec: `_bmad-output/implementation-artifacts/spec-1-9-sem-endereco-do-cliente.md`
+  summary: O modo `-resumo` do `jc-probe` mantém nomes de views e do schema do cliente como literais nas consultas; revisar na limpeza de privacidade do Git, junto do `review-rubric.md` e do histórico.
+  evidence: `backend/cmd/jc-probe/main.go`; fora do alcance da 1.9 por decisão da spec.

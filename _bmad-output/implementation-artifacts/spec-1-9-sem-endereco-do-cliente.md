@@ -2,7 +2,7 @@
 title: 'Story 1.9: Nenhum endereço do banco do cliente no repositório (NFR7)'
 type: 'chore'
 created: '2026-10-28'
-status: 'in-progress'
+status: 'done'
 baseline_commit: '26ef050b2c16b9ce76305d65ab40153e7f80c624'
 route: 'dispatch'
 review_loop_iteration: 0
@@ -81,3 +81,13 @@ O arquivo de revisão em `_bmad-output/planning-artifacts` mantém o endereço e
 - `cd backend && go run ./cmd/jc-probe` sem variáveis `JC_*` -- expected: falha pedindo-as por nome, sem tentar conectar
 - `cd backend && go mod tidy && git diff --stat go.mod go.sum` -- expected: só `go-ora` sai de `indirect`
 - `docker compose config` sem as variáveis -- expected: erro do compose (variáveis obrigatórias)
+
+## Review Triage Log
+
+Revisão feita por mim sobre o diff (4,5 KB; o subagente já havia commitado em `ce75e21`, então os três revisores paralelos não rodaram). Sem achado que exija correção:
+
+| Achado | Veredito | Rota | Evidência |
+|--------|----------|------|-----------|
+| Deploy no Coolify falha se `JC_ORACLE_HOST`, `SERVICE` ou `DRE_VIEWS` faltarem | medium | defer | é a regra escolhida (`${VAR:?}`); o dono do produto confirmou que as três já estão cadastradas |
+| `-resumo` do `jc-probe` ainda traz nomes de view e schema do cliente em literais no SQL | low | defer | a spec manda deixar; entra na revisão de privacidade do Git |
+| Endereço do banco continua no histórico do Git e em `review-rubric.md` | low | defer | decidido: limpeza só quando o dono do produto disser "concluímos" |
