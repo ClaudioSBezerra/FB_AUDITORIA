@@ -28,6 +28,7 @@ import (
 	"io"
 	"math"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -43,8 +44,12 @@ const (
 	origemSistema  = "csv"
 	origemPlanilha = "csv.contas"
 
-	maxLinhasCabecalho  = 20
-	limiteDescompactado = 256 << 20
+	maxLinhasCabecalho = 20
+	// Teto da soma dos arquivos descompactados de um XLSX (anti zip bomb). Uma
+	// pasta de trabalho inteira, com abas de centenas de MB, cabe; só as abas lidas
+	// vão para a memória, e XML acima de limiteXMLMemoria é gravado em disco.
+	limiteDescompactado = 4 << 30
+	limiteXMLMemoria    = 64 << 20
 )
 
 // Fonte lê um CSV ou XLSX de um io.Reader.
@@ -281,14 +286,20 @@ func lerXLSX(data []byte, cab, primeira func([]string) bool) (rows []linha, err 
 		}
 	}()
 	x, err := excelize.OpenReader(bytes.NewReader(data), excelize.Options{
-		UnzipSizeLimit: limiteDescompactado, UnzipXMLSizeLimit: limiteDescompactado,
+		UnzipSizeLimit: limiteDescompactado, UnzipXMLSizeLimit: limiteXMLMemoria,
 		RawCellValue: true,
 	})
 	if err != nil {
 		return nil, &dre.ErroEntrada{Msg: "XLSX corrompido ou ilegível"}
 	}
 	defer x.Close()
-	for _, nome := range x.GetSheetList() {
+	// A aba de entrada do cliente primeiro: numa pasta de trabalho completa, as
+	// outras abas podem ter centenas de MB e não precisam ser lidas.
+	nomes := x.GetSheetList()
+	sort.SliceStable(nomes, func(i, j int) bool {
+		return ehAbaEntrada(nomes[i]) && !ehAbaEntrada(nomes[j])
+	})
+	for _, nome := range nomes {
 		cels, err := x.GetRows(nome)
 		if err != nil {
 			return nil, &dre.ErroEntrada{Msg: "XLSX corrompido ou ilegível"}
@@ -302,6 +313,10 @@ func lerXLSX(data []byte, cab, primeira func([]string) bool) (rows []linha, err 
 		}
 	}
 	return nil, nil // sem cabeçalho em nenhuma planilha
+}
+
+func ehAbaEntrada(nome string) bool {
+	return strings.EqualFold(strings.TrimSpace(nome), "Entrada_Dados")
 }
 
 // tabela é o conteúdo lido de um CSV ou XLSX: as linhas, o índice do cabeçalho
@@ -364,6 +379,9 @@ func (f *Fonte) Ler(ctx context.Context, _ dre.Escopo) ([]dre.Lancamento, error)
 	f.origem, f.ajustes, f.xlsx, f.ignoradas, f.conf = origemSistema, 0, false, 0, nil
 	data, err := io.ReadAll(f.r)
 	if err != nil {
+		if strings.Contains(err.Error(), "request body too large") {
+			return nil, &dre.ErroEntrada{Msg: "arquivo maior que o limite de upload"}
+		}
 		return nil, &dre.ErroEntrada{Msg: "arquivo ilegível"}
 	}
 	if len(data) == 0 {

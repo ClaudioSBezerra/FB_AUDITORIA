@@ -23,10 +23,10 @@ func DREImportarHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		c := GetAudContext(r)
-		r.Body = http.MaxBytesReader(w, r.Body, 64<<20)
+		r.Body = http.MaxBytesReader(w, r.Body, limiteCargaBytes())
 		f, hdr, err := r.FormFile("arquivo")
 		if err != nil {
-			http.Error(w, "arquivo obrigatório", http.StatusBadRequest)
+			erroUploadCarga(w, err)
 			return
 		}
 		defer f.Close()

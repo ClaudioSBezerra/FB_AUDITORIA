@@ -28,6 +28,7 @@ services:
       - JC_ORACLE_USER=${JC_ORACLE_USER}
       - JC_ORACLE_PASS=${JC_ORACLE_PASS}
       - JC_EMPRESA_ID=${JC_EMPRESA_ID:-}
+      - CARGA_MAX_MB=${CARGA_MAX_MB:-1024}
       - JC_ORACLE_DRE_VIEWS=${JC_ORACLE_DRE_VIEWS:?JC_ORACLE_DRE_VIEWS é obrigatória}
     depends_on:
       db:
