@@ -14,13 +14,13 @@ interface CargaResumo { id: number; arquivo: string; ano: number; visao: string;
 interface Periodos { contas: Escopo[]; linhas: Escopo[]; cargas: CargaResumo[] }
 interface Item {
   chave: string; descricao: string; status: Status; planilha: number | null; sistema: number | null
-  diferenca: number; diferenca_pct?: number; subtotal?: boolean
+  diferenca: number; diferenca_pct?: number; subtotal?: boolean; obs?: string
 }
 type Status = 'OK' | 'DIVERGE' | 'SO_PLANILHA' | 'SO_SISTEMA'
 interface Resp {
   competencia: string; nivel: string; filial: string; origem: string; tolerancia: number; fechada: boolean
   carga: { id: number; arquivo: string; quando: string; usuario: string } | null
-  resumo: { ok: number; diverge: number; so_planilha: number; so_sistema: number; soma_diferencas: number; total_planilha: number; total_sistema: number; totais_validos: boolean }
+  resumo: { ok: number; diverge: number; so_planilha: number; so_sistema: number; sinal_invertido?: number; soma_diferencas: number; total_planilha: number; total_sistema: number; totais_validos: boolean }
   total: number; linhas: Item[]; avisos: string[]
 }
 interface ResultadoCarga {
@@ -173,7 +173,7 @@ export default function Comparativo() {
           {d.carga && <p className="text-xs text-muted-foreground">Planilha: {d.carga.arquivo}, enviada em {d.carga.quando}{d.carga.usuario ? ` por ${d.carga.usuario}` : ''}. Filial {d.filial || '—'}.</p>}
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            <Cartao titulo="OK" valor={d.resumo.ok} sub={`dentro de ${num(d.tolerancia)}`} cor="text-green-700" onClick={() => { setFiltro('OK'); setPagina(0) }} />
+            <Cartao titulo="OK" valor={d.resumo.ok} sub={`dentro de ${num(d.tolerancia)}${d.resumo.sinal_invertido ? ` · ${d.resumo.sinal_invertido} com sinal invertido` : ''}`} cor="text-green-700" onClick={() => { setFiltro('OK'); setPagina(0) }} />
             <Cartao titulo="Diverge" valor={d.resumo.diverge} sub="acima da tolerância" cor="text-red-700" onClick={() => { setFiltro('DIVERGE'); setPagina(0) }} />
             <Cartao titulo="Só planilha" valor={d.resumo.so_planilha} sub="sem par no sistema" cor="text-amber-700" onClick={() => { setFiltro('SO_PLANILHA'); setPagina(0) }} />
             <Cartao titulo="Só sistema" valor={d.resumo.so_sistema} sub="sem par na planilha" cor="text-blue-700" onClick={() => { setFiltro('SO_SISTEMA'); setPagina(0) }} />
@@ -195,7 +195,7 @@ export default function Comparativo() {
               <tbody>
                 {linhas.map(x => (
                   <tr key={x.chave} className={`border-b last:border-0 ${x.subtotal ? 'font-semibold' : ''}`}>
-                    <td className="p-2"><span className={`rounded px-1.5 py-0.5 text-[11px] ${COR[x.status]}`}>{ROTULO[x.status]}</span></td>
+                    <td className="p-2"><span className={`rounded px-1.5 py-0.5 text-[11px] ${COR[x.status]}`}>{ROTULO[x.status]}</span>{x.obs && <span className="ml-1.5 text-[11px] text-muted-foreground">({x.obs})</span>}</td>
                     <td className="p-2 font-mono">{x.chave}</td><td className="p-2">{x.descricao}</td>
                     <td className="p-2 text-right tabular-nums">{x.planilha == null ? '—' : num(x.planilha)}</td>
                     <td className="p-2 text-right tabular-nums">{x.sistema == null ? '—' : num(x.sistema)}</td>
@@ -240,7 +240,7 @@ function ComoFunciona() {
       <ul className="list-disc pl-5 mt-2 space-y-1">
         <li><b>Lado da planilha:</b> o que veio da planilha de análise enviada: a aba <code>MENSAL</code> (linhas do DRE, uma filial por vez) e a aba <code>Real_AA</code> (soma por conta, mês e loja).</li>
         <li><b>Lado do sistema:</b> por linha, o DRE do sistema (mês fechado vem do fechamento, mês aberto é calculado na hora); por conta, a soma bruta dos lançamentos da filial no mês (sem o sinal do Mapa), de todas as origens ou só da origem escolhida.</li>
-        <li><b>OK ou Diverge:</b> a diferença é planilha menos sistema. Até a tolerância (em R$) é OK; acima, Diverge. O percentual é só informativo. Só planilha e Só sistema são linhas ou contas sem par do outro lado.</li>
+        <li><b>OK ou Diverge:</b> a diferença é planilha menos sistema. Até a tolerância (em R$) é OK; acima, Diverge. O percentual é só informativo. Só planilha e Só sistema são linhas ou contas sem par do outro lado. Por conta, se os dois lados têm o mesmo valor com o sinal trocado (o sistema guarda o valor bruto e a planilha já traz o sinal), conta como OK e aparece como "sinal invertido".</li>
         <li><b>A planilha fica gravada:</b> enviar de novo o mesmo ano substitui o que estava gravado daquele ano (as contas de todas as lojas e as linhas da filial da planilha).</li>
         <li><b>Não entra no DRE:</b> os dados da planilha ficam em tabelas à parte e nunca são somados aos lançamentos.</li>
         <li>A filial <code>01</code> e a <code>1</code> são a mesma. Por linha, sem filial informada, vale a filial da última planilha.</li>

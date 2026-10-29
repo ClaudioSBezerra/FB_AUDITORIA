@@ -269,6 +269,18 @@ type chaveReal struct {
 	filial, conta string
 }
 
+// ehLinhaDeTotal reconhece os totais e as provas de rotina que a aba Real_AA
+// traz junto das contas (tabela dinâmica): não são contas.
+func ehLinhaDeTotal(conta string) bool {
+	c := strings.ToLower(strings.TrimSpace(conta))
+	switch c {
+	case "total", "total geral", "(vazio)", "resultado resumo":
+		return true
+	}
+	return strings.HasPrefix(c, "calculo para prova real") || strings.HasPrefix(c, "cálculo para prova real") ||
+		strings.HasPrefix(c, "diferença (tem que") || strings.HasPrefix(c, "diferenca (tem que")
+}
+
 // lerReal soma VALOR por (mês, loja, conta) da aba Real_AA: A conta, B valor,
 // C mês (AAAAMM), D loja. Linha sem conta ou sem mês válido do ano é ignorada.
 func lerReal(x *excelize.File, aba string, a *Analise) error {

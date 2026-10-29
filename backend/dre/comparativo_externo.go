@@ -228,15 +228,19 @@ type ItemComparativo struct {
 	Diferenca    float64  `json:"diferenca"` // planilha − sistema
 	DiferencaPct *float64 `json:"diferenca_pct,omitempty"`
 	Subtotal     bool     `json:"subtotal,omitempty"`
-	ordem        int
+	// Obs explica um OK que merece atenção (hoje: mesmo valor com sinal invertido).
+	Obs   string `json:"obs,omitempty"`
+	ordem int
 }
 
 // ResumoComparativo conta os status e soma as diferenças (valor absoluto).
 type ResumoComparativo struct {
-	OK             int     `json:"ok"`
-	Diverge        int     `json:"diverge"`
-	SoPlanilha     int     `json:"so_planilha"`
-	SoSistema      int     `json:"so_sistema"`
+	OK         int `json:"ok"`
+	Diverge    int `json:"diverge"`
+	SoPlanilha int `json:"so_planilha"`
+	SoSistema  int `json:"so_sistema"`
+	// SinalInvertido conta os OK (já somados em OK) que só diferem pelo sinal.
+	SinalInvertido int     `json:"sinal_invertido"`
 	SomaDiferencas float64 `json:"soma_diferencas"`
 	TotalPlanilha  float64 `json:"total_planilha"`
 	TotalSistema   float64 `json:"total_sistema"`

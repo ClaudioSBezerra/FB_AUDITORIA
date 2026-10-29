@@ -119,6 +119,19 @@ func novoItem(tol float64, chave, desc string, plan, sis *float64) ItemComparati
 	return it
 }
 
+// marcarSinalInvertido trata como OK a conta que diverge só pelo sinal: o
+// sistema guarda o valor bruto e a planilha já traz o sinal aplicado (devoluções,
+// por exemplo). O item segue visível, com a observação.
+func marcarSinalInvertido(it *ItemComparativo, tol float64) {
+	if it.Status != StatusDiverge || it.Planilha == nil || it.Sistema == nil || *it.Planilha == 0 {
+		return
+	}
+	if math.Abs(cents(*it.Planilha+*it.Sistema)) > tol+1e-9 {
+		return
+	}
+	it.Status, it.Obs = StatusOK, "sinal invertido"
+}
+
 func compararContas(ctx context.Context, q Consultador, empresaID string, comp time.Time, filial, origem string, plan map[string]ladoExt, out *Comparativo) error {
 	rows, err := q.QueryContext(ctx, `SELECT conta, SUM(valor)::float8, COALESCE(MAX(NULLIF(conta_desc, '')), '')
 		FROM auditoria.lancamentos

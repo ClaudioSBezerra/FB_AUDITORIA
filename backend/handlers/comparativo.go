@@ -278,14 +278,14 @@ func escreverComparativoCSV(w http.ResponseWriter, res *dre.Comparativo) {
 		}
 		return numBR(*v)
 	}
-	cw.Write([]string{"status", "filial", "chave", "descricao", "planilha", "sistema", "diferenca", "diferenca_pct"})
+	cw.Write([]string{"status", "filial", "chave", "descricao", "planilha", "sistema", "diferenca", "diferenca_pct", "obs"})
 	for _, x := range res.Todas() {
 		pct := ""
 		if x.DiferencaPct != nil {
 			pct = numBR(*x.DiferencaPct)
 		}
 		cw.Write([]string{celulaSegura(x.Status), celulaSegura(res.Filial), celulaSegura(x.Chave), celulaSegura(x.Descricao),
-			f(x.Planilha), f(x.Sistema), numBR(x.Diferenca), pct})
+			f(x.Planilha), f(x.Sistema), numBR(x.Diferenca), pct, celulaSegura(x.Obs)})
 	}
 	cw.Flush()
 }
