@@ -1,6 +1,6 @@
 {
-  "gerado_em": "2026-10-28",
-  "versao": "d67fcc2",
+  "gerado_em": "2026-10-29",
+  "versao": "2958a2f",
   "historias": [
     {
       "id": "1.1",
@@ -643,6 +643,92 @@
         "Dado um trimestre com os três meses fechados\nQuando o Mapa ou a estrutura mudam depois\nEntão o valor do trimestre não muda (vem do snapshot, mês a mês)",
         "Dado um gerente\nQuando abre a visão\nEntão vê só os grupos do seu departamento (escopo da 4.7)",
         "Dado o ano em curso\nQuando um trimestre ainda não começou\nEntão a coluna aparece vazia, sem erro"
+      ]
+    },
+    {
+      "id": "3.11",
+      "titulo": "Comparativo de vários anos (acumulado multi-ano)",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Diretor, quero ver o DRE acumulado até o mês escolhido, ano a ano (2020 em diante, quando houver dado), para que eu compare a evolução de vários anos sem abrir uma aba por ano.",
+      "criterios": [
+        "Dado um mês, uma filial (ou agrupamento, ou o grupo todo) e um intervalo de anos\nQuando o usuário escolhe \"Vários anos\"\nEntão vê uma coluna por ano com o acumulado do ano até o mês, com valor e percentual (base da 3.15)",
+        "Dado um ano sem dado\nEntão a coluna aparece vazia, sem erro",
+        "Dado meses fechados e abertos no acumulado\nEntão o que está fechado vem do snapshot e o que está aberto, ao vivo (como na 3.10), e a coluna marca o que é parcial",
+        "Dado um gerente\nEntão vê só os grupos do seu departamento (escopo da 4.7)"
+      ]
+    },
+    {
+      "id": "3.12",
+      "titulo": "Filiais lado a lado",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero comparar as filiais gerenciais lado a lado no mesmo mês ou acumulado, para que eu veja qual filial destoa sem trocar o filtro a cada vez.",
+      "criterios": [
+        "Dado um mês (ou o acumulado até ele) e a lista de filiais gerenciais e agrupamentos\nQuando o usuário escolhe \"Filiais lado a lado\"\nEntão vê uma coluna por filial gerencial, uma por agrupamento escolhido e o total do grupo, com valor e percentual",
+        "Dado uma filial sem lançamento no período\nEntão a coluna aparece vazia, não zero",
+        "Dado o escopo do usuário (4.7)\nEntão o gerente vê só as filiais e os grupos que lhe cabem"
+      ]
+    },
+    {
+      "id": "3.13",
+      "titulo": "DRE por centro de custo (natureza do gasto)",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Controller, quero abrir o DRE por centro de custo, a natureza do gasto, para que eu veja, por exemplo, quanto de despesa vai para transporte, manutenção ou vendas.",
+      "criterios": [
+        "Dado o dicionário por arquivo (2.10)\nQuando o arquivo traz a coluna de centro de custo\nEntão ela é gravada por conta e validada contra os centros cadastrados; sem a coluna, o comportamento atual não muda",
+        "Dado um mês e uma filial\nQuando o usuário escolhe \"Centro de custo\"\nEntão vê o realizado por centro de custo, com o total por departamento (Comercial, Logística, Administrativo) e o percentual",
+        "Dado uma conta sem centro de custo\nEntão aparece em \"sem centro de custo\", e a soma do DRE por centro bate com a do DRE por grupo"
+      ]
+    },
+    {
+      "id": "3.14",
+      "titulo": "Visão condensada \"Fechamento da diretoria\"",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Diretor, quero uma visão condensada do DRE (poucas linhas e os subtotais), para que eu leia o fechamento do mês em uma tela.",
+      "criterios": [
+        "Dado a estrutura do DRE\nQuando a controladoria marca quais linhas aparecem na visão da diretoria\nEntão a escolha é gravada e registrada na trilha",
+        "Dado um mês fechado\nQuando a diretoria abre \"Fechamento\"\nEntão vê só as linhas marcadas e os subtotais, com realizado, orçado, ano anterior e percentual, lidos do snapshot",
+        "Dado o perfil gestor\nEntão recebe 403 (capacidade de ler irrestrita)"
+      ]
+    },
+    {
+      "id": "3.15",
+      "titulo": "Percentual com a base certa (Venda Bruta e Venda Líquida)",
+      "epico": {
+        "numero": 3,
+        "nome": "DRE por departamento, com orçado e ano anterior"
+      },
+      "release": "A1",
+      "status": "Backlog",
+      "bloqueada_cliente": false,
+      "resumo": "Como Gerente, quero que o percentual de cada linha use a base da planilha do cliente, para que o DRE do sistema mostre os mesmos percentuais do Excel.",
+      "criterios": [
+        "Dado o DRE de uma filial\nQuando é mostrado\nEntão a Venda Bruta e as Devoluções têm percentual sobre a Venda Bruta, e as demais linhas sobre a Venda Líquida",
+        "Dado Venda Bruta zero\nEntão o percentual dessas duas linhas aparece vazio, sem erro",
+        "Dado a visão por departamento, por trimestre ou por vários anos\nEntão usam a mesma regra de base"
       ]
     },
     {

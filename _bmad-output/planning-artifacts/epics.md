@@ -210,7 +210,7 @@ So that o DRE reflita lançamentos corrigidos sem esperar a próxima carga.
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
 **FRs covered:** FR-5, FR-6, FR-7, FR-8
-**Notas:** Mapa e estrutura iniciais derivados da planilha; paridade completa com o DRE da planilha; o perfil `gestor` não vê dado de departamento até o épico 4; o fim deste épico é a primeira demonstração ao cliente.
+**Notas:** Mapa e estrutura iniciais derivados da planilha; paridade completa com o DRE da planilha (os subtotais da planilha são somas simples de linhas já com sinal: Venda Líquida = Bruta + Devoluções; Margem Bruta = Venda Líquida + CMV + Devolução de CMV + Recomposição + Dedução; Margem Composta = Margem Bruta + Desconto de custo + ST; Margem de Contribuição = Margem Composta + Impostos; Total de Despesas = Comercial + Logística + Administrativo; Margem Líquida = Margem de Contribuição + Total de Despesas; Resultado antes da tributação = Margem Líquida + Receitas/Despesas; Resultado após = antes + IRPJ + CSLL; ver `respostas-cliente-2026-10-28.md`); visões da planilha ainda não cobertas (3.11 a 3.15); o perfil `gestor` não vê dado de departamento até o épico 4; o fim deste épico é a primeira demonstração ao cliente.
 
 #### Story 3.9: Detalhe até o lançamento em mês fechado
 
@@ -267,6 +267,111 @@ So that eu compare os trimestres sem somar meses na mão.
 **Given** o ano em curso
 **When** um trimestre ainda não começou
 **Then** a coluna aparece vazia, sem erro
+
+### Story 3.11: Comparativo de vários anos (acumulado multi-ano)
+
+As a Diretor,
+I want ver o DRE acumulado até o mês escolhido, ano a ano (2020 em diante, quando houver dado),
+So that eu compare a evolução de vários anos sem abrir uma aba por ano.
+
+**Nota:** a planilha de análise do cliente tem uma aba de acumulado com um ano por coluna. Acumulado (AC) = do início do ano até o mês escolhido. Ano sem dado aparece vazio, não zero.
+
+**Acceptance Criteria:**
+
+**Given** um mês, uma filial (ou agrupamento, ou o grupo todo) e um intervalo de anos
+**When** o usuário escolhe "Vários anos"
+**Then** vê uma coluna por ano com o acumulado do ano até o mês, com valor e percentual (base da 3.15)
+
+**Given** um ano sem dado
+**Then** a coluna aparece vazia, sem erro
+
+**Given** meses fechados e abertos no acumulado
+**Then** o que está fechado vem do snapshot e o que está aberto, ao vivo (como na 3.10), e a coluna marca o que é parcial
+
+**Given** um gerente
+**Then** vê só os grupos do seu departamento (escopo da 4.7)
+
+### Story 3.12: Filiais lado a lado
+
+As a Controller,
+I want comparar as filiais gerenciais lado a lado no mesmo mês ou acumulado,
+So that eu veja qual filial destoa sem trocar o filtro a cada vez.
+
+**Nota:** a planilha de análise tem uma aba com uma coluna por filial. Usa a filial gerencial (2.14) e os agrupamentos (2.15) como colunas, além do grupo todo.
+
+**Acceptance Criteria:**
+
+**Given** um mês (ou o acumulado até ele) e a lista de filiais gerenciais e agrupamentos
+**When** o usuário escolhe "Filiais lado a lado"
+**Then** vê uma coluna por filial gerencial, uma por agrupamento escolhido e o total do grupo, com valor e percentual
+
+**Given** uma filial sem lançamento no período
+**Then** a coluna aparece vazia, não zero
+
+**Given** o escopo do usuário (4.7)
+**Then** o gerente vê só as filiais e os grupos que lhe cabem
+
+### Story 3.13: DRE por centro de custo (natureza do gasto)
+
+As a Controller,
+I want abrir o DRE por centro de custo, a natureza do gasto,
+So that eu veja, por exemplo, quanto de despesa vai para transporte, manutenção ou vendas.
+
+**Nota:** o dicionário do cliente liga cada conta a duas classificações: o grupo (a linha do DRE) e o centro de custo (a natureza do gasto). Comercial soma compras e vendas; Logística soma transporte e entrega, centro de distribuição e manutenção; Administrativo soma os demais grupos. O dicionário de contas (2.10) ganha a coluna de centro de custo.
+
+**Acceptance Criteria:**
+
+**Given** o dicionário por arquivo (2.10)
+**When** o arquivo traz a coluna de centro de custo
+**Then** ela é gravada por conta e validada contra os centros cadastrados; sem a coluna, o comportamento atual não muda
+
+**Given** um mês e uma filial
+**When** o usuário escolhe "Centro de custo"
+**Then** vê o realizado por centro de custo, com o total por departamento (Comercial, Logística, Administrativo) e o percentual
+
+**Given** uma conta sem centro de custo
+**Then** aparece em "sem centro de custo", e a soma do DRE por centro bate com a do DRE por grupo
+
+### Story 3.14: Visão condensada "Fechamento da diretoria"
+
+As a Diretor,
+I want uma visão condensada do DRE (poucas linhas e os subtotais),
+So that eu leia o fechamento do mês em uma tela.
+
+**Nota:** a planilha do cliente tem uma aba "Fechamento diretoria" com o DRE condensado. A lista de linhas condensadas vem da estrutura do DRE (3.1), marcada como "aparece na diretoria", e não de código.
+
+**Acceptance Criteria:**
+
+**Given** a estrutura do DRE
+**When** a controladoria marca quais linhas aparecem na visão da diretoria
+**Then** a escolha é gravada e registrada na trilha
+
+**Given** um mês fechado
+**When** a diretoria abre "Fechamento"
+**Then** vê só as linhas marcadas e os subtotais, com realizado, orçado, ano anterior e percentual, lidos do snapshot
+
+**Given** o perfil gestor
+**Then** recebe `403` (capacidade de ler irrestrita)
+
+### Story 3.15: Percentual com a base certa (Venda Bruta e Venda Líquida)
+
+As a Gerente,
+I want que o percentual de cada linha use a base da planilha do cliente,
+So that o DRE do sistema mostre os mesmos percentuais do Excel.
+
+**Nota:** na planilha, a Venda Bruta e as Devoluções são percentuais **sobre a Venda Bruta**; todas as demais linhas são percentuais sobre a Venda Líquida. A 3.4 usa o Faturamento Líquido como base de todas as linhas; esta história ajusta as duas linhas de venda.
+
+**Acceptance Criteria:**
+
+**Given** o DRE de uma filial
+**When** é mostrado
+**Then** a Venda Bruta e as Devoluções têm percentual sobre a Venda Bruta, e as demais linhas sobre a Venda Líquida
+
+**Given** Venda Bruta zero
+**Then** o percentual dessas duas linhas aparece vazio, sem erro
+
+**Given** a visão por departamento, por trimestre ou por vários anos
+**Then** usam a mesma regra de base
 
 ## Epic 4: Acesso seguro por perfil e departamento
 Cada pessoa vê e faz só o que cabe ao seu papel, o Gerente enxerga apenas o seu departamento, e o cadastro público deixa de existir.
@@ -1106,6 +1211,8 @@ So that eu entenda de onde vem cada variação.
 As a dono do produto,
 I want comparar o DRE do sistema com o da planilha para um mês de referência,
 So that eu saiba que os números batem antes de mostrar ao cliente.
+
+**Nota:** a conferência por linha de subtotal usa as fórmulas apuradas em 29/10/2026 (soma simples dos componentes, valores já com sinal; ver a nota do Épico 3 e `respostas-cliente-2026-10-28.md`). A base do percentual segue a 3.15.
 
 **Acceptance Criteria:**
 

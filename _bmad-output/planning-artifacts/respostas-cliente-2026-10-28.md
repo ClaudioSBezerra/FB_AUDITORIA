@@ -103,3 +103,64 @@ Só estrutura e regras; composição de filiais e dados reais ficam no sistema.
 - **Estrutura do bloco que a planilha mostra** (valores reais não registrados aqui): colunas Código, Conta, Vl. Realizado, Ajuste e Saldo. Linhas: Faturamento Bruto (código 1), Devoluções de Cliente (2), Devoluções avulsas (2), Outros Faturamentos (código de transferência), Faturamento Líquido, CMV Devolução (3), CMV devolução avulsa (3), CMV (3) e Saldo Bruto.
 - **Convenção de sinal confirmada pelo exemplo:** o `Vl. Realizado` vem positivo e a coluna `Saldo` traz o valor com o sinal do DRE (devoluções e CMV negativos). O Faturamento Líquido é bruto mais outros faturamentos menos devoluções; o Saldo Bruto é o líquido menos o CMV, mais o CMV de devolução. O sinal fica em `dre_mapa.sinal`, como já decidido.
 - **Pergunta nova ao Marcos:** o bloco de exemplo inclui **Outros Faturamentos** no Faturamento Líquido, mas a resposta anterior dizia que "Outros Faturamentos" não deve aparecer no DRE. Qual vale: incluir no Faturamento Líquido, mostrar à parte ou ocultar?
+
+## Estrutura das planilhas (apurada em 29/10/2026)
+
+Só estrutura e regras, lidas dos dois arquivos que o Marcos enviou (o arquivo de carga mensal da rotina 124 e a análise de vários anos). Os arquivos, os valores, os códigos e os nomes de conta ficam fora do repositório; os testes geram planilhas fictícias com a mesma estrutura.
+
+### Aba `Entrada_Dados` (o arquivo de carga)
+
+Um arquivo por filial e por mês. Duas células do alto trazem os parâmetros: o mês de referência (AAAAMM) e a filial (número). As colunas `Mês` e `Loja` de cada linha são **fórmulas** que apontam para essas duas células; o arquivo guarda o valor calculado, mas um XLSX salvo por outra ferramenta pode vir sem o valor calculado (colunas vazias).
+
+- **Tabela 1 (resumo da rotina 124):** cabeçalho na linha 1 (`Código, Conta, Vl. Realizado, Ajuste, Saldo, Grupo, Mês, Loja`) e nove linhas: faturamento bruto, devoluções de cliente, devoluções avulsas, outros faturamentos, faturamento líquido (subtotal, **sem código**), CMV de devolução, CMV de devolução avulsa, CMV e saldo bruto (subtotal, **sem código**). Aqui `Código` é o código da conta e `Conta` é a descrição; o código de "outros faturamentos" é texto.
+- **Linha em branco**, e então um **segundo cabeçalho** (`CONTA, DESCRIÇÃO, VL. Realizado, Ajuste, Saldo, Grupo, Mês, Loja`): o nome das colunas muda (agora `CONTA` é o código e `DESCRIÇÃO` é o texto) e `Ajuste` está no singular.
+- **Tabela 2 (as contas):** algumas centenas de linhas: código numérico, descrição, valor realizado, ajuste (quase sempre vazio), saldo, grupo e `Mês`/`Loja` por fórmula.
+- **Linhas finais de conferência:** `TOTAL` (subtotal das contas), um bloco "prova real" que recalcula o resultado a partir do resumo e mostra a diferença (que tem de ser zero), e a conferência do resultado contra o saldo líquido da rotina. Têm valores calculados, mas **não têm `Mês` nem `Loja`**.
+- **Regras da planilha:** `Saldo = Vl. Realizado + Ajuste`. Nas devoluções da tabela 1 o `Saldo` sai com o sinal invertido (`-(Realizado + Ajuste)`). O sistema continua importando o `Vl. Realizado` cru; o sinal vem de `dre_mapa.sinal` (decisão mantida). `Grupo` é a busca da conta no dicionário (natureza do gasto, ver abaixo).
+- **Faturamento líquido inclui "outros faturamentos":** provado numericamente: faturamento líquido = bruto − devoluções − devoluções avulsas + outros faturamentos. Isso contradiz a resposta anterior do Marcos ("Outros Faturamentos" não aparece no DRE); a pergunta segue aberta (abaixo).
+- **Subtotais não se importam:** as linhas sem código (faturamento líquido, saldo bruto) e as de conferência são derivadas; importá-las dobraria a contagem. O `TOTAL` serve só para conferir o próprio arquivo.
+
+### Fórmulas dos subtotais do DRE (análise de vários anos)
+
+Os valores já vêm **com sinal** (despesa e custo negativos); todo subtotal é **soma simples** das linhas componentes:
+
+| Subtotal | Composição |
+|---|---|
+| Venda Líquida | Venda Bruta + Devoluções |
+| Margem Bruta | Venda Líquida + CMV + Devolução de CMV + Recomposição + Dedução |
+| Margem Composta | Margem Bruta + Desconto de custo + ST |
+| Margem de Contribuição | Margem Composta + Impostos (ICMS, PIS, COFINS) |
+| Total de Despesas | Comercial + Logística + Administrativo |
+| Margem Líquida | Margem de Contribuição + Total de Despesas |
+| Resultado antes da tributação | Margem Líquida + Receitas/Despesas (verbas, financeiras, outras, inadimplência) |
+| Resultado após a tributação | Resultado antes + IRPJ + CSLL |
+
+**Bases dos percentuais:** a Venda Bruta e as Devoluções são percentuais **sobre a Venda Bruta**; todas as demais linhas são percentuais sobre a **Venda Líquida**. (O sistema hoje usa o Faturamento Líquido para todas; ver a história 3.15.)
+
+### Dicionário de contas
+
+Duas colunas de classificação por conta: **Grupo** = a linha do DRE em que a conta cai, e **centro de custo** = a natureza do gasto. Os departamentos do DRE somam centros de custo:
+
+- **Comercial:** compras e vendas.
+- **Logística:** transporte e entrega, centro de distribuição e manutenção.
+- **Administrativo:** treze grupos de despesa geral.
+
+### Agrupamento de filiais e acumulado
+
+- **Distribuição** é um conjunto de quatro filiais; **Balcões** são **todas as demais**, por exclusão (uma filial nova entra em Balcões sozinha). Os códigos reais ficam na configuração da empresa (história 2.15), nunca no repositório.
+- **AC** = acumulado do ano **até o mês escolhido**.
+
+### Abas existentes (o que o cliente usa hoje)
+
+- **Mensal:** o DRE do mês escolhido, com realizado, orçado e ano anterior.
+- **Acumulado multi-ano:** o mesmo DRE por ano, de 2020 a 2026, lado a lado (base: uma aba de realizado por ano).
+- **Filiais lado a lado:** uma coluna por filial gerencial para o mesmo mês ou acumulado.
+- **Centro de custos:** o DRE aberto por natureza do gasto.
+- **Fechamento da diretoria:** versão condensada do DRE (poucas linhas e totais), com a mesma lógica.
+- **Tratativas dos gerentes:** desvios com a observação de cada gerente.
+- **Resumo do orçado:** orçado inicial, ajustes e o motivo de cada ajuste.
+
+### Perguntas abertas (Marcos)
+
+1. A coluna `Loja` do arquivo de carga já vem **consolidada** por filial gerencial (a matriz agrupa várias filiais do ERP), ou é a filial do ERP? Isso decide se o importador aplica o mapa de filiais (2.14).
+2. Como apresentar **Outros Faturamentos**: dentro do faturamento líquido (como no arquivo de carga), em linha à parte ou oculto?

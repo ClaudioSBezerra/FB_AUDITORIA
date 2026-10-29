@@ -77,6 +77,11 @@ development_status:
   3-8-primeira-demonstração-ao-cliente-marco: backlog
   3-9-detalhe-até-o-lançamento-em-mês-fechado: review
   3-10-visão-por-trimestre-fr-7: review
+  3-11-comparativo-de-vários-anos-acumulado-multi-ano: backlog
+  3-12-filiais-lado-a-lado: backlog
+  3-13-dre-por-centro-de-custo-natureza-do-gasto: backlog
+  3-14-visão-condensada-fechamento-da-diretoria: backlog
+  3-15-percentual-com-a-base-certa-venda-bruta-e-venda-líquida: backlog
   epic-3-retrospective: optional
 
   epic-4: in-progress
