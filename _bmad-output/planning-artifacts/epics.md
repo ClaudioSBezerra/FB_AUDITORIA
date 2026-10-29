@@ -1022,30 +1022,40 @@ So that os gerentes tenham departamento desde o primeiro dia.
 **When** é carregado em Teste pela 2.10
 **Then** a contagem de contas por departamento é conferida
 
-### Story 2.12: Conferir o Oracle contra a planilha
+### Story 2.12: Relatório de conferência entre origens
 
 As a dono do produto,
-I want comparar o que veio do Oracle com a planilha do mesmo mês,
-So that eu confie na conexão antes de virar para Produção.
+I want comparar o que cada origem de lançamentos trouxe para a mesma competência (Oracle × planilha, planilha × planilha),
+So that eu confie na conexão e na planilha antes de virar para Produção.
+
+**Nota:** reescrita em 29/10/2026. O relatório lê `lancamentos` de qualquer origem registrada e compara o valor **bruto** contra o valor bruto (o ERP e a planilha não têm sinal diferente; o sinal do Mapa só vale no DRE). Não depende de o adaptador Oracle existir: hoje serve para `csv` × `csv.contas` ou planilha × planilha, e quando o adaptador gravar a sua origem, o mesmo relatório a compara. A correspondência de conta entre origens com planos diferentes (arquivo com fator) ficou para quando a view do Oracle existir (ver `deferred-work.md`). Enquanto duas origens estiverem carregadas ao mesmo tempo para a mesma competência, o DRE as soma (a 2.1, uma conta uma fonte, ainda não existe); o relatório avisa.
 
 **Acceptance Criteria:**
 
-**Given** duas origens com lançamentos na mesma competência e um arquivo de correspondência (conta de uma, conta da outra, fator)
-**When** peço a conferência
-**Then** lista por filial e conta os dois valores, a diferença e se passou da tolerância (padrão 0,01)
+**Given** a competência (AAAA-MM), duas origens existentes na empresa, uma filial opcional e a tolerância (padrão 0,01)
+**When** o usuário pede a conferência (`GET /api/aud/conferencia`, área empresa)
+**Then** recebe os totais por origem (soma, contas e linhas), o número de pares comparados, a lista só das diferenças acima da tolerância (filial, conta, descrição, valor A, valor B, diferença), as contas que existem só numa origem e o resumo por linha do DRE (pelo Mapa, mesma resolução do Mapa)
+**And** a filial é normalizada como na ingestão (zeros à esquerda: `01` e `1` são a mesma)
+**And** as listas têm limite e paginação, e `formato=csv` exporta tudo (BOM, `;`, células que começam com `=`, `+`, `-` ou `@` ganham apóstrofo)
 
-**Given** diferença acima da tolerância
-**When** a conferência termina
-**Then** é marcada e contada no resumo
+**Given** a competência fechada
+**Then** a resposta diz que está fechada
 
-**Given** conta sem correspondência
-**When** a conferência roda
-**Then** aparece como "sem par"
+**Given** as duas origens com lançamentos na mesma competência
+**Then** a resposta e a tela trazem o aviso de que o DRE as soma
 
-**Given** a conferência
-**When** roda
-**Then** é só leitura e grava apenas a execução em `execucoes`
-**And** funciona em Teste e em Produção
+**Given** `GET /api/aud/conferencia/origens`
+**Then** lista as origens existentes na empresa, com linhas e intervalo de competências (a tela preenche as duas escolhas com elas)
+
+**Given** o gestor
+**When** pede o relatório
+**Then** `403` (a capacidade `ler` irrestrita; o menu mostra a aba a controladoria, analista, auditoria e diretoria)
+
+**Given** o relatório
+**Then** é só leitura, isolado por empresa, e cada consulta ou exportação grava `visualizar`/`exportar` na trilha com os parâmetros
+
+**Given** a tela "Conferência" em Administrativo
+**Then** tem competência, duas origens, filial, tolerância, resumo, tabela de diferenças, só-em-um-lado, resumo por linha do DRE e o botão de exportar CSV
 
 ### Story 2.13: Importação automática diária (opcional, AD-15)
 

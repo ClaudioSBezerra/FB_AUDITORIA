@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-29",
-  "versao": "e9a1f15",
+  "versao": "35a9dd8",
   "historias": [
     {
       "id": "1.1",
@@ -371,20 +371,23 @@
     },
     {
       "id": "2.12",
-      "titulo": "Conferir o Oracle contra a planilha",
+      "titulo": "Relatório de conferência entre origens",
       "epico": {
         "numero": 2,
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
-      "resumo": "Como dono do produto, quero comparar o que veio do Oracle com a planilha do mesmo mês, para que eu confie na conexão antes de virar para Produção.",
+      "resumo": "Como dono do produto, quero comparar o que cada origem de lançamentos trouxe para a mesma competência (Oracle × planilha, planilha × planilha), para que eu confie na conexão e na planilha antes de virar para Produção.",
       "criterios": [
-        "Dado duas origens com lançamentos na mesma competência e um arquivo de correspondência (conta de uma, conta da outra, fator)\nQuando peço a conferência\nEntão lista por filial e conta os dois valores, a diferença e se passou da tolerância (padrão 0,01)",
-        "Dado diferença acima da tolerância\nQuando a conferência termina\nEntão é marcada e contada no resumo",
-        "Dado conta sem correspondência\nQuando a conferência roda\nEntão aparece como \"sem par\"",
-        "Dado a conferência\nQuando roda\nEntão é só leitura e grava apenas a execução em execucoes\nE funciona em Teste e em Produção"
+        "Dado a competência (AAAA-MM), duas origens existentes na empresa, uma filial opcional e a tolerância (padrão 0,01)\nQuando o usuário pede a conferência (GET /api/aud/conferencia, área empresa)\nEntão recebe os totais por origem (soma, contas e linhas), o número de pares comparados, a lista só das diferenças acima da tolerância (filial, conta, descrição, valor A, valor B, diferença), as contas que existem só numa origem e o resumo por linha do DRE (pelo Mapa, mesma resolução do Mapa)\nE a filial é normalizada como na ingestão (zeros à esquerda: 01 e 1 são a mesma)\nE as listas têm limite e paginação, e formato=csv exporta tudo (BOM, ;, células que começam com =, +, - ou @ ganham apóstrofo)",
+        "Dado a competência fechada\nEntão a resposta diz que está fechada",
+        "Dado as duas origens com lançamentos na mesma competência\nEntão a resposta e a tela trazem o aviso de que o DRE as soma",
+        "Dado GET /api/aud/conferencia/origens\nEntão lista as origens existentes na empresa, com linhas e intervalo de competências (a tela preenche as duas escolhas com elas)",
+        "Dado o gestor\nQuando pede o relatório\nEntão 403 (a capacidade ler irrestrita; o menu mostra a aba a controladoria, analista, auditoria e diretoria)",
+        "Dado o relatório\nEntão é só leitura, isolado por empresa, e cada consulta ou exportação grava visualizar/exportar na trilha com os parâmetros",
+        "Dado a tela \"Conferência\" em Administrativo\nEntão tem competência, duas origens, filial, tolerância, resumo, tabela de diferenças, só-em-um-lado, resumo por linha do DRE e o botão de exportar CSV"
       ]
     },
     {

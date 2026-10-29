@@ -158,6 +158,8 @@ var comportamentoDeHoje = map[string]esperado{
 	"/api/aud/dre/orcado":               {soCtrl, soCtrl},
 	"/api/aud/dados/atualizar":          {soCtrl, soCtrl},
 	"/api/aud/dre/lancamentos/importar": {soCtrl, soCtrl},
+	"/api/aud/conferencia":              {leitoresSemGestor, leitoresSemGestor}, // 2.12: leitura irrestrita
+	"/api/aud/conferencia/origens":      {leitoresSemGestor, leitoresSemGestor},
 }
 
 // Onde o analista entra (GET: analistaLeSim ou analistaEscreve; POST: analistaEscreve) — decisão da 4.3, ver spec.
@@ -170,6 +172,7 @@ var analistaEscreve = map[string]bool{
 	"/api/aud/dicionario": true, "/api/aud/dre": true, "/api/aud/dre/filiais": true, "/api/aud/dre/linhas": true,
 	"/api/aud/dre/departamentos": true, "/api/aud/dre/lancamentos": true, "/api/aud/dre/trimestres": true,
 	"/api/aud/dre/contas": true, "/api/aud/dre/contas/lancamentos": true, "/api/aud/meu-departamento": true,
+	"/api/aud/conferencia": true, "/api/aud/conferencia/origens": true,
 }
 var analistaLeSim = map[string]bool{
 	"/api/aud/filiais-gerenciais": true, "/api/aud/agrupamentos-filiais": true, "/api/aud/departamentos": true,

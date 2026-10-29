@@ -24,6 +24,7 @@ const Acompanhamento = lazy(() => import('./pages/aud/Acompanhamento'))
 const DREMapa = lazy(() => import('./pages/aud/DREMapa'))
 const DREFechamentos = lazy(() => import('./pages/aud/DREFechamentos'))
 const AdmCarga = lazy(() => import('./pages/aud/AdmCarga'))
+const Conferencia = lazy(() => import('./pages/aud/Conferencia'))
 const AdmUsuarios = lazy(() => import('./pages/aud/AdmUsuarios'))
 const AdmFiliais = lazy(() => import('./pages/aud/AdmFiliais'))
 const AdmAgrupamentos = lazy(() => import('./pages/aud/AdmAgrupamentos'))
@@ -177,6 +178,7 @@ function AppLayout() {
               <Route path="/empresa/dre-departamentos" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria', 'diretoria']}><DREDepartamentos /></AreaRoute>} />
               <Route path="/empresa/meu-departamento" element={<GerenteRoute><MeuDepartamento /></GerenteRoute>} />
               <Route path="/empresa/fechamentos" element={<AreaRoute area="empresa"><DREFechamentos /></AreaRoute>} />
+              <Route path="/empresa/conferencia" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria', 'diretoria']}><Conferencia /></AreaRoute>} />
               <Route path="/empresa/mapa" element={<AreaRoute area="empresa" perfis={['analista', 'controladoria', 'auditoria']}><DREMapa /></AreaRoute>} />
 
               {/* Configurações */}

@@ -33,6 +33,7 @@ export const modules: Record<string, ModuleConfig> = {
       { label: 'Meu departamento', path: '/empresa/meu-departamento', gerenteOnly: true },
       { label: 'DRE por departamento', path: '/empresa/dre-departamentos', perfis: ['analista', 'controladoria', 'auditoria', 'diretoria'] },
       { label: 'Fechamentos', path: '/empresa/fechamentos' },
+      { label: 'Conferência', path: '/empresa/conferencia', perfis: ['analista', 'controladoria', 'auditoria', 'diretoria'] },
       { label: 'Mapa do DRE', path: '/empresa/mapa', perfis: ['analista', 'controladoria', 'auditoria'] },
     ],
   },

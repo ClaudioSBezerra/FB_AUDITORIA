@@ -459,6 +459,9 @@ func main() {
 	http.HandleFunc("/api/aud/dre/orcado", withAud(handlers.DREOrcadoHandler, est, handlers.CapCarregar))
 	http.HandleFunc("/api/aud/dados/atualizar", withAud(handlers.DadosAtualizarHandler, est, handlers.CapCarregar))
 	http.HandleFunc("/api/aud/dre/lancamentos/importar", withAud(handlers.DREImportarHandler, est, handlers.CapCarregar))
+	// 2.12: conferência entre origens de lançamentos; leitura irrestrita (o gestor recebe 403).
+	http.HandleFunc("/api/aud/conferencia", gz(withAud(handlers.ConferenciaHandler, est, handlers.CapLer)))
+	http.HandleFunc("/api/aud/conferencia/origens", withAud(handlers.ConferenciaOrigensHandler, est, handlers.CapLer))
 
 	// ── Frontend estático (SPA React) ─────────────────────────────────────────
 	staticDir := "./static"

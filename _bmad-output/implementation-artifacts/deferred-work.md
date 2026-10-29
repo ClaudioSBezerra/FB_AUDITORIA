@@ -118,3 +118,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-9-criar-usuario-da-empresa.md`
   summary: Não há reenvio do convite nem aposentadoria do `CreateUserHandler` (senha informada pelo administrador, também usado para criar administradores e ambientes); o token de primeiro acesso fica em claro em `verification_tokens`, como o de recuperação de senha.
   evidence: `backend/handlers/admin_usuario_empresa.go`; `backend/handlers/admin.go`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-12-conferencia-entre-origens.md`
+  summary: Comparar as linhas da rotina 124 (resumo de faturamento e CMV, tabela 1 da Entrada_Dados) contra as colunas correspondentes da view do Oracle, quando a view existir; o relatório da 2.12 compara só contas de `lancamentos`.
+  evidence: a tabela 1 é importada conta a conta, mas o resumo (faturamento líquido, saldo bruto) é subtotal e não é lançamento; falta o nome e as colunas da view.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-12-conferencia-entre-origens.md`
+  summary: Mapeamento de colunas da view do Oracle para `lancamentos` (conta, filial, competência, valor) para o adaptador gravar a sua origem e o relatório comparar com a planilha; também o arquivo de correspondência de conta entre planos diferentes, com fator.
+  evidence: o nome e as colunas da view de realizado por conta ainda estão em aberto com o dono dos dados (`respostas-cliente-2026-10-28.md`).
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-12-conferencia-entre-origens.md`
+  summary: Comparar por filial gerencial (filial do ERP somada pelo Mapa de filiais, 2.14), e não só por filial do ERP; hoje a conferência usa a filial como veio, normalizada por zeros à esquerda.
+  evidence: `dre.FilialGerencialDe` existe, mas o relatório não a aplica; a coluna `Loja` da Entrada_Dados pode já vir consolidada (pergunta aberta ao Marcos).
