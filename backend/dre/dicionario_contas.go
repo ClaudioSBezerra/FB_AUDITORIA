@@ -89,11 +89,11 @@ func (d *Dicionario) Carregar(ctx context.Context, in CargaDicionarioIn) (CargaD
 			continue
 		}
 		vista[l.Conta] = l.Linha
-		if l.Departamento != "" {
-			if _, ok := porCodigo[l.Departamento]; !ok {
-				probs = append(probs, Problema{Linha: l.Linha, Msg: "departamento inexistente: " + l.Departamento})
-			}
-		}
+	}
+	// Departamento inexistente: uma mensagem só, com os códigos distintos e o
+	// número de linhas, em vez de uma por linha.
+	if p, ok := departamentosInexistentes(in.Linhas, func(c string) bool { _, ok := porCodigo[c]; return ok }); ok {
+		probs = append(probs, p)
 	}
 	if len(probs) > 0 {
 		sort.SliceStable(probs, func(i, j int) bool { return probs[i].Linha < probs[j].Linha })

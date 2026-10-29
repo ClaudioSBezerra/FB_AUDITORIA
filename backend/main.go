@@ -432,6 +432,7 @@ func main() {
 	http.HandleFunc("/api/aud/filiais-gerenciais", withAud(handlers.FiliaisGerenciaisHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo, handlers.CapEditarEstrutura))
 	http.HandleFunc("/api/aud/agrupamentos-filiais", withAud(handlers.AgrupamentosFiliaisHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo, handlers.CapEditarEstrutura))
 	http.HandleFunc("/api/aud/departamentos", withAud(handlers.DepartamentosHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo, handlers.CapEditarEstrutura))
+	http.HandleFunc("/api/aud/departamentos/carga", withAud(handlers.DepartamentosCargaHandler, handlers.AreaConfiguracoes, handlers.CapEditarEstrutura))
 	http.HandleFunc("/api/aud/dicionario", withAud(handlers.DicionarioHandler, handlers.AreaConfiguracoes, handlers.CapLerNoEscopo))
 	http.HandleFunc("/api/aud/dicionario/carga", withAud(handlers.DicionarioCargaHandler, handlers.AreaConfiguracoes, handlers.CapEditarDicionario))
 	http.HandleFunc("/api/aud/dicionario/conta", withAud(handlers.DicionarioContaHandler, handlers.AreaConfiguracoes, handlers.CapEditarDicionario))

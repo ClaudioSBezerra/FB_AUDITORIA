@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"fb_auditoria/dre"
+	csvfonte "fb_auditoria/dre/fontes/csv"
 )
 
 // DepartamentosHandler — cadastro de departamentos. GET lista (qualquer perfil da
@@ -74,6 +75,43 @@ func DepartamentosHandler(db *sql.DB) http.HandlerFunc {
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
+	}
+}
+
+// DepartamentosCargaHandler — POST /api/aud/departamentos/carga (multipart
+// "arquivo", CSV ou XLSX; colunas codigo, nome, grupo). Upsert por código: cria os
+// novos e atualiza nome e grupo; não apaga os que não vierem. Tudo ou nada.
+// Mesma capacidade do cadastro manual (editar_estrutura).
+func DepartamentosCargaHandler(db *sql.DB) http.HandlerFunc {
+	svc := &dre.Dicionario{DB: db}
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		c := GetAudContext(r)
+		if !c.Pode(CapEditarEstrutura) {
+			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limiteCargaBytes())
+		f, hdr, err := r.FormFile("arquivo")
+		if err != nil {
+			erroUploadCarga(w, err)
+			return
+		}
+		defer f.Close()
+		linhas, probs, err := csvfonte.LerDepartamentos(f)
+		if erroDicionario(w, err, "ler os departamentos") {
+			return
+		}
+		out, err := svc.CarregarDepartamentos(r.Context(), dre.CargaDepartamentosIn{
+			EmpresaID: c.EmpresaID, UserID: c.UserID, Arquivo: hdr.Filename, Linhas: linhas, Problemas: probs,
+		})
+		if erroDicionario(w, err, "carregar os departamentos") {
+			return
+		}
+		writeJSON(w, out)
 	}
 }
 

@@ -139,3 +139,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-19-salvaguarda-de-periodo.md`
   summary: Os avisos de plausibilidade não comparam valores com o mês anterior (por exemplo, total muito diferente da mesma filial), nem leem AAAA-MM no nome do arquivo.
   evidence: `backend/dre/ingest_resumo.go` (`competenciasDoNome`, `montarResumo`).
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-20-carga-de-departamentos.md`
+  summary: A carga de departamentos nunca apaga nem renomeia códigos; para retirar os que sobraram é preciso excluir um a um (e só sem contas ligadas). Se pedirem, oferecer a lista dos departamentos fora do arquivo para exclusão em lote.
+  evidence: `backend/dre/departamentos_carga.go` (`CarregarDepartamentos` só cria e atualiza).

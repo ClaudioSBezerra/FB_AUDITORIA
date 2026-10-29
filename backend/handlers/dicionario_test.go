@@ -140,3 +140,19 @@ func TestDicionario_Handlers(t *testing.T) {
 		t.Errorf("trilha do dicionário: %d (2 cargas + 1 correção)", n)
 	}
 }
+
+// Departamento inexistente no arquivo do dicionário: uma mensagem agregada com os
+// códigos distintos e o número de linhas (história 2.20).
+func TestDicionario_DepartamentoInexistenteAgregado(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	chamar(DepartamentosHandler(db), reqFilial(http.MethodPost, "/api/aud/departamentos", `{"codigo":"OK","nome":"Depto","grupo":"Comercial"}`, f, "controladoria"))
+	csv := []byte("conta;grupo;departamento\nC1;G;AAA\nC2;G;BBB\nC3;G;AAA\nC4;G;OK\n")
+	w := uploadDic(t, DicionarioCargaHandler(db), f, "controladoria", "d.csv", csv)
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "departamentos inexistentes: AAA, BBB (3 linhas)") {
+		t.Fatalf("esperava a mensagem agregada: %d %s", w.Code, w.Body.String())
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.conta_dicionario WHERE empresa_id=$1::uuid`, f.EmpresaID); n != 0 {
+		t.Errorf("erro gravou %d", n)
+	}
+}

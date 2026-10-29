@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-29",
-  "versao": "2583fc7",
+  "versao": "5ef2cf3",
   "historias": [
     {
       "id": "1.1",
@@ -521,6 +521,26 @@
         "Dado POST /api/aud/dre/lancamentos/importar?simular=1\nQuando o arquivo é lido\nEntão devolve o mesmo resumo sem gravar nada (nem carga, nem lançamentos, nem trilha)\nE competência fechada já é recusada com 409 na simulação",
         "Dado a tela de carga\nQuando escolhe o arquivo\nEntão só \"Conferir arquivo\" fica disponível; \"Confirmar carga\" aparece depois da simulação, com o resumo visível, e envia o arquivo de novo sem simular\nE a gravação direta pela API continua possível (compatível com o CSV do sistema)",
         "Dado competência a mais de 12 meses no passado ou depois do mês corrente\nOr competência que não é a do nome do arquivo (AAAAMM, MM-AAAA, MM_AAAA ou MMAAAA)\nOr filial que não está no Mapa de filiais nem em lançamentos anteriores\nOr competência e filial que já têm lançamentos de outra origem\nEntão a simulação e a gravação trazem o aviso correspondente, sem bloquear"
+      ]
+    },
+    {
+      "id": "2.20",
+      "titulo": "Carga de departamentos por arquivo",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero carregar os departamentos por um arquivo CSV ou XLSX, para que eu cadastre a lista inteira de uma vez, em vez de um por um.",
+      "criterios": [
+        "Dado um arquivo com codigo, nome e grupo (Comercial, Logística ou Administrativo, sem acento ou maiúsculas também)\nQuando carrega (POST /api/aud/departamentos/carga)\nEntão cria os novos e atualiza nome e grupo dos existentes por código, e a resposta diz quantos foram criados, atualizados e inalterados",
+        "Dado código vazio ou repetido no arquivo, grupo inválido, nome vazio ou acima do tamanho do cadastro manual\nEntão nada é gravado e a resposta lista até 20 erros de linha mais o total",
+        "Dado departamentos já cadastrados que o arquivo não traz\nEntão continuam como estão",
+        "Dado o arquivo dá certo\nEntão a trilha (departamento/carga) é gravada na mesma transação com só contagens e códigos",
+        "Dado quem não tem editar_estrutura\nEntão 403, e a tela tem o bloco \"Carregar departamentos\" com \"Baixar modelo CSV\"",
+        "Dado um arquivo do dicionário (2.10) com departamento inexistente\nEntão a mensagem lista os códigos de departamento distintos que não existem e quantas linhas os usam"
       ]
     },
     {

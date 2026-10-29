@@ -138,6 +138,7 @@ var comportamentoDeHoje = map[string]esperado{
 	"/api/aud/filiais-gerenciais":       {todos4, soCtrl},
 	"/api/aud/agrupamentos-filiais":     {todos4, soCtrl},
 	"/api/aud/departamentos":            {todos4, soCtrl},
+	"/api/aud/departamentos/carga":      {soCtrl, soCtrl},
 	"/api/aud/dicionario":               {todos4, todos4}, // só GET; outros métodos dão 405 no handler
 	"/api/aud/dicionario/carga":         {soCtrl, soCtrl},
 	"/api/aud/dicionario/conta":         {soCtrl, soCtrl},
@@ -171,7 +172,7 @@ var comportamentoDeHoje = map[string]esperado{
 // Onde o analista entra (GET: analistaLeSim ou analistaEscreve; POST: analistaEscreve) — decisão da 4.3, ver spec.
 var analistaEscreve = map[string]bool{
 	"/api/aud/filiais-gerenciais": true, "/api/aud/agrupamentos-filiais": true, "/api/aud/departamentos": true,
-	"/api/aud/dicionario/carga": true, "/api/aud/dicionario/conta": true, "/api/aud/dre/linhas/papel": true,
+	"/api/aud/departamentos/carga": true, "/api/aud/dicionario/carga": true, "/api/aud/dicionario/conta": true, "/api/aud/dre/linhas/papel": true,
 	"/api/aud/dre/mapa": true, "/api/aud/dre/orcado": true, "/api/aud/dados/atualizar": true,
 	"/api/aud/dre/lancamentos/importar": true, "/api/aud/dre/estrutura/carga": true, "/api/aud/dre/mapa/carga": true,
 	"/api/aud/dre/mapa/sem-mapa": true,
@@ -257,6 +258,7 @@ func TestRotas_AnalistaCarregaEditaMasNaoFechaNemReabre(t *testing.T) {
 		{"/api/aud/dre/mapa/carga", http.MethodPost, 200},
 		{"/api/aud/dre/linhas/papel", http.MethodPut, 200},
 		{"/api/aud/departamentos", http.MethodPost, 200},
+		{"/api/aud/departamentos/carga", http.MethodPost, 200},
 		{"/api/aud/filiais-gerenciais", http.MethodPut, 200},
 		{"/api/aud/agrupamentos-filiais", http.MethodDelete, 200},
 		{"/api/aud/dicionario/carga", http.MethodPost, 200},

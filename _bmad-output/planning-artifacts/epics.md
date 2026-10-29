@@ -311,6 +311,35 @@ So that um arquivo com a célula de mês ou de filial desatualizada não seja gr
 **Or** competência e filial que já têm lançamentos de outra origem
 **Then** a simulação e a gravação trazem o aviso correspondente, sem bloquear
 
+### Story 2.20: Carga de departamentos por arquivo
+
+As a analista,
+I want carregar os departamentos por um arquivo CSV ou XLSX,
+So that eu cadastre a lista inteira de uma vez, em vez de um por um.
+
+**Nota:** mesma capacidade do cadastro manual (`editar_estrutura`). O arquivo cria e atualiza por código; departamento que não vem no arquivo não é apagado (pode estar ligado a contas e usuários). Decisões na spec `spec-2-20-carga-de-departamentos.md`.
+
+**Acceptance Criteria:**
+
+**Given** um arquivo com `codigo`, `nome` e `grupo` (Comercial, Logística ou Administrativo, sem acento ou maiúsculas também)
+**When** carrega (`POST /api/aud/departamentos/carga`)
+**Then** cria os novos e atualiza nome e grupo dos existentes por código, e a resposta diz quantos foram criados, atualizados e inalterados
+
+**Given** código vazio ou repetido no arquivo, grupo inválido, nome vazio ou acima do tamanho do cadastro manual
+**Then** nada é gravado e a resposta lista até 20 erros de linha mais o total
+
+**Given** departamentos já cadastrados que o arquivo não traz
+**Then** continuam como estão
+
+**Given** o arquivo dá certo
+**Then** a trilha (`departamento`/`carga`) é gravada na mesma transação com só contagens e códigos
+
+**Given** quem não tem `editar_estrutura`
+**Then** 403, e a tela tem o bloco "Carregar departamentos" com "Baixar modelo CSV"
+
+**Given** um arquivo do dicionário (2.10) com departamento inexistente
+**Then** a mensagem lista os códigos de departamento distintos que não existem e quantas linhas os usam
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
 **FRs covered:** FR-5, FR-6, FR-7, FR-8
