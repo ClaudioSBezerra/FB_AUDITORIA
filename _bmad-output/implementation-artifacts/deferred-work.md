@@ -127,3 +127,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-12-conferencia-entre-origens.md`
   summary: Comparar por filial gerencial (filial do ERP somada pelo Mapa de filiais, 2.14), e não só por filial do ERP; hoje a conferência usa a filial como veio, normalizada por zeros à esquerda.
   evidence: `dre.FilialGerencialDe` existe, mas o relatório não a aplica; a coluna `Loja` da Entrada_Dados pode já vir consolidada (pergunta aberta ao Marcos).
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-18-comparativo-fechamento.md`
+  summary: Comparar as demais visões da planilha de análise: acumulado do ano, filiais lado a lado, centro de custo e por trimestre. Hoje o comparativo cobre um mês e uma filial por vez, por linha e por conta; a aba MENSAL só traz uma visão por arquivo.
+  evidence: `backend/dre/comparativo_externo.go` (`Comparar`); a carga guarda só as linhas da filial resolvida de `MENSAL!D1` e as contas por loja.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-18-comparativo-fechamento.md`
+  summary: Quando o adaptador Oracle gravar a sua origem em `lancamentos`, o mesmo comparativo por conta passa a compará-la com a planilha (parâmetro `origem`); falta o nome e as colunas da view do Oracle e, para o nível linha, comparar a linha do DRE do Oracle contra a da planilha.
+  evidence: `ParamsComparativo.Origem`; o dono dos dados ainda não passou a view (`respostas-cliente-2026-10-28.md`).

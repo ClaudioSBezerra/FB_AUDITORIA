@@ -244,6 +244,42 @@ So that o realizado por conta da rotina 124 entre no sistema com a mesma planilh
 **Given** os formatos da 2.2 e do sistema
 **Then** seguem como antes
 
+### Story 2.18: Comparativo de fechamento (planilha do Marcos × sistema)
+
+As a controladoria,
+I want enviar a planilha de análise do Marcos e ver, linha a linha, onde ela e o sistema não batem,
+So that eu confie no fechamento antes de virar para Produção e ache a conta ou a linha que diverge.
+
+**Nota:** mesmo desenho do comparativo de fechamento do FB_FAROL. A planilha de análise (abas `MENSAL` e `Real_AA`) fica **gravada em tabelas próprias** (`auditoria.comparativo_externo_*`): nada entra em `lancamentos`, então o DRE não a soma. Duas comparações: por linha do DRE (aba `MENSAL`, uma filial por vez, contra o DRE do sistema) e por conta (aba `Real_AA`, contra a soma bruta dos lançamentos da filial no mês). Decisões e pontos frágeis na spec `spec-2-18-comparativo-fechamento.md`.
+
+**Acceptance Criteria:**
+
+**Given** o XLSX da análise e a capacidade `carregar`
+**When** envia (`POST /api/aud/comparativo/carga`, ano opcional, padrão `MENSAL!C2`)
+**Then** a aba `Real_AA` do ano vira soma por (mês, loja, conta) e a aba `MENSAL` vira as linhas do DRE por mês, na filial resolvida da planilha
+**And** a leitura é em fluxo, só das duas abas necessárias, e o arquivo não é carregado inteiro na memória
+**And** a resposta traz contagens (contas, linhas, meses, filiais, ignoradas) e avisos
+
+**Given** o reenvio do mesmo ano
+**Then** substitui o que estava gravado daquele ano (contas de todas as lojas e linhas da filial da planilha), na mesma transação, com a trilha só de contagens
+
+**Given** a aba `MENSAL` numa visão sem filial resolvida (grupo, filial sem número)
+**Then** a carga avisa; o comparativo por linha precisa de uma filial resolvida, o por conta continua valendo
+
+**Given** `GET /api/aud/comparativo` com ano, mês, filial, nível (`linha` ou `conta`), tolerância (R$, padrão 1,00) e origem (só por conta)
+**When** compara
+**Then** cada linha ou conta sai como `OK`, `DIVERGE`, `SO_PLANILHA` ou `SO_SISTEMA`, ordenada por maior divergência, com resumo, `fechada`, a carga de origem, paginação e avisos
+**And** por linha, o lado do sistema é o DRE (mês fechado do snapshot, aberto ao vivo) casado por código ou pela descrição normalizada; por conta, a soma bruta de `lancamentos`, sem o sinal do Mapa
+
+**Given** `?formato=csv`
+**Then** exporta tudo (BOM, `;`, apóstrofo antes de `=`, `+`, `-`, `@`), e `visualizar` e `exportar` vão à trilha com os parâmetros
+
+**Given** o gestor
+**Then** `403` registrado na leitura, e a carga exige `carregar`
+
+**Given** a tela "Comparativo" em Administrativo
+**Then** tem a carga da planilha, seletores de ano, mês e filial, "Por linha | Por conta", tolerância, cartões de resumo, tabela com filtro por status e busca, exportar CSV e o painel "Como funciona"
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
 **FRs covered:** FR-5, FR-6, FR-7, FR-8

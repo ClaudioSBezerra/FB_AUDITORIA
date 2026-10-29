@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-29",
-  "versao": "21e0acb",
+  "versao": "8220e11",
   "historias": [
     {
       "id": "1.1",
@@ -482,6 +482,27 @@
         "Dado um XLSX salvo sem o valor calculado das fórmulas (Mês e Loja vazios em todas as linhas)\nQuando importa\nEntão a mensagem diz que as fórmulas não têm valor calculado e orienta salvar de novo no Excel ou preencher Mês e Loja",
         "Dado Ajuste ou Ajustes\nEntão ambos são aceitos e o ajuste continua não importado (só contado)",
         "Dado os formatos da 2.2 e do sistema\nEntão seguem como antes"
+      ]
+    },
+    {
+      "id": "2.18",
+      "titulo": "Comparativo de fechamento (planilha do Marcos × sistema)",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como controladoria, quero enviar a planilha de análise do Marcos e ver, linha a linha, onde ela e o sistema não batem, para que eu confie no fechamento antes de virar para Produção e ache a conta ou a linha que diverge.",
+      "criterios": [
+        "Dado o XLSX da análise e a capacidade carregar\nQuando envia (POST /api/aud/comparativo/carga, ano opcional, padrão MENSAL!C2)\nEntão a aba Real_AA do ano vira soma por (mês, loja, conta) e a aba MENSAL vira as linhas do DRE por mês, na filial resolvida da planilha\nE a leitura é em fluxo, só das duas abas necessárias, e o arquivo não é carregado inteiro na memória\nE a resposta traz contagens (contas, linhas, meses, filiais, ignoradas) e avisos",
+        "Dado o reenvio do mesmo ano\nEntão substitui o que estava gravado daquele ano (contas de todas as lojas e linhas da filial da planilha), na mesma transação, com a trilha só de contagens",
+        "Dado a aba MENSAL numa visão sem filial resolvida (grupo, filial sem número)\nEntão a carga avisa; o comparativo por linha precisa de uma filial resolvida, o por conta continua valendo",
+        "Dado GET /api/aud/comparativo com ano, mês, filial, nível (linha ou conta), tolerância (R$, padrão 1,00) e origem (só por conta)\nQuando compara\nEntão cada linha ou conta sai como OK, DIVERGE, SO_PLANILHA ou SO_SISTEMA, ordenada por maior divergência, com resumo, fechada, a carga de origem, paginação e avisos\nE por linha, o lado do sistema é o DRE (mês fechado do snapshot, aberto ao vivo) casado por código ou pela descrição normalizada; por conta, a soma bruta de lancamentos, sem o sinal do Mapa",
+        "Dado ?formato=csv\nEntão exporta tudo (BOM, ;, apóstrofo antes de =, +, -, @), e visualizar e exportar vão à trilha com os parâmetros",
+        "Dado o gestor\nEntão 403 registrado na leitura, e a carga exige carregar",
+        "Dado a tela \"Comparativo\" em Administrativo\nEntão tem a carga da planilha, seletores de ano, mês e filial, \"Por linha | Por conta\", tolerância, cartões de resumo, tabela com filtro por status e busca, exportar CSV e o painel \"Como funciona\""
       ]
     },
     {

@@ -466,6 +466,11 @@ func main() {
 	// 2.12: conferência entre origens de lançamentos; leitura irrestrita (o gestor recebe 403).
 	http.HandleFunc("/api/aud/conferencia", gz(withAud(handlers.ConferenciaHandler, est, handlers.CapLer)))
 	http.HandleFunc("/api/aud/conferencia/origens", withAud(handlers.ConferenciaOrigensHandler, est, handlers.CapLer))
+	// 2.18: comparativo de fechamento (planilha de análise × sistema). A carga exige `carregar`;
+	// a leitura mostra valor do grupo e exige `ler` (o gestor recebe 403).
+	http.HandleFunc("/api/aud/comparativo/carga", withAud(handlers.ComparativoCargaHandler, est, handlers.CapCarregar))
+	http.HandleFunc("/api/aud/comparativo/periodos", withAud(handlers.ComparativoPeriodosHandler, est, handlers.CapLer))
+	http.HandleFunc("/api/aud/comparativo", gz(withAud(handlers.ComparativoHandler, est, handlers.CapLer)))
 
 	// ── Frontend estático (SPA React) ─────────────────────────────────────────
 	staticDir := "./static"

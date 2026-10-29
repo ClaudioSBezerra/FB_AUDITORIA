@@ -73,6 +73,8 @@ var leSemDevolverValor = map[string]string{
 	"DREReabrirHandler":     "reabre; sem valores na resposta",
 	"DREImportarHandler":    "escrita",
 	"DREOrcadoHandler":      "escrita",
+	// 2.18: "planilha.Ler" lê o arquivo enviado, não o DRE; a resposta traz só contagens e avisos.
+	"ComparativoCargaHandler": "escrita; contagens",
 }
 
 func TestEscopo_HandlerQueLeValorUsaEscopoOuExigeLer(t *testing.T) {
