@@ -568,11 +568,19 @@ func (f *Fonte) lerPlanilha(ctx context.Context, rows []linha, hi int, ehCSV boo
 			probs = append(probs, dre.Problema{Linha: r.n, Msg: "Loja vazia"})
 			continue
 		}
+		aj, errAj := f.num(celula(r.cels, m.ajuste))
+		if celula(r.cels, m.valor) == "" { // valor em branco: zero/ausente, não grava
+			f.ignoradas++
+			if errAj == nil && aj != 0 {
+				f.ajustes++
+			}
+			continue
+		}
 		if errValor != nil {
 			probs = append(probs, dre.Problema{Linha: r.n, Msg: "conta/valor inválidos"})
 			continue
 		}
-		if aj, err := f.num(celula(r.cels, m.ajuste)); err == nil && aj != 0 {
+		if errAj == nil && aj != 0 {
 			f.ajustes++
 		}
 		soma += valor

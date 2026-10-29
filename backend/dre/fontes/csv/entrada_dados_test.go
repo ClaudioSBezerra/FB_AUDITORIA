@@ -308,3 +308,35 @@ func TestPlanilhaSemTotalNaoTemConferencia(t *testing.T) {
 		t.Fatalf("conf=%v ignoradas=%d err=%v", f.Conferencia(), f.LinhasIgnoradas(), err)
 	}
 }
+
+func TestEntradaDadosValorEmBranco(t *testing.T) {
+	cab := []any{"Código", "Conta", "Vl. Realizado", "Ajuste", "Saldo", "Grupo", "Mês", "Loja"}
+	xl := xlsx(t, [][]any{
+		cab,
+		{"1", "Venda", 10, "", "", "G", 202602, 7},
+		{"2", "Devolucao avulsa", "", "", "", "G", 202602, 7},
+		{"3", "CMV avulso", "", 4, "", "G", 202602, 7},
+	})
+	csvTxt := cabTab1 + "\n1;Venda;10,00;;;G;202602;7\n2;Devolucao avulsa;;;;G;202602;7\n3;CMV avulso;;4,00;;G;202602;7\n"
+	for nome, b := range map[string][]byte{"xlsx": xl, "csv": []byte(csvTxt)} {
+		t.Run(nome, func(t *testing.T) {
+			f, out, err := lerFonte(t, b)
+			if err != nil || len(out) != 1 || f.LinhasIgnoradas() != 2 || f.AjustesIgnorados() != 1 {
+				t.Fatalf("n=%d ignoradas=%d ajustes=%d err=%v", len(out), f.LinhasIgnoradas(), f.AjustesIgnorados(), err)
+			}
+		})
+	}
+	// preenchido e não numérico continua sendo erro
+	for nome, b := range map[string][]byte{
+		"xlsx": xlsx(t, [][]any{cab, {"1", "Venda", "abc", "", "", "G", 202602, 7}}),
+		"csv":  []byte(cabTab1 + "\n1;Venda;abc;;;G;202602;7\n"),
+	} {
+		t.Run("erro_"+nome, func(t *testing.T) {
+			_, _, err := lerFonte(t, b)
+			var el *dre.ErroLinhas
+			if !errors.As(err, &el) || el.Problemas[0].Linha != 2 {
+				t.Fatalf("esperava erro na linha 2: %v", err)
+			}
+		})
+	}
+}

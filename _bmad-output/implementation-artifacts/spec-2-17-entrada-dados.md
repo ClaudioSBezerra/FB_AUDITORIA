@@ -63,6 +63,7 @@ Decisões de detalhe (pelo padrão do código):
 - A conferência soma as contas importadas desde o último cabeçalho; com mais de um `TOTAL`, vale o primeiro que diverge, senão o último.
 - No CSV, a checagem de número de colunas só vale para linhas que seriam dado (com `Mês` ou `Loja`), para não rejeitar o arquivo pelas linhas de prova, que podem ter largura diferente.
 - Normalização do código por `inteiroTexto` só no XLSX; no CSV o código é lido como está.
+- Linha com código, `Mês` e `Loja` mas `Vl. Realizado` em branco (por exemplo, devolução avulsa sem movimento na tabela 1) é valor ausente: ignorada e contada em `linhas_ignoradas`, sem lançamento de zero; se o `Ajuste` tiver valor, entra também em `ajustes_ignorados`. Valor preenchido e não numérico segue sendo erro de linha. Vale só para o formato da planilha.
 - Pontos frágeis: se a coluna `Loja` do arquivo já vier consolidada por filial gerencial (pergunta aberta), o importador a grava como filial, sem aplicar o mapa de filiais (2.14); linha sem código mas com valor some em silêncio (só contada).
 
 ## Review Triage Log
@@ -72,4 +73,5 @@ Decisões de detalhe (pelo padrão do código):
 | Conferência do TOTAL com ruído de ponto flutuante (250,2499...) | medium | patch | valores arredondados a centavos antes de comparar e devolver |
 | Prova real com largura diferente rejeitaria o CSV | medium | patch | checagem de colunas só em linhas de dado |
 | Subtotal com valor e sem código é descartado sem aviso individual | low | rejeitado | decisão do dono do produto: subtotal não se importa; a quantidade vai em `linhas_ignoradas` |
+| Linha com valor em branco rejeitava o arquivo real (devoluções avulsas sem movimento) | high | patch | valor vazio é ignorado e contado; ajuste preenchido conta em `ajustes_ignorados`; testes XLSX e CSV |
 | Filial da planilha não passa pelo mapa de filiais | low | defer | depende da resposta do Marcos sobre a coluna `Loja` consolidada |
