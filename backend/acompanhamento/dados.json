@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-29",
-  "versao": "8220e11",
+  "versao": "2583fc7",
   "historias": [
     {
       "id": "1.1",
@@ -503,6 +503,24 @@
         "Dado ?formato=csv\nEntão exporta tudo (BOM, ;, apóstrofo antes de =, +, -, @), e visualizar e exportar vão à trilha com os parâmetros",
         "Dado o gestor\nEntão 403 registrado na leitura, e a carga exige carregar",
         "Dado a tela \"Comparativo\" em Administrativo\nEntão tem a carga da planilha, seletores de ano, mês e filial, \"Por linha | Por conta\", tolerância, cartões de resumo, tabela com filtro por status e busca, exportar CSV e o painel \"Como funciona\""
+      ]
+    },
+    {
+      "id": "2.19",
+      "titulo": "Salvaguarda de período na carga de lançamentos",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero ver, antes de gravar, de qual competência e filial o arquivo realmente é, para que um arquivo com a célula de mês ou de filial desatualizada não seja gravado no período errado sem ninguém notar.",
+      "criterios": [
+        "Dado um arquivo de lançamentos\nQuando carrega (com ou sem simulação)\nEntão a resposta traz pares (competência, filial, quantidade de lançamentos de cada par), o total, os avisos e a conferência do TOTAL\nE a tela mostra isso em destaque, num cartão acima do resto (\"Gravado em 2026-05, filial 11: 433 lançamentos\"), um item por par",
+        "Dado POST /api/aud/dre/lancamentos/importar?simular=1\nQuando o arquivo é lido\nEntão devolve o mesmo resumo sem gravar nada (nem carga, nem lançamentos, nem trilha)\nE competência fechada já é recusada com 409 na simulação",
+        "Dado a tela de carga\nQuando escolhe o arquivo\nEntão só \"Conferir arquivo\" fica disponível; \"Confirmar carga\" aparece depois da simulação, com o resumo visível, e envia o arquivo de novo sem simular\nE a gravação direta pela API continua possível (compatível com o CSV do sistema)",
+        "Dado competência a mais de 12 meses no passado ou depois do mês corrente\nOr competência que não é a do nome do arquivo (AAAAMM, MM-AAAA, MM_AAAA ou MMAAAA)\nOr filial que não está no Mapa de filiais nem em lançamentos anteriores\nOr competência e filial que já têm lançamentos de outra origem\nEntão a simulação e a gravação trazem o aviso correspondente, sem bloquear"
       ]
     },
     {

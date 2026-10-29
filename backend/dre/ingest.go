@@ -12,12 +12,18 @@ import (
 )
 
 // Ingestor é o único escritor de auditoria.lancamentos.
-type Ingestor struct{ DB *sql.DB }
+type Ingestor struct {
+	DB *sql.DB
+	// Agora devolve a data de hoje; nil usa time.Now. Só os avisos de
+	// plausibilidade de competência dependem dela (testes a fixam).
+	Agora func() time.Time
+}
 
-// Resultado da importação.
+// Resultado da importação. Resumo é o que foi lido do arquivo (história 2.19).
 type Resultado struct {
 	CargaID int64
 	Linhas  int
+	Resumo  Resumo
 }
 
 type escopoImp struct {
@@ -25,17 +31,22 @@ type escopoImp struct {
 	Filial      string
 }
 
-// Importar lê a fonte, valida tudo antes de abrir a transação e então, numa só
-// transação, grava a carga, substitui cada escopo (empresa, origem,
-// competência, filial) presente nas linhas e registra a trilha. Leitura vazia
-// nunca apaga nada.
-func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte Fonte) (Resultado, error) {
+// entradaLida é o arquivo já lido e validado, pronto para simular ou gravar.
+type entradaLida struct {
+	lancs   []Lancamento
+	origem  string
+	arquivo string
+}
+
+// ler lê a fonte e valida tudo antes de qualquer transação: linhas com problema
+// e arquivo sem linhas são recusados aqui.
+func (g *Ingestor) ler(ctx context.Context, empresaID string, fonte Fonte) (entradaLida, error) {
 	lancs, err := fonte.Ler(ctx, Escopo{EmpresaID: empresaID})
 	var probs []Problema
 	if err != nil {
 		var el *ErroLinhas
 		if !errors.As(err, &el) {
-			return Resultado{}, err
+			return entradaLida{}, err
 		}
 		probs = append(probs, el.Problemas...)
 	}
@@ -52,17 +63,84 @@ func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte
 	}
 	if len(probs) > 0 {
 		sort.SliceStable(probs, func(i, j int) bool { return probs[i].Linha < probs[j].Linha })
-		return Resultado{}, &ErroLinhas{Problemas: probs}
+		return entradaLida{}, &ErroLinhas{Problemas: probs}
 	}
 	if len(lancs) == 0 {
-		return Resultado{}, &ErroEntrada{Msg: "nenhuma linha de dados"}
+		return entradaLida{}, &ErroEntrada{Msg: "nenhuma linha de dados"}
 	}
-
 	origem := fonte.Nome()
 	arquivo := origem
 	if a, ok := fonte.(interface{ Arquivo() string }); ok {
 		arquivo = a.Arquivo()
 	}
+	return entradaLida{lancs, origem, arquivo}, nil
+}
+
+// competenciasOrdenadas devolve os meses das linhas, sem repetição, em ordem
+// crescente (a ordem em que a guarda trava, para não haver deadlock).
+func competenciasOrdenadas(lancs []Lancamento) []time.Time {
+	comps := map[string]time.Time{}
+	for _, l := range lancs {
+		c := time.Date(l.Competencia.Year(), l.Competencia.Month(), 1, 0, 0, 0, 0, time.UTC)
+		comps[c.Format("2006-01-02")] = c
+	}
+	ordem := make([]time.Time, 0, len(comps))
+	for _, c := range comps {
+		ordem = append(ordem, c)
+	}
+	sort.Slice(ordem, func(i, j int) bool { return ordem[i].Before(ordem[j]) })
+	return ordem
+}
+
+// acumularFechado junta o escopo fechado de um erro da guarda; devolve o erro
+// original se não for *ErrPeriodoFechado (falha de verdade).
+func acumularFechado(err error, recusados *[]EscopoFechado) error {
+	var pf *ErrPeriodoFechado
+	if !errors.As(err, &pf) {
+		return err
+	}
+	*recusados = append(*recusados, pf.Escopos...)
+	return nil
+}
+
+// Simular lê e valida o arquivo, aplica a guarda de período e devolve o resumo
+// e os avisos SEM gravar nada: a transação é só de leitura e termina em
+// rollback, sem carga e sem trilha. Mês fechado volta como *ErrPeriodoFechado,
+// como na gravação.
+func (g *Ingestor) Simular(ctx context.Context, empresaID string, fonte Fonte) (Resumo, error) {
+	e, err := g.ler(ctx, empresaID, fonte)
+	if err != nil {
+		return Resumo{}, err
+	}
+	tx, err := g.DB.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		return Resumo{}, err
+	}
+	defer tx.Rollback()
+	var recusados []EscopoFechado
+	for _, c := range competenciasOrdenadas(e.lancs) {
+		if err := (Periodo{}).Guardar(ctx, tx, empresaID, c); err != nil {
+			if err := acumularFechado(err, &recusados); err != nil {
+				return Resumo{}, err
+			}
+		}
+	}
+	if len(recusados) > 0 {
+		return Resumo{}, &ErrPeriodoFechado{Escopos: recusados}
+	}
+	return g.montarResumo(ctx, tx, empresaID, e.origem, e.arquivo, e.lancs)
+}
+
+// Importar lê a fonte, valida tudo antes de abrir a transação e então, numa só
+// transação, grava a carga, substitui cada escopo (empresa, origem,
+// competência, filial) presente nas linhas e registra a trilha. Leitura vazia
+// nunca apaga nada. O resumo e os avisos (história 2.19) vão em Resultado.Resumo.
+func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte Fonte) (Resultado, error) {
+	e, err := g.ler(ctx, empresaID, fonte)
+	if err != nil {
+		return Resultado{}, err
+	}
+	lancs, origem, arquivo := e.lancs, e.origem, e.arquivo
 	var escopos []escopoImp
 	vistos := map[escopoImp]bool{}
 	for _, l := range lancs {
@@ -78,30 +156,23 @@ func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte
 		return Resultado{}, err
 	}
 	defer tx.Rollback()
-	// Guarda de período (AD-8): trava todas as competências em ordem crescente
-	// e recusa o arquivo inteiro se alguma estiver fechada. Antes de qualquer escrita.
-	comps := map[string]time.Time{}
-	for _, l := range lancs {
-		c := time.Date(l.Competencia.Year(), l.Competencia.Month(), 1, 0, 0, 0, 0, time.UTC)
-		comps[c.Format("2006-01-02")] = c
-	}
-	ordem := make([]time.Time, 0, len(comps))
-	for _, c := range comps {
-		ordem = append(ordem, c)
-	}
-	sort.Slice(ordem, func(i, j int) bool { return ordem[i].Before(ordem[j]) })
+	// Guarda de período (AD-8), antes de qualquer escrita.
 	var recusados []EscopoFechado
-	for _, c := range ordem {
+	for _, c := range competenciasOrdenadas(lancs) {
 		if err := (Periodo{}).Guardar(ctx, tx, empresaID, c); err != nil {
-			var pf *ErrPeriodoFechado
-			if !errors.As(err, &pf) {
+			if err := acumularFechado(err, &recusados); err != nil {
 				return Resultado{}, err
 			}
-			recusados = append(recusados, pf.Escopos...)
 		}
 	}
 	if len(recusados) > 0 {
 		return Resultado{}, &ErrPeriodoFechado{Escopos: recusados}
+	}
+	// Resumo e avisos antes de substituir os escopos (a conferência de outras
+	// origens e de filial nova lê o estado anterior à carga).
+	resumo, err := g.montarResumo(ctx, tx, empresaID, origem, arquivo, lancs)
+	if err != nil {
+		return Resultado{}, err
 	}
 	var cargaID int64
 	if err := tx.QueryRowContext(ctx, `INSERT INTO auditoria.cargas (empresa_id, user_id, arquivo) VALUES ($1::uuid,$2::uuid,$3) RETURNING id`,
@@ -152,5 +223,5 @@ func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte
 	if err := tx.Commit(); err != nil {
 		return Resultado{}, err
 	}
-	return Resultado{CargaID: cargaID, Linhas: len(lancs)}, nil
+	return Resultado{CargaID: cargaID, Linhas: len(lancs), Resumo: resumo}, nil
 }

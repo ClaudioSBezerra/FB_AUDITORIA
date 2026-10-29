@@ -133,3 +133,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-18-comparativo-fechamento.md`
   summary: Quando o adaptador Oracle gravar a sua origem em `lancamentos`, o mesmo comparativo por conta passa a compará-la com a planilha (parâmetro `origem`); falta o nome e as colunas da view do Oracle e, para o nível linha, comparar a linha do DRE do Oracle contra a da planilha.
   evidence: `ParamsComparativo.Origem`; o dono dos dados ainda não passou a view (`respostas-cliente-2026-10-28.md`).
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-19-salvaguarda-de-periodo.md`
+  summary: A simulação antes da gravação só é garantida pela tela; no backend a gravação direta continua possível. Se aparecer integração que também precise da salvaguarda, exigir um token de simulação (hash do arquivo) na gravação.
+  evidence: `backend/handlers/dre_import.go` (`?simular=1` é opcional).
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-19-salvaguarda-de-periodo.md`
+  summary: Os avisos de plausibilidade não comparam valores com o mês anterior (por exemplo, total muito diferente da mesma filial), nem leem AAAA-MM no nome do arquivo.
+  evidence: `backend/dre/ingest_resumo.go` (`competenciasDoNome`, `montarResumo`).

@@ -15,6 +15,12 @@ import (
 
 // DREImportarHandler — POST /api/aud/dre/lancamentos/importar (multipart "arquivo").
 // Tudo ou nada; reenviar substitui os escopos (competência, filial) do arquivo.
+//
+// Com ?simular=1 (história 2.19) lê e valida o arquivo, aplica a guarda de
+// período e devolve o MESMO resumo (pares competência/filial, avisos, conferência
+// do TOTAL) sem gravar nada: nem carga, nem lançamentos, nem trilha. A tela faz a
+// simulação antes de gravar. No backend a gravação direta (sem simular) continua
+// possível, por compatibilidade com o CSV do sistema e com o Atualizar dados.
 func DREImportarHandler(db *sql.DB) http.HandlerFunc {
 	ing := &dre.Ingestor{DB: db}
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -32,7 +38,15 @@ func DREImportarHandler(db *sql.DB) http.HandlerFunc {
 		defer f.Close()
 
 		fonte := csvfonte.Nova(f, hdr.Filename)
-		res, err := ing.Importar(r.Context(), c.EmpresaID, c.UserID, fonte)
+		simular := r.URL.Query().Get("simular") == "1"
+		var res dre.Resultado
+		var resumo dre.Resumo
+		if simular {
+			resumo, err = ing.Simular(r.Context(), c.EmpresaID, fonte)
+		} else {
+			res, err = ing.Importar(r.Context(), c.EmpresaID, c.UserID, fonte)
+			resumo = res.Resumo
+		}
 		if err != nil {
 			var ee *dre.ErroEntrada
 			var el *dre.ErroLinhas
@@ -48,8 +62,12 @@ func DREImportarHandler(db *sql.DB) http.HandlerFunc {
 			}
 			return
 		}
-		resp := map[string]any{"carga_id": res.CargaID, "linhas": res.Linhas,
+		resp := map[string]any{"simulacao": simular, "linhas": resumo.Total, "origem": resumo.Origem, "arquivo": resumo.Arquivo,
+			"pares": resumo.Pares, "avisos": resumo.Avisos,
 			"ajustes_ignorados": fonte.AjustesIgnorados(), "linhas_ignoradas": fonte.LinhasIgnoradas()}
+		if !simular {
+			resp["carga_id"] = res.CargaID
+		}
 		if c := fonte.Conferencia(); c != nil {
 			resp["conferencia_total"] = c
 		}

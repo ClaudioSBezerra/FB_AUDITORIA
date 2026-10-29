@@ -280,6 +280,37 @@ So that eu confie no fechamento antes de virar para Produção e ache a conta ou
 **Given** a tela "Comparativo" em Administrativo
 **Then** tem a carga da planilha, seletores de ano, mês e filial, "Por linha | Por conta", tolerância, cartões de resumo, tabela com filtro por status e busca, exportar CSV e o painel "Como funciona"
 
+### Story 2.19: Salvaguarda de período na carga de lançamentos
+
+As a analista,
+I want ver, antes de gravar, de qual competência e filial o arquivo realmente é,
+So that um arquivo com a célula de mês ou de filial desatualizada não seja gravado no período errado sem ninguém notar.
+
+**Nota:** caso real de 29/10/2026: a Entrada_Dados trazia `Mês` e `Loja` desatualizados e o importador confiou neles. A regra de leitura não muda; a salvaguarda é mostrar o que foi lido, em duas etapas, e avisar o que parece fora do lugar. Decisões na spec `spec-2-19-salvaguarda-de-periodo.md`.
+
+**Acceptance Criteria:**
+
+**Given** um arquivo de lançamentos
+**When** carrega (com ou sem simulação)
+**Then** a resposta traz `pares` (competência, filial, quantidade de lançamentos de cada par), o total, os `avisos` e a conferência do TOTAL
+**And** a tela mostra isso em destaque, num cartão acima do resto ("Gravado em 2026-05, filial 11: 433 lançamentos"), um item por par
+
+**Given** `POST /api/aud/dre/lancamentos/importar?simular=1`
+**When** o arquivo é lido
+**Then** devolve o mesmo resumo sem gravar nada (nem carga, nem lançamentos, nem trilha)
+**And** competência fechada já é recusada com 409 na simulação
+
+**Given** a tela de carga
+**When** escolhe o arquivo
+**Then** só "Conferir arquivo" fica disponível; "Confirmar carga" aparece depois da simulação, com o resumo visível, e envia o arquivo de novo sem `simular`
+**And** a gravação direta pela API continua possível (compatível com o CSV do sistema)
+
+**Given** competência a mais de 12 meses no passado ou depois do mês corrente
+**Or** competência que não é a do nome do arquivo (AAAAMM, MM-AAAA, MM_AAAA ou MMAAAA)
+**Or** filial que não está no Mapa de filiais nem em lançamentos anteriores
+**Or** competência e filial que já têm lançamentos de outra origem
+**Then** a simulação e a gravação trazem o aviso correspondente, sem bloquear
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
 **FRs covered:** FR-5, FR-6, FR-7, FR-8

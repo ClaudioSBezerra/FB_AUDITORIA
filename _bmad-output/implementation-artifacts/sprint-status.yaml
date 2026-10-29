@@ -66,6 +66,7 @@ development_status:
   2-16-botão-atualizar-dados-para-a-gestão: review
   2-17-importar-a-entrada-dados-do-marcos: review
   2-18-comparativo-de-fechamento-planilha-do-marcos-sistema: review
+  2-19-salvaguarda-de-período-na-carga-de-lançamentos: review
   epic-2-retrospective: optional
 
   epic-3: backlog
