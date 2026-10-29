@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-29",
-  "versao": "2958a2f",
+  "versao": "e9a1f15",
   "historias": [
     {
       "id": "1.1",
@@ -458,6 +458,27 @@
         "Dado um mês com fechamento ativo\nQuando a atualização o atinge\nEntão é recusada pela guarda de período (1.6), com a orientação de reabrir antes",
         "Dado qualquer outro perfil\nQuando tenta atualizar\nEntão 403",
         "Dado uma atualização\nQuando termina\nEntão a trilha registra quem pediu, o escopo e o resultado"
+      ]
+    },
+    {
+      "id": "2.17",
+      "titulo": "Importar a Entrada_Dados do Marcos",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero carregar o arquivo de carga mensal do Marcos (a aba Entrada_Dados) sem reformatar, para que o realizado por conta da rotina 124 entre no sistema com a mesma planilha que o cliente já usa.",
+      "criterios": [
+        "Dado um arquivo com duas tabelas e dois cabeçalhos diferentes\nQuando importa\nEntão as duas são importadas e o cabeçalho repetido nunca vira dado",
+        "Dado as colunas Código e Conta\nEntão Código é a conta e Conta é a descrição; com só Conta (e DESCRIÇÃO), Conta é o código, como na 2.2",
+        "Dado linhas sem código (subtotais) ou com código e valor mas sem Mês e sem Loja (conferência, TOTAL, provas)\nQuando importa\nEntão são ignoradas e contadas em linhas_ignoradas\nE linha com só um dos dois vazio, ou valor não numérico, rejeita o arquivo com o número da linha",
+        "Dado uma linha TOTAL com valor\nQuando importa\nEntão a resposta traz conferencia_total (esperado, calculado, ok) comparando com a soma das contas da mesma tabela\nE divergência é só aviso, mostrado na tela",
+        "Dado um XLSX salvo sem o valor calculado das fórmulas (Mês e Loja vazios em todas as linhas)\nQuando importa\nEntão a mensagem diz que as fórmulas não têm valor calculado e orienta salvar de novo no Excel ou preencher Mês e Loja",
+        "Dado Ajuste ou Ajustes\nEntão ambos são aceitos e o ajuste continua não importado (só contado)",
+        "Dado os formatos da 2.2 e do sistema\nEntão seguem como antes"
       ]
     },
     {

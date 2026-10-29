@@ -48,6 +48,11 @@ func DREImportarHandler(db *sql.DB) http.HandlerFunc {
 			}
 			return
 		}
-		writeJSON(w, map[string]any{"carga_id": res.CargaID, "linhas": res.Linhas, "ajustes_ignorados": fonte.AjustesIgnorados()})
+		resp := map[string]any{"carga_id": res.CargaID, "linhas": res.Linhas,
+			"ajustes_ignorados": fonte.AjustesIgnorados(), "linhas_ignoradas": fonte.LinhasIgnoradas()}
+		if c := fonte.Conferencia(); c != nil {
+			resp["conferencia_total"] = c
+		}
+		writeJSON(w, resp)
 	}
 }

@@ -207,6 +207,43 @@ So that o DRE reflita lançamentos corrigidos sem esperar a próxima carga.
 **When** termina
 **Then** a trilha registra quem pediu, o escopo e o resultado
 
+### Story 2.17: Importar a Entrada_Dados do Marcos
+
+As a analista,
+I want carregar o arquivo de carga mensal do Marcos (a aba `Entrada_Dados`) sem reformatar,
+So that o realizado por conta da rotina 124 entre no sistema com a mesma planilha que o cliente já usa.
+
+**Nota:** estrutura apurada em 29/10/2026 (ver `respostas-cliente-2026-10-28.md`): duas tabelas na mesma aba, cada uma com o seu cabeçalho (`Código` e `Conta` na primeira; `CONTA` e `DESCRIÇÃO` na segunda), subtotais sem código, linhas de conferência sem `Mês` e `Loja`, e `Mês`/`Loja` por fórmula. A 2.2 rejeitava este arquivo. Subtotais não são importados (seria dupla contagem). Detalhes e decisões na spec `spec-2-17-entrada-dados.md`.
+
+**Acceptance Criteria:**
+
+**Given** um arquivo com duas tabelas e dois cabeçalhos diferentes
+**When** importa
+**Then** as duas são importadas e o cabeçalho repetido nunca vira dado
+
+**Given** as colunas `Código` e `Conta`
+**Then** `Código` é a conta e `Conta` é a descrição; com só `Conta` (e `DESCRIÇÃO`), `Conta` é o código, como na 2.2
+
+**Given** linhas sem código (subtotais) ou com código e valor mas sem `Mês` e sem `Loja` (conferência, `TOTAL`, provas)
+**When** importa
+**Then** são ignoradas e contadas em `linhas_ignoradas`
+**And** linha com só um dos dois vazio, ou valor não numérico, rejeita o arquivo com o número da linha
+
+**Given** uma linha `TOTAL` com valor
+**When** importa
+**Then** a resposta traz `conferencia_total` (esperado, calculado, ok) comparando com a soma das contas da mesma tabela
+**And** divergência é só aviso, mostrado na tela
+
+**Given** um XLSX salvo sem o valor calculado das fórmulas (`Mês` e `Loja` vazios em todas as linhas)
+**When** importa
+**Then** a mensagem diz que as fórmulas não têm valor calculado e orienta salvar de novo no Excel ou preencher `Mês` e `Loja`
+
+**Given** `Ajuste` ou `Ajustes`
+**Then** ambos são aceitos e o ajuste continua não importado (só contado)
+
+**Given** os formatos da 2.2 e do sistema
+**Then** seguem como antes
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
 **FRs covered:** FR-5, FR-6, FR-7, FR-8

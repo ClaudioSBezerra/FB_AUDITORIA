@@ -7,8 +7,13 @@
 //     obrigatórias; centro_custo, canal, conta_desc, tipo_doc, doc_ref e
 //     historico opcionais. competencia: AAAA-MM ou AAAA-MM-DD.
 //   - formato da planilha (origem "csv.contas"): CONTA, DESCRIÇÃO, VL.
-//     Realizado, Ajustes, Saldo, Grupo, Mês, Loja. Obrigatórias: conta,
-//     valor realizado, mes e loja. Ajustes não é importado (só contado).
+//     Realizado, Ajustes, Saldo, Grupo, Mês, Loja. Obrigatórias: conta (ou
+//     Código), valor realizado, mes e loja. Ajuste/Ajustes não é importado
+//     (só contado). Com as colunas Código e Conta, Código é a conta e Conta é
+//     a descrição (aba Entrada_Dados). O cabeçalho é refeito a cada linha que
+//     o repete, para ler várias tabelas na mesma aba; linhas sem código
+//     (subtotais) ou sem Mês e Loja (conferência) são ignoradas e contadas, e
+//     a linha TOTAL é conferida contra a soma das contas da mesma tabela.
 //
 // Arquivo que começa com a assinatura ZIP ("PK") é lido como XLSX; o resto
 // como CSV (';' ou ',', BOM aceito).
@@ -49,6 +54,17 @@ type Fonte struct {
 	origem  string
 	ajustes int
 	xlsx    bool
+
+	ignoradas int
+	conf      *ConferenciaTotal
+}
+
+// ConferenciaTotal compara a linha TOTAL do arquivo com a soma das contas
+// importadas da mesma tabela. Divergência é aviso, não bloqueia.
+type ConferenciaTotal struct {
+	Esperado  float64 `json:"esperado"`
+	Calculado float64 `json:"calculado"`
+	OK        bool    `json:"ok"`
 }
 
 // Nova cria a fonte; arquivo é só o nome para a trilha.
@@ -63,6 +79,13 @@ func (f *Fonte) Arquivo() string { return f.arquivo }
 // AjustesIgnorados é a quantidade de linhas com ajuste diferente de zero que
 // foram lidas (formato da planilha); o ajuste não é importado.
 func (f *Fonte) AjustesIgnorados() int { return f.ajustes }
+
+// LinhasIgnoradas é a quantidade de linhas não importadas por serem subtotais
+// (sem código) ou conferência (código e valor, sem Mês e Loja).
+func (f *Fonte) LinhasIgnoradas() int { return f.ignoradas }
+
+// Conferencia devolve a conferência da linha TOTAL, ou nil se não houve.
+func (f *Fonte) Conferencia() *ConferenciaTotal { return f.conf }
 
 func parseValorBR(s string) (float64, error) {
 	s = strings.TrimSpace(s)
@@ -140,16 +163,18 @@ func ehValorPlanilha(h string) bool {
 }
 
 // ehCabecalho: a linha traz o conjunto obrigatório de um dos formatos —
-// sistema: competencia, conta e valor; planilha: conta, valor realizado, mes e
-// loja. (A falta de filial no formato do sistema é apontada depois.)
+// sistema: competencia, conta e valor; planilha: conta (ou código), valor
+// realizado, mes e loja. (A falta de filial no formato do sistema é apontada depois.)
 func ehCabecalho(cels []string) bool {
-	var comp, conta, valor, vreal, mes, loja bool
+	var comp, conta, codigo, valor, vreal, mes, loja bool
 	for _, c := range cels {
 		switch h := normCab(c); {
 		case h == "competencia":
 			comp = true
 		case h == "conta":
 			conta = true
+		case h == "codigo":
+			codigo = true
 		case h == "valor":
 			valor = true
 		case ehValorPlanilha(h):
@@ -160,7 +185,7 @@ func ehCabecalho(cels []string) bool {
 			loja = true
 		}
 	}
-	return (comp && conta && valor) || (conta && vreal && mes && loja)
+	return (comp && conta && valor) || ((conta || codigo) && vreal && mes && loja)
 }
 
 // cabecalhoLancamentos reconhece o cabeçalho dos formatos de lançamentos.
@@ -321,7 +346,7 @@ func lerTabela(data []byte, cab, primeira func([]string) bool) (tabela, error) {
 }
 
 const colunasEsperadas = "formato do sistema: competencia, filial, conta, valor; " +
-	"formato da planilha: CONTA, VL. Realizado, Mês, Loja (DESCRIÇÃO, Ajustes, Saldo e Grupo opcionais)"
+	"formato da planilha: CONTA (ou Código), VL. Realizado, Mês, Loja (DESCRIÇÃO, Ajuste, Saldo e Grupo opcionais)"
 
 // num lê um número: no XLSX o valor bruto vem com ponto decimal; texto como
 // 1.234,56 cai no parseValorBR.
@@ -336,7 +361,7 @@ func (f *Fonte) num(s string) (float64, error) {
 
 // Ler devolve as linhas válidas; linhas com problema vêm num *dre.ErroLinhas.
 func (f *Fonte) Ler(ctx context.Context, _ dre.Escopo) ([]dre.Lancamento, error) {
-	f.origem, f.ajustes, f.xlsx = origemSistema, 0, false
+	f.origem, f.ajustes, f.xlsx, f.ignoradas, f.conf = origemSistema, 0, false, 0, nil
 	data, err := io.ReadAll(f.r)
 	if err != nil {
 		return nil, &dre.ErroEntrada{Msg: "arquivo ilegível"}
@@ -365,27 +390,14 @@ func (f *Fonte) Ler(ctx context.Context, _ dre.Escopo) ([]dre.Lancamento, error)
 			}
 		}
 	}
-	_, sistema := col["competencia"]
-	if sistema {
-		f.origem = origemSistema
-		for _, req := range []string{"competencia", "filial", "conta", "valor"} {
-			if _, ok := col[req]; !ok {
-				return nil, &dre.ErroEntrada{Msg: "coluna obrigatória ausente: " + req}
-			}
-		}
-	} else {
+	if _, sistema := col["competencia"]; !sistema {
 		f.origem = origemPlanilha
-		col["valor realizado"] = -1
-		for _, a := range []string{"vl realizado", "valor realizado", "realizado"} {
-			if i, ok := col[a]; ok && i >= 0 {
-				col["valor realizado"] = i
-				break
-			}
-		}
-		for _, req := range []string{"conta", "valor realizado", "mes", "loja"} {
-			if i, ok := col[req]; !ok || i < 0 {
-				return nil, &dre.ErroEntrada{Msg: "coluna obrigatória ausente: " + req + "; esperado " + colunasEsperadas}
-			}
+		return f.lerPlanilha(ctx, rows, hi, ehCSV, probs)
+	}
+	f.origem = origemSistema
+	for _, req := range []string{"competencia", "filial", "conta", "valor"} {
+		if _, ok := col[req]; !ok {
+			return nil, &dre.ErroEntrada{Msg: "coluna obrigatória ausente: " + req}
 		}
 	}
 	get := func(rec []string, name string) string {
@@ -407,52 +419,173 @@ func (f *Fonte) Ler(ctx context.Context, _ dre.Escopo) ([]dre.Lancamento, error)
 			probs = append(probs, dre.Problema{Linha: r.n, Msg: "número de colunas diferente do cabeçalho"})
 			continue
 		}
-		if sistema {
-			comp, err := parseCompetencia(get(r.cels, "competencia"))
-			if err != nil {
-				probs = append(probs, dre.Problema{Linha: r.n, Msg: "competencia inválida"})
-				continue
-			}
-			conta := get(r.cels, "conta")
-			valor, err := f.num(get(r.cels, "valor"))
-			if conta == "" || err != nil {
-				probs = append(probs, dre.Problema{Linha: r.n, Msg: "conta/valor inválidos"})
-				continue
-			}
-			out = append(out, dre.Lancamento{
-				Linha: r.n, Competencia: comp, Filial: get(r.cels, "filial"),
-				CentroCusto: get(r.cels, "centro_custo"), Canal: get(r.cels, "canal"),
-				Conta: conta, ContaDesc: get(r.cels, "conta_desc"), Valor: valor,
-				TipoDoc: get(r.cels, "tipo_doc"), DocRef: get(r.cels, "doc_ref"), Historico: get(r.cels, "historico"),
-			})
-			continue
-		}
-		comp, err := parseMes(get(r.cels, "mes"))
+		comp, err := parseCompetencia(get(r.cels, "competencia"))
 		if err != nil {
-			probs = append(probs, dre.Problema{Linha: r.n, Msg: "Mês inválido (esperado AAAAMM)"})
-			continue
-		}
-		filial := normFilial(get(r.cels, "loja"))
-		if filial == "" {
-			probs = append(probs, dre.Problema{Linha: r.n, Msg: "Loja vazia"})
+			probs = append(probs, dre.Problema{Linha: r.n, Msg: "competencia inválida"})
 			continue
 		}
 		conta := get(r.cels, "conta")
-		valor, err := f.num(get(r.cels, "valor realizado"))
+		valor, err := f.num(get(r.cels, "valor"))
 		if conta == "" || err != nil {
 			probs = append(probs, dre.Problema{Linha: r.n, Msg: "conta/valor inválidos"})
 			continue
 		}
-		if aj, err := f.num(get(r.cels, "ajustes")); err == nil && aj != 0 {
+		out = append(out, dre.Lancamento{
+			Linha: r.n, Competencia: comp, Filial: get(r.cels, "filial"),
+			CentroCusto: get(r.cels, "centro_custo"), Canal: get(r.cels, "canal"),
+			Conta: conta, ContaDesc: get(r.cels, "conta_desc"), Valor: valor,
+			TipoDoc: get(r.cels, "tipo_doc"), DocRef: get(r.cels, "doc_ref"), Historico: get(r.cels, "historico"),
+		})
+		continue
+	}
+	if len(probs) > 0 {
+		return out, &dre.ErroLinhas{Problemas: probs}
+	}
+	return out, nil
+}
+
+// mapaPlanilha são as colunas de uma tabela do formato da planilha, refeitas a
+// cada cabeçalho.
+type mapaPlanilha struct {
+	n                           int // colunas do cabeçalho
+	codigo, desc, valor, ajuste int
+	mes, loja                   int
+}
+
+// mapearPlanilha lê um cabeçalho (que já passou em ehCabecalho). Com Código e
+// Conta, Código é a conta e Conta é a descrição; só com Conta, Conta é o código
+// e a descrição vem de DESCRIÇÃO.
+func mapearPlanilha(head []string) mapaPlanilha {
+	col := map[string]int{}
+	for i, h := range head {
+		if n := normCab(h); n != "" {
+			if _, ok := col[n]; !ok {
+				col[n] = i
+			}
+		}
+	}
+	idx := func(nomes ...string) int {
+		for _, n := range nomes {
+			if i, ok := col[n]; ok {
+				return i
+			}
+		}
+		return -1
+	}
+	m := mapaPlanilha{
+		n:      len(head),
+		valor:  idx("vl realizado", "valor realizado", "realizado"),
+		ajuste: idx("ajustes", "ajuste"),
+		mes:    idx("mes"),
+		loja:   idx("loja"),
+	}
+	if c := idx("codigo"); c >= 0 {
+		m.codigo = c
+		m.desc = idx("descricao", "conta")
+	} else {
+		m.codigo = idx("conta")
+		m.desc = idx("descricao")
+	}
+	return m
+}
+
+func celula(rec []string, i int) string {
+	if i >= 0 && i < len(rec) {
+		return strings.TrimSpace(rec[i])
+	}
+	return ""
+}
+
+func ehTotal(codigo string) bool { return normCab(codigo) == "total" }
+
+const msgSemCache = "Mês e Loja vazios: as fórmulas não têm valor calculado; abra o arquivo no Excel e salve de novo, ou preencha Mês e Loja"
+
+// lerPlanilha lê o formato da planilha varrendo todas as linhas a partir do
+// primeiro cabeçalho: cada linha que repete o conjunto obrigatório refaz o
+// mapeamento de colunas (duas tabelas na mesma aba). Linha sem código é
+// subtotal; linha com código mas sem Mês e sem Loja é conferência; ambas são
+// ignoradas e contadas. Só uma das duas células vazia, ou valor que não é
+// número, é erro de linha.
+func (f *Fonte) lerPlanilha(ctx context.Context, rows []linha, hi int, ehCSV bool, probs []dre.Problema) ([]dre.Lancamento, error) {
+	var out []dre.Lancamento
+	var m mapaPlanilha
+	var soma float64 // das contas importadas da tabela atual
+	semMesLoja := 0
+	for _, r := range rows[hi:] {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if ehCabecalho(r.cels) {
+			m, soma = mapearPlanilha(r.cels), 0
+			continue
+		}
+		if vazia(r.cels) {
+			continue
+		}
+		codigo := celula(r.cels, m.codigo)
+		if f.xlsx {
+			codigo = inteiroTexto(codigo)
+		}
+		if codigo == "" {
+			f.ignoradas++
+			continue
+		}
+		mesTxt, lojaTxt := celula(r.cels, m.mes), celula(r.cels, m.loja)
+		valor, errValor := f.num(celula(r.cels, m.valor))
+		if ehTotal(codigo) {
+			f.ignoradas++
+			if errValor == nil {
+				esp, calc := math.Round(valor*100), math.Round(soma*100)
+				c := &ConferenciaTotal{Esperado: esp / 100, Calculado: calc / 100, OK: math.Abs(esp-calc) <= 1}
+				if f.conf == nil || f.conf.OK {
+					f.conf = c
+				}
+			}
+			continue
+		}
+		if mesTxt == "" && lojaTxt == "" {
+			f.ignoradas++
+			if errValor == nil {
+				semMesLoja++
+			}
+			continue
+		}
+		if ehCSV && len(r.cels) != m.n {
+			probs = append(probs, dre.Problema{Linha: r.n, Msg: "número de colunas diferente do cabeçalho"})
+			continue
+		}
+		if mesTxt == "" {
+			probs = append(probs, dre.Problema{Linha: r.n, Msg: "Mês vazio"})
+			continue
+		}
+		comp, err := parseMes(mesTxt)
+		if err != nil {
+			probs = append(probs, dre.Problema{Linha: r.n, Msg: "Mês inválido (esperado AAAAMM)"})
+			continue
+		}
+		filial := normFilial(lojaTxt)
+		if filial == "" {
+			probs = append(probs, dre.Problema{Linha: r.n, Msg: "Loja vazia"})
+			continue
+		}
+		if errValor != nil {
+			probs = append(probs, dre.Problema{Linha: r.n, Msg: "conta/valor inválidos"})
+			continue
+		}
+		if aj, err := f.num(celula(r.cels, m.ajuste)); err == nil && aj != 0 {
 			f.ajustes++
 		}
+		soma += valor
 		out = append(out, dre.Lancamento{
 			Linha: r.n, Competencia: comp, Filial: filial,
-			Conta: conta, ContaDesc: get(r.cels, "descricao"), Valor: valor,
+			Conta: codigo, ContaDesc: celula(r.cels, m.desc), Valor: valor,
 		})
 	}
 	if len(probs) > 0 {
 		return out, &dre.ErroLinhas{Problemas: probs}
+	}
+	if len(out) == 0 && semMesLoja > 0 {
+		return nil, &dre.ErroEntrada{Msg: msgSemCache}
 	}
 	return out, nil
 }

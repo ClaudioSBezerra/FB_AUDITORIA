@@ -176,3 +176,97 @@ func TestImportar_Planilha_Invalida400(t *testing.T) {
 		t.Fatalf("esperava 400 para ZIP corrompido, veio %d: %s", w.Code, w.Body.String())
 	}
 }
+
+// Entrada_Dados (história 2.17): duas tabelas com cabeçalhos diferentes,
+// subtotal sem código e linhas de conferência sem Mês e Loja. Dados fictícios.
+func entradaDadosCSV(total string) string {
+	return "Código;Conta;Vl. Realizado;Ajuste;Saldo;Grupo;Mês;Loja\n" +
+		"1;Venda bruta;100,00;;;G;202602;7\n" +
+		";Faturamento Líquido;100,00;;;G;202602;7\n" +
+		";;;;;;;\n" +
+		"CONTA;DESCRIÇÃO;VL. Realizado;Ajuste;Saldo;Grupo;Mês;Loja\n" +
+		"4010001;Conta A;10,50;;;G;202602;7\n" +
+		"4010002;Conta B;4,50;;;G;202602;7\n" +
+		"TOTAL;;" + total + ";;;;;\n" +
+		"Calculo para prova real;;1,00;;;;;\n"
+}
+
+type respEntrada struct {
+	Linhas           int `json:"linhas"`
+	LinhasIgnoradas  int `json:"linhas_ignoradas"`
+	AjustesIgnorados int `json:"ajustes_ignorados"`
+	Conferencia      *struct {
+		Esperado  float64 `json:"esperado"`
+		Calculado float64 `json:"calculado"`
+		OK        bool    `json:"ok"`
+	} `json:"conferencia_total"`
+}
+
+func TestImportar_EntradaDados(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	for i := 0; i < 2; i++ { // reenvio não duplica
+		w := importar(t, f, "entrada.csv", entradaDadosCSV("15,00"))
+		if w.Code != http.StatusOK {
+			t.Fatalf("status %d: %s", w.Code, w.Body.String())
+		}
+		var r respEntrada
+		if err := json.Unmarshal(w.Body.Bytes(), &r); err != nil || r.Linhas != 3 || r.LinhasIgnoradas != 3 || r.Conferencia == nil || !r.Conferencia.OK || r.Conferencia.Calculado != 15 {
+			t.Fatalf("resposta inesperada: %s (%v)", w.Body.String(), err)
+		}
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid AND origem='csv.contas' AND filial='7' AND competencia='2026-02-01'`, f.EmpresaID); n != 3 {
+		t.Errorf("esperava 3 lançamentos, vieram %d", n)
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid AND conta IN ('CONTA','TOTAL')`, f.EmpresaID); n != 0 {
+		t.Errorf("cabeçalho ou TOTAL viraram lançamento: %d", n)
+	}
+	// TOTAL diverge: aviso, não bloqueia
+	w := importar(t, f, "entrada.csv", entradaDadosCSV("99,00"))
+	var r respEntrada
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &r) != nil || r.Conferencia == nil || r.Conferencia.OK || r.Conferencia.Esperado != 99 {
+		t.Fatalf("esperava 200 com conferência divergente: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestImportar_EntradaDados_XLSX(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	xl := xlsxBytes(t, [][]any{
+		{"Código", "Conta", "Vl. Realizado", "Ajuste", "Saldo", "Grupo", "Mês", "Loja"},
+		{"1", "Venda bruta", 100, "", "", "G", 202602, 7},
+		{"", "Faturamento Líquido", 100, "", "", "G", 202602, 7},
+		{},
+		{"CONTA", "DESCRIÇÃO", "VL. Realizado", "Ajuste", "Saldo", "Grupo", "Mês", "Loja"},
+		{4010001, "Conta A", 10.5, "", "", "G", 202602, 7},
+		{"TOTAL", "", 10.5},
+	})
+	w := importar(t, f, "entrada.xlsx", xl)
+	var r respEntrada
+	if w.Code != http.StatusOK || json.Unmarshal(w.Body.Bytes(), &r) != nil || r.Linhas != 2 || r.LinhasIgnoradas != 2 || r.Conferencia == nil || !r.Conferencia.OK {
+		t.Fatalf("resposta inesperada: %d %s", w.Code, w.Body.String())
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid AND conta='4010001' AND valor=10.5`, f.EmpresaID); n != 1 {
+		t.Errorf("conta numérica de célula esperada exata, veio %d", n)
+	}
+}
+
+func TestImportar_EntradaDados_MesFechado409ELojaVazia400(t *testing.T) {
+	db := testdb.Open(t)
+	f := testdb.NovaEmpresa(t, db)
+	w := importar(t, f, "e.csv", strings.Replace(entradaDadosCSV("15,00"), "4010002;Conta B;4,50;;;G;202602;7", "4010002;Conta B;4,50;;;G;202602;", 1))
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "Loja vazia") {
+		t.Fatalf("esperava 400 com Loja vazia, veio %d: %s", w.Code, w.Body.String())
+	}
+	if _, err := db.Exec(`INSERT INTO auditoria.dre_fechamentos (empresa_id, competencia, versao, filial, fechado_por)
+		VALUES ($1::uuid,'2026-02-01',1,'',$2::uuid)`, f.EmpresaID, f.UserID); err != nil {
+		t.Fatal(err)
+	}
+	w = importar(t, f, "e.csv", entradaDadosCSV("15,00"))
+	if w.Code != http.StatusConflict {
+		t.Fatalf("esperava 409, veio %d: %s", w.Code, w.Body.String())
+	}
+	if n := contar(t, db, `SELECT COUNT(*) FROM auditoria.lancamentos WHERE empresa_id=$1::uuid`, f.EmpresaID); n != 0 {
+		t.Errorf("esperava nada gravado, vieram %d", n)
+	}
+}
