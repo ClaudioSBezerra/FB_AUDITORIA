@@ -5,7 +5,9 @@ import { Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from '@/contexts/AuthContext'
+import { useSearchParams } from 'react-router-dom'
 import { api } from './util'
+import { CargasDRE, ContasSemMapa } from './CargasDRE'
 
 interface Linha { codigo: string; descricao: string; tipo: string; soma_de: string[]; papel?: string }
 interface Mapa { conta_padrao: string; linha_codigo: string; sinal: number }
@@ -15,6 +17,8 @@ interface Mapa { conta_padrao: string; linha_codigo: string; sinal: number }
 export default function DREMapa() {
   const { perfil, isAdmin } = useAuth()
   const qc = useQueryClient()
+  const [sp] = useSearchParams()
+  const sem = /^(\d{4})-(\d{1,2})$/.exec(sp.get('sem') ?? '')
   const editar = isAdmin || ['analista', 'controladoria'].includes(perfil ?? '')
   const linhas = useQuery({ queryKey: ['dre-linhas'], queryFn: () => api<Linha[]>('/api/aud/dre/linhas') })
   const mapa = useQuery({ queryKey: ['dre-mapa'], queryFn: () => api<Mapa[]>('/api/aud/dre/mapa') })
@@ -50,6 +54,9 @@ export default function DREMapa() {
   }
 
   return (
+    <div className="space-y-6">
+    {sem && <ContasSemMapa ano={+sem[1]} mes={+sem[2]} visao={sp.get('visao') === 'acumulada' ? 'acumulada' : 'mensal'} />}
+    {editar && <CargasDRE />}
     <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start">
       <div className="space-y-3">
         <h2 className="text-sm font-semibold">De-para de contas</h2>
@@ -105,6 +112,7 @@ export default function DREMapa() {
           ))}
         </ol>
       </div>
+    </div>
     </div>
   )
 }

@@ -456,6 +456,10 @@ func main() {
 	http.HandleFunc("/api/aud/dre/fechamentos/reabrir", withAud(handlers.DREReabrirHandler, est, handlers.CapReabrir))
 	// Escrita do DRE: cada rota declara a capacidade (perfis.go); diretoria e auditoria só leem.
 	http.HandleFunc("/api/aud/dre/mapa", withAud(handlers.DREMapaHandler, est, handlers.CapLerNoEscopo, handlers.CapEditarMapa))
+	// 3.2: carga da estrutura e do Mapa por arquivo; lista das contas sem Mapa (valor: exige ler).
+	http.HandleFunc("/api/aud/dre/estrutura/carga", withAud(handlers.DREEstruturaCargaHandler, est, handlers.CapEditarEstrutura))
+	http.HandleFunc("/api/aud/dre/mapa/carga", withAud(handlers.DREMapaCargaHandler, est, handlers.CapEditarMapa))
+	http.HandleFunc("/api/aud/dre/mapa/sem-mapa", gz(withAud(handlers.DREMapaSemMapaHandler, est, handlers.CapLer)))
 	http.HandleFunc("/api/aud/dre/orcado", withAud(handlers.DREOrcadoHandler, est, handlers.CapCarregar))
 	http.HandleFunc("/api/aud/dados/atualizar", withAud(handlers.DadosAtualizarHandler, est, handlers.CapCarregar))
 	http.HandleFunc("/api/aud/dre/lancamentos/importar", withAud(handlers.DREImportarHandler, est, handlers.CapCarregar))

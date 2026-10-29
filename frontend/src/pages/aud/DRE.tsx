@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
 import { Lock, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -155,11 +156,11 @@ export default function DRE() {
       )}
 
       {d && d.nao_mapeado.length > 0 && (
-        <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+        <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <div>
-            <b>{d.nao_mapeado.length} conta(s) sem mapeamento</b> ficaram fora do DRE ({brl(d.nao_mapeado.reduce((s, x) => s + x.valor, 0))}):{' '}
-            {d.nao_mapeado.slice(0, 5).map(x => x.conta).join(', ')}{d.nao_mapeado.length > 5 ? '…' : ''}. Ajuste em Mapa do DRE.
+            {d.nao_mapeado.length} conta(s) sem Mapa ({brl(d.nao_mapeado.reduce((s, x) => s + x.valor, 0))}) ficaram fora do DRE —{' '}
+            <Link className="underline" to={`/empresa/mapa?sem=${ano}-${mes}&visao=${visao}`}>ver Mapa</Link>
           </div>
         </div>
       )}

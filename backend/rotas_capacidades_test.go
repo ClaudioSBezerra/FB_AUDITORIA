@@ -155,6 +155,9 @@ var comportamentoDeHoje = map[string]esperado{
 	"/api/aud/dre/fechamentos":          {todos4, soCtrl},
 	"/api/aud/dre/fechamentos/reabrir":  {soCtrl, soCtrl},
 	"/api/aud/dre/mapa":                 {todos4, soCtrl},
+	"/api/aud/dre/estrutura/carga":      {soCtrl, soCtrl},
+	"/api/aud/dre/mapa/carga":           {soCtrl, soCtrl},
+	"/api/aud/dre/mapa/sem-mapa":        {leitoresSemGestor, leitoresSemGestor}, // 3.2: mostra valor
 	"/api/aud/dre/orcado":               {soCtrl, soCtrl},
 	"/api/aud/dados/atualizar":          {soCtrl, soCtrl},
 	"/api/aud/dre/lancamentos/importar": {soCtrl, soCtrl},
@@ -167,7 +170,8 @@ var analistaEscreve = map[string]bool{
 	"/api/aud/filiais-gerenciais": true, "/api/aud/agrupamentos-filiais": true, "/api/aud/departamentos": true,
 	"/api/aud/dicionario/carga": true, "/api/aud/dicionario/conta": true, "/api/aud/dre/linhas/papel": true,
 	"/api/aud/dre/mapa": true, "/api/aud/dre/orcado": true, "/api/aud/dados/atualizar": true,
-	"/api/aud/dre/lancamentos/importar": true,
+	"/api/aud/dre/lancamentos/importar": true, "/api/aud/dre/estrutura/carga": true, "/api/aud/dre/mapa/carga": true,
+	"/api/aud/dre/mapa/sem-mapa": true,
 	// rotas só de leitura em que escrita == leitura
 	"/api/aud/dicionario": true, "/api/aud/dre": true, "/api/aud/dre/filiais": true, "/api/aud/dre/linhas": true,
 	"/api/aud/dre/departamentos": true, "/api/aud/dre/lancamentos": true, "/api/aud/dre/trimestres": true,
@@ -245,6 +249,8 @@ func TestRotas_AnalistaCarregaEditaMasNaoFechaNemReabre(t *testing.T) {
 		{"/api/aud/dados/atualizar", http.MethodPost, 200},
 		{"/api/aud/dre/orcado", http.MethodPut, 200},
 		{"/api/aud/dre/mapa", http.MethodPut, 200},
+		{"/api/aud/dre/estrutura/carga", http.MethodPost, 200},
+		{"/api/aud/dre/mapa/carga", http.MethodPost, 200},
 		{"/api/aud/dre/linhas/papel", http.MethodPut, 200},
 		{"/api/aud/departamentos", http.MethodPost, 200},
 		{"/api/aud/filiais-gerenciais", http.MethodPut, 200},

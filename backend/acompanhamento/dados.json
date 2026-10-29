@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-29",
-  "versao": "35a9dd8",
+  "versao": "e98181c",
   "historias": [
     {
       "id": "1.1",
@@ -512,7 +512,7 @@
         "nome": "DRE por departamento, com orçado e ano anterior"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero carregar a estrutura e o Mapa de contas por arquivo, para que eu não digite centenas de contas uma a uma.",
       "criterios": [
