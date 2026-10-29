@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-29",
-  "versao": "e98181c",
+  "versao": "21e0acb",
   "historias": [
     {
       "id": "1.1",
@@ -530,7 +530,7 @@
         "nome": "DRE por departamento, com orçado e ano anterior"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como dono do produto, quero gerar a estrutura e o Mapa iniciais a partir do DRE da planilha e validá-los com a área de negócio, para que o primeiro fechamento não trave em centenas de contas sem mapeamento.",
       "criterios": [
