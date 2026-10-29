@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"fb_auditoria/dre"
+	csvfonte "fb_auditoria/dre/fontes/csv"
 )
 
 // FiliaisGerenciaisHandler — mapa de filiais (filial do ERP para filial gerencial).
@@ -119,5 +120,60 @@ func erroFilial(w http.ResponseWriter, err error, op string) bool {
 		log.Printf("filiais gerenciais %s: %v", op, err)
 		http.Error(w, "Erro ao "+op+" filial gerencial", http.StatusInternalServerError)
 	}
+	return true
+}
+
+// FiliaisGerenciaisCargaHandler — POST /api/aud/filiais-gerenciais/carga (multipart
+// "arquivo", CSV ou XLSX; colunas filial_gerencial e filial_erp, nome opcional).
+// Cria as filiais gerenciais que faltam e liga as filiais do ERP; uma filial do ERP
+// já ligada a outra é movida (informada no resumo). Não apaga nada. Tudo ou nada.
+// Mesma capacidade do cadastro manual (editar_estrutura).
+func FiliaisGerenciaisCargaHandler(db *sql.DB) http.HandlerFunc {
+	svc := &dre.Filiais{DB: db}
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		c := GetAudContext(r)
+		if !c.Pode(CapEditarEstrutura) {
+			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limiteCargaBytes())
+		f, hdr, err := r.FormFile("arquivo")
+		if err != nil {
+			erroUploadCarga(w, err)
+			return
+		}
+		defer f.Close()
+		linhas, probs, err := csvfonte.LerMapaFiliais(f)
+		if erroCargaFiliais(w, err, "ler o mapa de filiais") {
+			return
+		}
+		out, err := svc.CarregarMapaFiliais(r.Context(), dre.CargaMapaFiliaisIn{
+			EmpresaID: c.EmpresaID, UserID: c.UserID, Arquivo: hdr.Filename, Linhas: linhas, Problemas: probs,
+		})
+		if erroCargaFiliais(w, err, "carregar o mapa de filiais") {
+			return
+		}
+		writeJSON(w, out)
+	}
+}
+
+// erroCargaFiliais mapeia o erro das cargas de filiais e agrupamentos para HTTP;
+// devolve true se respondeu.
+func erroCargaFiliais(w http.ResponseWriter, err error, op string) bool {
+	if err == nil {
+		return false
+	}
+	var entrada *dre.ErroEntrada
+	var linhas *dre.ErroLinhas
+	if errors.As(err, &entrada) || errors.As(err, &linhas) {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return true
+	}
+	log.Printf("filiais %s: %v", op, err)
+	http.Error(w, "Erro ao "+op, http.StatusInternalServerError)
 	return true
 }

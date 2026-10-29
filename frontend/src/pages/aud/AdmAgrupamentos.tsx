@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from './util'
+import BlocoCargaArquivo from './BlocoCargaArquivo'
 
 interface FG { id: string; codigo: string; nome: string; filiais: string[] }
 interface Agr { id: string; codigo: string; nome: string; filiais: string[] }
@@ -10,6 +11,11 @@ interface Form { id: string; codigo: string; nome: string; filiais: string[] }
 
 const VAZIO: Form = { id: '', codigo: '', nome: '', filiais: [] }
 const URL = '/api/aud/agrupamentos-filiais'
+
+interface ResultadoAgr { linhas: number; criados: number; atualizados: number; membros_adicionados: number; inalteradas: number }
+
+// Modelo fictício gerado no navegador (nenhum dado real).
+const MODELO = ['agrupamento;nome;filial', 'AGR_A;Agrupamento A;1', 'AGR_A;Agrupamento A;2', 'AGR_B;Agrupamento B;3'].join('\n')
 
 export default function AdmAgrupamentos() {
   const { perfil, isAdmin } = useAuth()
@@ -55,6 +61,17 @@ export default function AdmAgrupamentos() {
         Um agrupamento soma filiais gerenciais numa visão nomeada. Uma filial gerencial pode estar em vários agrupamentos.
         A visão de todas as filiais (Grupo) não precisa de cadastro; o código GRUPO é reservado.
       </p>
+      {editar && (
+        <BlocoCargaArquivo<ResultadoAgr>
+          titulo="Carregar agrupamentos" url={URL + '/carga'} modelo={MODELO} nomeModelo="modelo_agrupamentos.csv"
+          aoCarregar={() => { recarregar(); qc.invalidateQueries({ queryKey: ['agrupamentos-filiais-recorte'] }) }}
+          descricao={<>CSV ou XLSX com <code>agrupamento</code> e <code>filial</code> (uma linha por filial gerencial membro; <code>nome</code> é opcional).
+            Cria os agrupamentos que faltam e acrescenta os membros. As filiais precisam já existir no Mapa de filiais (carregue o mapa antes).
+            Nada é apagado. Se uma linha for inválida, nada é gravado.</>}
+          resumo={r => <>{r.linhas} linha(s): {r.criados} agrupamento(s) criado(s), {r.atualizados} atualizado(s), {r.membros_adicionados} membro(s) acrescentado(s),
+            {' '}{r.inalteradas} sem mudança.</>}
+        />
+      )}
       {editar && !form && (
         <button className="h-8 rounded-md border bg-white px-3 text-sm" onClick={() => setForm(VAZIO)}>Novo agrupamento</button>
       )}

@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"fb_auditoria/dre"
+	csvfonte "fb_auditoria/dre/fontes/csv"
 )
 
 // AgrupamentosFiliaisHandler — agrupamentos de filiais gerenciais (Balcões, Distribuição).
@@ -111,4 +112,42 @@ func erroAgrupamento(w http.ResponseWriter, err error, op string) bool {
 		http.Error(w, "Erro ao "+op+" agrupamento", http.StatusInternalServerError)
 	}
 	return true
+}
+
+// AgrupamentosFiliaisCargaHandler — POST /api/aud/agrupamentos-filiais/carga
+// (multipart "arquivo", CSV ou XLSX; colunas agrupamento e filial, nome opcional).
+// Cria os agrupamentos que faltam e acrescenta os membros; as filiais precisam já
+// existir como filiais gerenciais. Não apaga nada. Tudo ou nada. Mesma capacidade
+// do cadastro manual (editar_estrutura).
+func AgrupamentosFiliaisCargaHandler(db *sql.DB) http.HandlerFunc {
+	svc := &dre.Agrupamentos{DB: db}
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		c := GetAudContext(r)
+		if !c.Pode(CapEditarEstrutura) {
+			http.Error(w, "Forbidden: perfil insuficiente", http.StatusForbidden)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limiteCargaBytes())
+		f, hdr, err := r.FormFile("arquivo")
+		if err != nil {
+			erroUploadCarga(w, err)
+			return
+		}
+		defer f.Close()
+		linhas, probs, err := csvfonte.LerAgrupamentos(f)
+		if erroCargaFiliais(w, err, "ler os agrupamentos") {
+			return
+		}
+		out, err := svc.CarregarAgrupamentos(r.Context(), dre.CargaAgrupamentosIn{
+			EmpresaID: c.EmpresaID, UserID: c.UserID, Arquivo: hdr.Filename, Linhas: linhas, Problemas: probs,
+		})
+		if erroCargaFiliais(w, err, "carregar os agrupamentos") {
+			return
+		}
+		writeJSON(w, out)
+	}
 }

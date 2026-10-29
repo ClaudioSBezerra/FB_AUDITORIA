@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-10-29",
-  "versao": "5ef2cf3",
+  "versao": "61da1ab",
   "historias": [
     {
       "id": "1.1",
@@ -541,6 +541,27 @@
         "Dado o arquivo dá certo\nEntão a trilha (departamento/carga) é gravada na mesma transação com só contagens e códigos",
         "Dado quem não tem editar_estrutura\nEntão 403, e a tela tem o bloco \"Carregar departamentos\" com \"Baixar modelo CSV\"",
         "Dado um arquivo do dicionário (2.10) com departamento inexistente\nEntão a mensagem lista os códigos de departamento distintos que não existem e quantas linhas os usam"
+      ]
+    },
+    {
+      "id": "2.21",
+      "titulo": "Carga do Mapa de filiais e dos agrupamentos por arquivo",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Feito",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero carregar o Mapa de filiais e os agrupamentos por arquivo CSV ou XLSX, para que a estrutura de filiais da empresa entre de uma vez, em vez de um cadastro por vez.",
+      "criterios": [
+        "Dado um arquivo do mapa com filial_gerencial e filial_erp (e nome opcional)\nQuando carrega (POST /api/aud/filiais-gerenciais/carga)\nEntão cria as filiais gerenciais que faltam, liga as filiais do ERP ainda não ligadas e a resposta diz quantas foram criadas, atualizadas, ligadas, movidas e sem mudança",
+        "Dado uma filial do ERP que já pertence a outra filial gerencial\nEntão ela é movida para a do arquivo e a resposta lista a movimentação (filial, de, para)",
+        "Dado um arquivo de agrupamentos com agrupamento e filial (e nome opcional)\nQuando carrega (POST /api/aud/agrupamentos-filiais/carga)\nEntão cria os agrupamentos que faltam e acrescenta os membros, sem tirar nenhum",
+        "Dado uma filial de agrupamento que não existe como filial gerencial\nEntão nada é gravado e a mensagem lista as filiais que faltam e pede o Mapa de filiais antes",
+        "Dado linha vazia ou inválida, filial do ERP em duas filiais gerenciais no mesmo arquivo, código igual ao de outra coisa ou a palavra GRUPO\nEntão nada é gravado e a resposta lista até 20 erros de linha mais o total",
+        "Dado códigos de filial com zeros à esquerda (\"01\")\nEntão valem como \"1\", como na ingestão",
+        "Dado a carga dá certo\nEntão a trilha (filial_gerencial ou agrupamento_filiais, ação carga) é gravada na mesma transação, e as telas têm o bloco de carga com \"Baixar modelo CSV\""
       ]
     },
     {

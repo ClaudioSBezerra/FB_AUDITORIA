@@ -3,12 +3,21 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { api } from './util'
+import BlocoCargaArquivo from './BlocoCargaArquivo'
 
 interface FG { id: string; codigo: string; nome: string; filiais: string[] }
 interface Form { id: string; codigo: string; nome: string; filiais: string }
 
 const VAZIO: Form = { id: '', codigo: '', nome: '', filiais: '' }
 const URL = '/api/aud/filiais-gerenciais'
+
+interface ResultadoMapa {
+  linhas: number; criadas: number; atualizadas: number; ligacoes_novas: number; ligacoes_movidas: number; inalteradas: number
+  movidas: { filial: string; de: string; para: string }[]
+}
+
+// Modelo fictício gerado no navegador (nenhum dado real).
+const MODELO = ['filial_gerencial;filial_erp;nome', '1;1;Filial Um', '2;2;Filial Dois', '2;3;Filial Dois', '2;4;Filial Dois'].join('\n')
 
 export default function AdmFiliais() {
   const { perfil, isAdmin } = useAuth()
@@ -47,6 +56,18 @@ export default function AdmFiliais() {
       <p className="text-sm text-muted-foreground">
         Uma filial gerencial agrupa filiais do ERP. A filial do ERP sem ligação vale por si.
       </p>
+      {editar && (
+        <BlocoCargaArquivo<ResultadoMapa>
+          titulo="Carregar mapa de filiais" url={URL + '/carga'} modelo={MODELO} nomeModelo="modelo_mapa_filiais.csv" aoCarregar={recarregar}
+          descricao={<>CSV ou XLSX com <code>filial_gerencial</code> e <code>filial_erp</code> (uma linha por filial do ERP; <code>nome</code> é opcional).
+            Cria as filiais gerenciais que faltam e liga as filiais do ERP. Uma filial do ERP que já esteja em outra filial gerencial é movida para a do arquivo.
+            Nada é apagado. Se uma linha for inválida, nada é gravado. Para entrar em um agrupamento, a filial precisa estar aqui,
+            mesmo a que vale só por si (por exemplo, <code>12;12</code>).</>}
+          resumo={r => <>{r.linhas} linha(s): {r.criadas} filial(is) gerencial(is) criada(s), {r.atualizadas} atualizada(s), {r.ligacoes_novas} ligação(ões) nova(s),
+            {' '}{r.ligacoes_movidas} movida(s), {r.inalteradas} sem mudança.
+            {r.movidas?.length > 0 && <> Movidas: {r.movidas.map(m => `${m.filial} (de ${m.de} para ${m.para})`).join(', ')}.</>}</>}
+        />
+      )}
       {editar && !form && (
         <button className="h-8 rounded-md border bg-white px-3 text-sm" onClick={() => setForm(VAZIO)}>Nova filial gerencial</button>
       )}

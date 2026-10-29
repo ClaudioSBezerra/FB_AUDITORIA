@@ -132,47 +132,49 @@ var leitoresSemGestor = []string{"controladoria", "auditoria", "diretoria"}
 type esperado struct{ leitura, escrita []string }
 
 var comportamentoDeHoje = map[string]esperado{
-	"/api/aud/usuarios":                 {soCtrl, soCtrl},
-	"/api/aud/usuarios/bloquear":        {soCtrl, soCtrl},
-	"/api/aud/usuarios/desbloquear":     {soCtrl, soCtrl},
-	"/api/aud/filiais-gerenciais":       {todos4, soCtrl},
-	"/api/aud/agrupamentos-filiais":     {todos4, soCtrl},
-	"/api/aud/departamentos":            {todos4, soCtrl},
-	"/api/aud/departamentos/carga":      {soCtrl, soCtrl},
-	"/api/aud/dicionario":               {todos4, todos4}, // só GET; outros métodos dão 405 no handler
-	"/api/aud/dicionario/carga":         {soCtrl, soCtrl},
-	"/api/aud/dicionario/conta":         {soCtrl, soCtrl},
-	"/api/aud/audit-log":                {[]string{"controladoria", "auditoria"}, []string{"controladoria", "auditoria"}},
-	"/api/aud/dre":                      {leitoresSemGestor, leitoresSemGestor}, // 4.7: DRE do grupo, 403 ao Gerente
-	"/api/aud/dre/filiais":              {todos4, todos4},
-	"/api/aud/dre/linhas":               {todos4, todos4},
-	"/api/aud/dre/linhas/papel":         {soCtrl, soCtrl},
-	"/api/aud/dre/departamentos":        {todos4, todos4},                       // 4.7: o Gerente entra com escopo
-	"/api/aud/dre/lancamentos":          {leitoresSemGestor, leitoresSemGestor}, // 4.7: rota antiga fechada ao Gerente
-	"/api/aud/dre/trimestres":           {leitoresSemGestor, leitoresSemGestor},
-	"/api/aud/meu-departamento":         {todos4, todos4}, // 4.8: passa no portão; o handler só aceita o gestor
-	"/api/aud/dre/contas":               {todos4, todos4}, // 4.7: com escopo
-	"/api/aud/dre/contas/lancamentos":   {todos4, todos4}, // 4.7: com escopo
-	"/api/aud/dre/fechamentos":          {todos4, soCtrl},
-	"/api/aud/dre/fechamentos/reabrir":  {soCtrl, soCtrl},
-	"/api/aud/dre/mapa":                 {todos4, soCtrl},
-	"/api/aud/dre/estrutura/carga":      {soCtrl, soCtrl},
-	"/api/aud/dre/mapa/carga":           {soCtrl, soCtrl},
-	"/api/aud/dre/mapa/sem-mapa":        {leitoresSemGestor, leitoresSemGestor}, // 3.2: mostra valor
-	"/api/aud/dre/orcado":               {soCtrl, soCtrl},
-	"/api/aud/dados/atualizar":          {soCtrl, soCtrl},
-	"/api/aud/dre/lancamentos/importar": {soCtrl, soCtrl},
-	"/api/aud/conferencia":              {leitoresSemGestor, leitoresSemGestor}, // 2.12: leitura irrestrita
-	"/api/aud/conferencia/origens":      {leitoresSemGestor, leitoresSemGestor},
-	"/api/aud/comparativo":              {leitoresSemGestor, leitoresSemGestor}, // 2.18: leitura irrestrita
-	"/api/aud/comparativo/periodos":     {leitoresSemGestor, leitoresSemGestor},
-	"/api/aud/comparativo/carga":        {soCtrl, soCtrl},
+	"/api/aud/usuarios":                   {soCtrl, soCtrl},
+	"/api/aud/usuarios/bloquear":          {soCtrl, soCtrl},
+	"/api/aud/usuarios/desbloquear":       {soCtrl, soCtrl},
+	"/api/aud/filiais-gerenciais":         {todos4, soCtrl},
+	"/api/aud/agrupamentos-filiais":       {todos4, soCtrl},
+	"/api/aud/departamentos":              {todos4, soCtrl},
+	"/api/aud/departamentos/carga":        {soCtrl, soCtrl},
+	"/api/aud/filiais-gerenciais/carga":   {soCtrl, soCtrl},
+	"/api/aud/agrupamentos-filiais/carga": {soCtrl, soCtrl},
+	"/api/aud/dicionario":                 {todos4, todos4}, // só GET; outros métodos dão 405 no handler
+	"/api/aud/dicionario/carga":           {soCtrl, soCtrl},
+	"/api/aud/dicionario/conta":           {soCtrl, soCtrl},
+	"/api/aud/audit-log":                  {[]string{"controladoria", "auditoria"}, []string{"controladoria", "auditoria"}},
+	"/api/aud/dre":                        {leitoresSemGestor, leitoresSemGestor}, // 4.7: DRE do grupo, 403 ao Gerente
+	"/api/aud/dre/filiais":                {todos4, todos4},
+	"/api/aud/dre/linhas":                 {todos4, todos4},
+	"/api/aud/dre/linhas/papel":           {soCtrl, soCtrl},
+	"/api/aud/dre/departamentos":          {todos4, todos4},                       // 4.7: o Gerente entra com escopo
+	"/api/aud/dre/lancamentos":            {leitoresSemGestor, leitoresSemGestor}, // 4.7: rota antiga fechada ao Gerente
+	"/api/aud/dre/trimestres":             {leitoresSemGestor, leitoresSemGestor},
+	"/api/aud/meu-departamento":           {todos4, todos4}, // 4.8: passa no portão; o handler só aceita o gestor
+	"/api/aud/dre/contas":                 {todos4, todos4}, // 4.7: com escopo
+	"/api/aud/dre/contas/lancamentos":     {todos4, todos4}, // 4.7: com escopo
+	"/api/aud/dre/fechamentos":            {todos4, soCtrl},
+	"/api/aud/dre/fechamentos/reabrir":    {soCtrl, soCtrl},
+	"/api/aud/dre/mapa":                   {todos4, soCtrl},
+	"/api/aud/dre/estrutura/carga":        {soCtrl, soCtrl},
+	"/api/aud/dre/mapa/carga":             {soCtrl, soCtrl},
+	"/api/aud/dre/mapa/sem-mapa":          {leitoresSemGestor, leitoresSemGestor}, // 3.2: mostra valor
+	"/api/aud/dre/orcado":                 {soCtrl, soCtrl},
+	"/api/aud/dados/atualizar":            {soCtrl, soCtrl},
+	"/api/aud/dre/lancamentos/importar":   {soCtrl, soCtrl},
+	"/api/aud/conferencia":                {leitoresSemGestor, leitoresSemGestor}, // 2.12: leitura irrestrita
+	"/api/aud/conferencia/origens":        {leitoresSemGestor, leitoresSemGestor},
+	"/api/aud/comparativo":                {leitoresSemGestor, leitoresSemGestor}, // 2.18: leitura irrestrita
+	"/api/aud/comparativo/periodos":       {leitoresSemGestor, leitoresSemGestor},
+	"/api/aud/comparativo/carga":          {soCtrl, soCtrl},
 }
 
 // Onde o analista entra (GET: analistaLeSim ou analistaEscreve; POST: analistaEscreve) — decisão da 4.3, ver spec.
 var analistaEscreve = map[string]bool{
 	"/api/aud/filiais-gerenciais": true, "/api/aud/agrupamentos-filiais": true, "/api/aud/departamentos": true,
-	"/api/aud/departamentos/carga": true, "/api/aud/dicionario/carga": true, "/api/aud/dicionario/conta": true, "/api/aud/dre/linhas/papel": true,
+	"/api/aud/departamentos/carga": true, "/api/aud/filiais-gerenciais/carga": true, "/api/aud/agrupamentos-filiais/carga": true, "/api/aud/dicionario/carga": true, "/api/aud/dicionario/conta": true, "/api/aud/dre/linhas/papel": true,
 	"/api/aud/dre/mapa": true, "/api/aud/dre/orcado": true, "/api/aud/dados/atualizar": true,
 	"/api/aud/dre/lancamentos/importar": true, "/api/aud/dre/estrutura/carga": true, "/api/aud/dre/mapa/carga": true,
 	"/api/aud/dre/mapa/sem-mapa": true,
@@ -259,6 +261,8 @@ func TestRotas_AnalistaCarregaEditaMasNaoFechaNemReabre(t *testing.T) {
 		{"/api/aud/dre/linhas/papel", http.MethodPut, 200},
 		{"/api/aud/departamentos", http.MethodPost, 200},
 		{"/api/aud/departamentos/carga", http.MethodPost, 200},
+		{"/api/aud/filiais-gerenciais/carga", http.MethodPost, 200},
+		{"/api/aud/agrupamentos-filiais/carga", http.MethodPost, 200},
 		{"/api/aud/filiais-gerenciais", http.MethodPut, 200},
 		{"/api/aud/agrupamentos-filiais", http.MethodDelete, 200},
 		{"/api/aud/dicionario/carga", http.MethodPost, 200},

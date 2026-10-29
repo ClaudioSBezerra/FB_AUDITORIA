@@ -340,6 +340,39 @@ So that eu cadastre a lista inteira de uma vez, em vez de um por um.
 **Given** um arquivo do dicionário (2.10) com departamento inexistente
 **Then** a mensagem lista os códigos de departamento distintos que não existem e quantas linhas os usam
 
+### Story 2.21: Carga do Mapa de filiais e dos agrupamentos por arquivo
+
+As a analista,
+I want carregar o Mapa de filiais e os agrupamentos por arquivo CSV ou XLSX,
+So that a estrutura de filiais da empresa entre de uma vez, em vez de um cadastro por vez.
+
+**Nota:** mesma capacidade do cadastro manual (`editar_estrutura`). As duas cargas só criam e acrescentam; nada é apagado. O Mapa vem antes: os membros de um agrupamento são filiais gerenciais que já existem, e uma filial que vale só por si também precisa de uma linha no mapa (a ligada a ela mesma) para entrar num agrupamento. Decisões na spec `spec-2-21-carga-do-mapa-de-filiais-e-agrupamentos.md`.
+
+**Acceptance Criteria:**
+
+**Given** um arquivo do mapa com `filial_gerencial` e `filial_erp` (e `nome` opcional)
+**When** carrega (`POST /api/aud/filiais-gerenciais/carga`)
+**Then** cria as filiais gerenciais que faltam, liga as filiais do ERP ainda não ligadas e a resposta diz quantas foram criadas, atualizadas, ligadas, movidas e sem mudança
+
+**Given** uma filial do ERP que já pertence a outra filial gerencial
+**Then** ela é movida para a do arquivo e a resposta lista a movimentação (filial, de, para)
+
+**Given** um arquivo de agrupamentos com `agrupamento` e `filial` (e `nome` opcional)
+**When** carrega (`POST /api/aud/agrupamentos-filiais/carga`)
+**Then** cria os agrupamentos que faltam e acrescenta os membros, sem tirar nenhum
+
+**Given** uma filial de agrupamento que não existe como filial gerencial
+**Then** nada é gravado e a mensagem lista as filiais que faltam e pede o Mapa de filiais antes
+
+**Given** linha vazia ou inválida, filial do ERP em duas filiais gerenciais no mesmo arquivo, código igual ao de outra coisa ou a palavra GRUPO
+**Then** nada é gravado e a resposta lista até 20 erros de linha mais o total
+
+**Given** códigos de filial com zeros à esquerda ("01")
+**Then** valem como "1", como na ingestão
+
+**Given** a carga dá certo
+**Then** a trilha (`filial_gerencial` ou `agrupamento_filiais`, ação `carga`) é gravada na mesma transação, e as telas têm o bloco de carga com "Baixar modelo CSV"
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
 **FRs covered:** FR-5, FR-6, FR-7, FR-8

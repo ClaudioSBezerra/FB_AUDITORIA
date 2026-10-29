@@ -68,6 +68,7 @@ development_status:
   2-18-comparativo-de-fechamento-planilha-do-marcos-sistema: review
   2-19-salvaguarda-de-período-na-carga-de-lançamentos: review
   2-20-carga-de-departamentos-por-arquivo: review
+  2-21-carga-do-mapa-de-filiais-e-dos-agrupamentos-por-arquivo: done
   epic-2-retrospective: optional
 
   epic-3: backlog

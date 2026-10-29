@@ -142,3 +142,6 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-20-carga-de-departamentos.md`
   summary: A carga de departamentos nunca apaga nem renomeia códigos; para retirar os que sobraram é preciso excluir um a um (e só sem contas ligadas). Se pedirem, oferecer a lista dos departamentos fora do arquivo para exclusão em lote.
   evidence: `backend/dre/departamentos_carga.go` (`CarregarDepartamentos` só cria e atualiza).
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-21-carga-do-mapa-de-filiais-e-agrupamentos.md`
+  summary: As cargas do mapa e dos agrupamentos nunca removem filial gerencial, ligação nem membro; para retirar o que sobrou é preciso usar o cadastro manual. Se pedirem, oferecer o modo "substituir" (com confirmação) por arquivo.
+  evidence: `backend/dre/filiais_carga.go` (`CarregarMapaFiliais` e `CarregarAgrupamentos` só criam, ligam e movem).
