@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-11-26",
-  "versao": "fdaa6ed",
+  "versao": "57dd73b",
   "historias": [
     {
       "id": "1.1",
@@ -401,8 +401,7 @@
       },
       "release": "A1",
       "status": "Em revisão",
-      "bloqueada_cliente": true,
-      "motivo_bloqueio": "aguarda decisão do cliente sobre a frequência da atualização (mensal, semanal ou diária) antes de ligar.",
+      "bloqueada_cliente": false,
       "resumo": "Como analista, quero que a importação rode sozinha todo dia, para que eu não precise lembrar.",
       "criterios": [
         "Dado a hora em config_empresa (padrão 06:30, America/Sao_Paulo; a tabela é criada aqui se ainda não existir)\nQuando chega a hora\nEntão dispara as importações 2.3 e 2.6",
@@ -578,7 +577,7 @@
       "release": "A1",
       "status": "Em revisão",
       "bloqueada_cliente": true,
-      "motivo_bloqueio": "aguarda resposta do cliente: view com a data de pagamento e destino das contas de movimentação de mercadoria.",
+      "motivo_bloqueio": "aguarda resposta do cliente: view com a data de pagamento.",
       "resumo": "Como analista, quero trazer o realizado por conta gerencial do banco do cliente, para que verbas, despesas, receitas, folha e impostos entrem no sistema sem arquivo.",
       "criterios": [
         "Dado uma competência\nQuando importa\nEntão lê o objeto filtrando pela coluna de data do mês, somado por filial, conta e dia, e grava com origem oracle.realizado, a conta e o sinal como vieram e a data no histórico",
@@ -650,7 +649,7 @@
       "release": "A1",
       "status": "Em revisão",
       "bloqueada_cliente": true,
-      "motivo_bloqueio": "aguarda resposta do cliente: Outros Faturamentos e as linhas apresentadas depois do resultado.",
+      "motivo_bloqueio": "aguarda resposta do cliente: as linhas apresentadas depois do resultado.",
       "resumo": "Como dono do produto, quero gerar a estrutura e o Mapa iniciais a partir do DRE da planilha e validá-los com a área de negócio, para que o primeiro fechamento não trave em centenas de contas sem mapeamento.",
       "criterios": [
         "Dado as abas de DRE da planilha\nQuando o arquivo de estrutura é gerado\nEntão reproduz as linhas: Faturamento Líquido; CMV, Deduções e Verbas; Margem Composta; Impostos sobre Faturamento Líquido; Margem de Contribuição; os departamentos Comercial, Logística e Administrativo e o Total de Despesas; Margem Líquida; Outras Receitas e Despesas; Resultado antes da tributação; IRPJ",
@@ -726,7 +725,7 @@
       "release": "A1",
       "status": "Backlog",
       "bloqueada_cliente": true,
-      "motivo_bloqueio": "aguarda resposta do cliente: planilha de análise salva na visão da matriz e confirmação do critério de data.",
+      "motivo_bloqueio": "aguarda resposta do cliente: planilha de análise salva na visão da matriz.",
       "resumo": "Como dono do produto, quero comparar o DRE do sistema com o da planilha para um mês de referência, para que eu saiba que os números batem antes de mostrar ao cliente.",
       "criterios": [
         "Dado um mês de referência com Oracle consolidado, CSV de contas e orçado carregados em Teste, e um arquivo com os valores da planilha por linha do DRE e filial (fora do repositório)\nQuando peço a paridade\nEntão lista por linha e filial o valor do sistema, o da planilha, a diferença e se passou da tolerância (0,01)",

@@ -375,7 +375,9 @@ So that a estrutura de filiais da empresa entre de uma vez, em vez de um cadastr
 
 ### Story 2.22: Ler o realizado por conta do Oracle (FR-1, AD-2, AD-4, AD-16)
 
-**Nota:** aguarda resposta do cliente: view com a data de pagamento e destino das contas de movimentação de mercadoria.
+**Nota:** aguarda resposta do cliente: view com a data de pagamento.
+
+**Decisão do cliente:** o DRE é por data de pagamento (sem pagamento fica fora); as contas de movimentação de mercadoria não entram no DRE, que usa apenas Faturamento e CMV (falta implementar a exclusão por configuração).
 
 As a analista,
 I want trazer o realizado por conta gerencial do banco do cliente,
@@ -1216,7 +1218,7 @@ So that eu confie na conexão e na planilha antes de virar para Produção.
 
 ### Story 2.13: Importação automática diária (opcional, AD-15)
 
-**Nota:** aguarda decisão do cliente sobre a frequência da atualização (mensal, semanal ou diária) antes de ligar.
+**Decisão do cliente:** atualizar toda sexta-feira e também no primeiro dia útil do mês, com envio das parciais aos gestores das áreas (falta combinar as duas frequências no agendamento).
 
 As a analista,
 I want que a importação rode sozinha todo dia,
@@ -1324,7 +1326,9 @@ So that eu não digite centenas de contas uma a uma.
 
 ### Story 3.3: Estrutura e Mapa iniciais derivados da planilha (tarefa de dados)
 
-**Nota:** aguarda resposta do cliente: Outros Faturamentos e as linhas apresentadas depois do resultado.
+**Nota:** aguarda resposta do cliente: as linhas apresentadas depois do resultado.
+
+**Decisão do cliente:** Outros Faturamentos ficam fora do DRE.
 
 As a dono do produto,
 I want gerar a estrutura e o Mapa iniciais a partir do DRE da planilha e validá-los com a área de negócio,
@@ -1435,7 +1439,7 @@ So that eu entenda de onde vem cada variação.
 
 ### Story 3.7: Paridade do DRE com a planilha
 
-**Nota:** aguarda resposta do cliente: planilha de análise salva na visão da matriz e confirmação do critério de data.
+**Nota:** aguarda resposta do cliente: planilha de análise salva na visão da matriz.
 
 As a dono do produto,
 I want comparar o DRE do sistema com o da planilha para um mês de referência,
