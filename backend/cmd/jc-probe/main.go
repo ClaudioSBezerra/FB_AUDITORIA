@@ -15,6 +15,10 @@
 //	JC_ORACLE_DRE_VIEWS  obrigatório (lista separada por vírgula)
 //
 // Rodar: cd backend && set -a && . ./.env && set +a && go run ./cmd/jc-probe [-amostra]
+//
+// -realizado sonda CONTR_DRE_REALIZ, VW_DRE_CONTAS e VW_DRE_FILIAL (estrutura,
+// períodos e contagens). Com -totais AAAA-MM -filial N, soma o realizado por
+// conta daquele mês e filial: sai com VALORES, só no terminal.
 package main
 
 import (
@@ -40,7 +44,18 @@ func env(k, def string) string {
 func main() {
 	amostra := flag.Bool("amostra", false, "imprime 1 linha de cada view (timeout 20s)")
 	resumoF := flag.Bool("resumo", false, "contagens e períodos das views + outras views do mesmo schema (sem valores financeiros)")
+	realizadoF := flag.Bool("realizado", false, "sonda a tabela de realizado por conta e as views de contas e filiais")
+	totais := flag.String("totais", "", "com -realizado: mês AAAA-MM para somar o realizado por conta (imprime valores)")
+	filial := flag.String("filial", "", "com -totais: código da filial")
 	flag.Parse()
+	var mes time.Time
+	if *totais != "" {
+		m, err := time.Parse("2006-01", *totais)
+		if err != nil || !*realizadoF || strings.TrimSpace(*filial) == "" {
+			fail("use -realizado -totais AAAA-MM -filial N")
+		}
+		mes = m
+	}
 
 	var faltam []string
 	for _, k := range []string{"JC_ORACLE_HOST", "JC_ORACLE_SERVICE", "JC_ORACLE_USER", "JC_ORACLE_PASS", "JC_ORACLE_DRE_VIEWS"} {
@@ -75,6 +90,11 @@ func main() {
 		fmt.Println("conectado:", banner)
 	} else {
 		fmt.Println("conectado (v$version sem permissão)")
+	}
+
+	if *realizadoF {
+		realizado(db, mes, strings.TrimSpace(*filial))
+		return
 	}
 
 	views := strings.Split(env("JC_ORACLE_DRE_VIEWS", ""), ",")
@@ -228,4 +248,98 @@ func resumo(db *sql.DB, views []string) {
 		consulta("views visíveis em "+o, "SELECT view_name FROM all_views WHERE owner = :1 ORDER BY 1", o)
 		consulta("tabelas visíveis em "+o, "SELECT table_name FROM all_tables WHERE owner = :1 ORDER BY 1", o)
 	}
+}
+
+// alvo devolve OWNER.OBJETO seguindo o sinônimo; sem sinônimo, assume o schema
+// IACONTR, onde estão as demais views do DRE.
+func alvo(db *sql.DB, nome string) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	var dono, obj sql.NullString
+	err := db.QueryRowContext(ctx,
+		"SELECT table_owner, table_name FROM all_synonyms WHERE synonym_name = :1 FETCH FIRST 1 ROWS ONLY",
+		nome).Scan(&dono, &obj)
+	if err == nil && dono.Valid && obj.Valid {
+		return dono.String + "." + obj.String
+	}
+	return "IACONTR." + nome
+}
+
+// tabela imprime o resultado de uma consulta como linhas separadas por ';'.
+func tabela(db *sql.DB, titulo, q string, args ...any) {
+	fmt.Printf("\n-- %s\n", titulo)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	rows, err := db.QueryContext(ctx, q, args...)
+	if err != nil {
+		fmt.Println("ERRO:", err)
+		return
+	}
+	defer rows.Close()
+	cols, err := rows.Columns()
+	if err != nil {
+		fmt.Println("ERRO:", err)
+		return
+	}
+	fmt.Println(strings.Join(cols, ";"))
+	vals := make([]sql.NullString, len(cols))
+	ptrs := make([]any, len(cols))
+	for i := range vals {
+		ptrs[i] = &vals[i]
+	}
+	n := 0
+	for rows.Next() {
+		if err := rows.Scan(ptrs...); err != nil {
+			fmt.Println("ERRO:", err)
+			return
+		}
+		linha := make([]string, len(vals))
+		for i, v := range vals {
+			linha[i] = v.String
+		}
+		fmt.Println(strings.Join(linha, ";"))
+		n++
+	}
+	if err := rows.Err(); err != nil {
+		fmt.Println("ERRO (resultado incompleto):", err)
+		return
+	}
+	fmt.Printf("(%d linhas)\n", n)
+}
+
+// realizado responde o que a integração precisa saber da tabela de realizado por
+// conta. Sem mês, sai só estrutura e contagens; com mês, os totais por conta.
+func realizado(db *sql.DB, mes time.Time, filial string) {
+	for _, n := range []string{"CONTR_DRE_REALIZ", "VW_DRE_CONTAS", "VW_DRE_FILIAL"} {
+		sonda(db, n, false)
+	}
+	real := alvo(db, "CONTR_DRE_REALIZ")
+
+	if !mes.IsZero() {
+		ini := mes.Format("2006-01-02")
+		onde := " FROM " + real + ` WHERE DTLANC >= TO_DATE(:1,'YYYY-MM-DD')
+			AND DTLANC < ADD_MONTHS(TO_DATE(:2,'YYYY-MM-DD'),1)
+			AND LTRIM(TRIM(CODFILIAL),'0') = LTRIM(:3,'0')`
+		tabela(db, "total por conta, "+mes.Format("2006-01")+", filial "+filial+" (VALORES)",
+			`SELECT CODCONTA, COUNT(*) LINHAS,
+				TO_CHAR(SUM(VALOR),'FM999999999999990.00') TOTAL,
+				SUM(CASE WHEN VALOR < 0 THEN 1 ELSE 0 END) NEGATIVAS`+onde+
+				" GROUP BY CODCONTA ORDER BY CODCONTA", ini, ini, filial)
+		return
+	}
+
+	tabela(db, "linhas por mês de DTLANC",
+		"SELECT TO_CHAR(DTLANC,'YYYY-MM') MES, COUNT(*) LINHAS, COUNT(DISTINCT TRUNC(DTLANC)) DIAS FROM "+
+			real+" GROUP BY TO_CHAR(DTLANC,'YYYY-MM') ORDER BY 1")
+	tabela(db, "linhas e sinal por filial",
+		`SELECT CODFILIAL, COUNT(*) LINHAS, SUM(CASE WHEN VALOR > 0 THEN 1 ELSE 0 END) POSITIVAS,
+			SUM(CASE WHEN VALOR < 0 THEN 1 ELSE 0 END) NEGATIVAS FROM `+real+` GROUP BY CODFILIAL ORDER BY 1`)
+	tabela(db, "quantidade de contas e grupos",
+		"SELECT COUNT(DISTINCT CODCONTA) CONTAS, COUNT(DISTINCT GRUPOCONTA) GRUPOS FROM "+real)
+	tabela(db, "contas de faturamento, devolução e CMV presentes (1, 2, 3)",
+		"SELECT CODCONTA, COUNT(*) LINHAS FROM "+real+" WHERE TRIM(TO_CHAR(CODCONTA)) IN ('1','2','3') GROUP BY CODCONTA ORDER BY 1")
+	tabela(db, "VW_DRE_CONTAS por tipo",
+		"SELECT TIPO, COUNT(*) CONTAS, COUNT(DISTINCT CODGRUPO) GRUPOS FROM "+alvo(db, "VW_DRE_CONTAS")+" GROUP BY TIPO ORDER BY 1")
+	tabela(db, "VW_DRE_FILIAL, códigos",
+		"SELECT CODFILIAL FROM "+alvo(db, "VW_DRE_FILIAL")+" ORDER BY 1")
 }
