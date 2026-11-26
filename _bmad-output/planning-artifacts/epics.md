@@ -375,7 +375,7 @@ So that a estrutura de filiais da empresa entre de uma vez, em vez de um cadastr
 
 ### Story 2.22: Ler o realizado por conta do Oracle (FR-1, AD-2, AD-4, AD-16)
 
-**Nota:** aguarda resposta do cliente: view com a data de pagamento.
+**Nota:** aguarda resposta do cliente: view com a data de pagamento e a consolidação da base antiga (antes da migração) das filiais afetadas.
 
 **Decisão do cliente:** o DRE é por data de pagamento (sem pagamento fica fora); as contas de movimentação de mercadoria não entram no DRE, que usa apenas Faturamento e CMV (a exclusão é feita por configuração do servidor).
 
@@ -1326,9 +1326,7 @@ So that eu não digite centenas de contas uma a uma.
 
 ### Story 3.3: Estrutura e Mapa iniciais derivados da planilha (tarefa de dados)
 
-**Nota:** aguarda resposta do cliente: as linhas apresentadas depois do resultado.
-
-**Decisão do cliente:** Outros Faturamentos ficam fora do DRE.
+**Decisão do cliente:** Outros Faturamentos ficam fora do DRE; as linhas depois do resultado permanecem.
 
 As a dono do produto,
 I want gerar a estrutura e o Mapa iniciais a partir do DRE da planilha e validá-los com a área de negócio,

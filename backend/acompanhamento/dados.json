@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-11-26",
-  "versao": "57dd73b",
+  "versao": "8b933fc",
   "historias": [
     {
       "id": "1.1",
@@ -577,7 +577,7 @@
       "release": "A1",
       "status": "Em revisão",
       "bloqueada_cliente": true,
-      "motivo_bloqueio": "aguarda resposta do cliente: view com a data de pagamento.",
+      "motivo_bloqueio": "aguarda resposta do cliente: view com a data de pagamento e a consolidação da base antiga (antes da migração) das filiais afetadas.",
       "resumo": "Como analista, quero trazer o realizado por conta gerencial do banco do cliente, para que verbas, despesas, receitas, folha e impostos entrem no sistema sem arquivo.",
       "criterios": [
         "Dado uma competência\nQuando importa\nEntão lê o objeto filtrando pela coluna de data do mês, somado por filial, conta e dia, e grava com origem oracle.realizado, a conta e o sinal como vieram e a data no histórico",
@@ -648,8 +648,7 @@
       },
       "release": "A1",
       "status": "Em revisão",
-      "bloqueada_cliente": true,
-      "motivo_bloqueio": "aguarda resposta do cliente: as linhas apresentadas depois do resultado.",
+      "bloqueada_cliente": false,
       "resumo": "Como dono do produto, quero gerar a estrutura e o Mapa iniciais a partir do DRE da planilha e validá-los com a área de negócio, para que o primeiro fechamento não trave em centenas de contas sem mapeamento.",
       "criterios": [
         "Dado as abas de DRE da planilha\nQuando o arquivo de estrutura é gerado\nEntão reproduz as linhas: Faturamento Líquido; CMV, Deduções e Verbas; Margem Composta; Impostos sobre Faturamento Líquido; Margem de Contribuição; os departamentos Comercial, Logística e Administrativo e o Total de Despesas; Margem Líquida; Outras Receitas e Despesas; Resultado antes da tributação; IRPJ",
