@@ -145,3 +145,15 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-21-carga-do-mapa-de-filiais-e-agrupamentos.md`
   summary: As cargas do mapa e dos agrupamentos nunca removem filial gerencial, ligação nem membro; para retirar o que sobrou é preciso usar o cadastro manual. Se pedirem, oferecer o modo "substituir" (com confirmação) por arquivo.
   evidence: `backend/dre/filiais_carga.go` (`CarregarMapaFiliais` e `CarregarAgrupamentos` só criam, ligam e movem).
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-uma-conta-uma-fonte.md`
+  summary: Falta a troca de dona (2.8). Depois que uma origem ganha a conta, nem a limpeza de teste libera; até a 2.8, carregar por arquivo uma conta antes do banco do cliente a prende ao arquivo.
+  evidence: `backend/dre/conta_fonte.go`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-1-uma-conta-uma-fonte.md`
+  summary: Falta como retirar uma carga por arquivo de um mês para o banco do cliente assumir. Hoje só a limpeza de teste, que também apaga departamentos, dicionário e filiais. Decisão do dono do produto.
+  evidence: `backend/dre/conta_fonte.go` (`conferirOutraOrigem`).
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-3-ler-o-consolidado-do-oracle.md`
+  summary: CMV sem origem no banco do cliente. Com as demais contas pertencendo ao ERP, o arquivo mensal inteiro passa a ser recusado: o CMV só entra por um arquivo que traga apenas a conta de CMV.
+  evidence: `backend/dre/fontes/oracle/contas_consolidado.json`.
+- source_spec: `_bmad-output/implementation-artifacts/spec-2-22-realizado-por-conta-do-oracle.md`
+  summary: Contas 8001xxx vêm no realizado e não estão no Mapa: aparecem como sem Mapa e impedem o fechamento até o cliente dizer o que são.
+  evidence: sondagem de 26/11/2026.

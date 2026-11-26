@@ -163,6 +163,7 @@ var comportamentoDeHoje = map[string]esperado{
 	"/api/aud/dre/mapa/sem-mapa":          {leitoresSemGestor, leitoresSemGestor}, // 3.2: mostra valor
 	"/api/aud/dre/orcado":                 {soCtrl, soCtrl},
 	"/api/aud/dados/atualizar":            {soCtrl, soCtrl},
+	"/api/aud/importacao-erp":             {soCtrl, soCtrl}, // 2.5
 	"/api/aud/dre/lancamentos/importar":   {soCtrl, soCtrl},
 	"/api/aud/conferencia":                {leitoresSemGestor, leitoresSemGestor}, // 2.12: leitura irrestrita
 	"/api/aud/conferencia/origens":        {leitoresSemGestor, leitoresSemGestor},
@@ -177,7 +178,7 @@ var analistaEscreve = map[string]bool{
 	"/api/aud/departamentos/carga": true, "/api/aud/filiais-gerenciais/carga": true, "/api/aud/agrupamentos-filiais/carga": true, "/api/aud/dicionario/carga": true, "/api/aud/dicionario/conta": true, "/api/aud/dre/linhas/papel": true,
 	"/api/aud/dre/mapa": true, "/api/aud/dre/orcado": true, "/api/aud/dados/atualizar": true,
 	"/api/aud/dre/lancamentos/importar": true, "/api/aud/dre/estrutura/carga": true, "/api/aud/dre/mapa/carga": true,
-	"/api/aud/dre/mapa/sem-mapa": true,
+	"/api/aud/dre/mapa/sem-mapa": true, "/api/aud/importacao-erp": true,
 	// rotas só de leitura em que escrita == leitura
 	"/api/aud/dicionario": true, "/api/aud/dre": true, "/api/aud/dre/filiais": true, "/api/aud/dre/linhas": true,
 	"/api/aud/dre/departamentos": true, "/api/aud/dre/lancamentos": true, "/api/aud/dre/trimestres": true,

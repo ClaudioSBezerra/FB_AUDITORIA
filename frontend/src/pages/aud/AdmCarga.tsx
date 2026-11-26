@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { api } from './util'
+import ImportarERP from './ImportarERP'
 
 const fmt = (v: number) => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -91,6 +92,7 @@ export default function AdmCarga() {
         </div>
         {erro && <pre className="whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">{erro}</pre>}
       </div>
+      <ImportarERP />
     </div>
   )
 }

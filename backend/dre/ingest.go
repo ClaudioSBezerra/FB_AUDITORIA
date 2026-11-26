@@ -36,6 +36,7 @@ type entradaLida struct {
 	lancs   []Lancamento
 	origem  string
 	arquivo string
+	erp     bool
 }
 
 // ler lê a fonte e valida tudo antes de qualquer transação: linhas com problema
@@ -73,7 +74,8 @@ func (g *Ingestor) ler(ctx context.Context, empresaID string, fonte Fonte) (entr
 	if a, ok := fonte.(interface{ Arquivo() string }); ok {
 		arquivo = a.Arquivo()
 	}
-	return entradaLida{lancs, origem, arquivo}, nil
+	_, erp := fonte.(FonteERP)
+	return entradaLida{lancs, origem, arquivo, erp}, nil
 }
 
 // competenciasOrdenadas devolve os meses das linhas, sem repetição, em ordem
@@ -127,6 +129,9 @@ func (g *Ingestor) Simular(ctx context.Context, empresaID string, fonte Fonte) (
 	}
 	if len(recusados) > 0 {
 		return Resumo{}, &ErrPeriodoFechado{Escopos: recusados}
+	}
+	if err := conferirDonas(ctx, tx, empresaID, e.origem, contasDe(e.lancs)); err != nil {
+		return Resumo{}, err
 	}
 	return g.montarResumo(ctx, tx, empresaID, e.origem, e.arquivo, e.lancs)
 }
@@ -184,32 +189,51 @@ func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte
 	if _, err := tx.ExecContext(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, empresaID+":"+origem); err != nil {
 		return Resultado{}, err
 	}
+	contas := contasDe(lancs)
+	if e.erp {
+		for _, c := range competenciasOrdenadas(lancs) {
+			if err := conferirOutraOrigem(ctx, tx, empresaID, c.Format("2006-01-02"), contas); err != nil {
+				return Resultado{}, err
+			}
+		}
+	}
+	// Uma conta, uma fonte (AD-16).
+	if err := registrarDonas(ctx, tx, empresaID, userID, origem, contas); err != nil {
+		return Resultado{}, err
+	}
 	type substituido struct {
 		Competencia string `json:"competencia"`
 		Filial      string `json:"filial"`
 		Removidas   int64  `json:"removidas"`
 	}
+	// Fonte do ERP: o escopo é a competência inteira (Filial vazia = todas).
+	if e.erp {
+		escopos = escopos[:0]
+		for _, c := range competenciasOrdenadas(lancs) {
+			escopos = append(escopos, escopoImp{Competencia: c.Format("2006-01-02")})
+		}
+	}
 	subst := make([]substituido, 0, len(escopos))
-	for _, e := range escopos {
+	for _, esc := range escopos {
 		res, err := tx.ExecContext(ctx, `DELETE FROM auditoria.lancamentos
-			WHERE empresa_id=$1::uuid AND origem=$2 AND competencia=$3 AND filial=$4`,
-			empresaID, origem, e.Competencia, e.Filial)
+			WHERE empresa_id=$1::uuid AND origem=$2 AND competencia=$3 AND ($4 = '' OR filial=$4)`,
+			empresaID, origem, esc.Competencia, esc.Filial)
 		if err != nil {
 			return Resultado{}, err
 		}
 		n, _ := res.RowsAffected()
-		subst = append(subst, substituido{e.Competencia[:7], e.Filial, n})
+		subst = append(subst, substituido{esc.Competencia[:7], esc.Filial, n})
 	}
 	stmt, err := tx.PrepareContext(ctx, `INSERT INTO auditoria.lancamentos
-		(empresa_id, competencia, filial, centro_custo, canal, conta, conta_desc, valor, origem, tipo_doc, doc_ref, historico, carga_id)
-		VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`)
+		(empresa_id, competencia, filial, centro_custo, canal, conta, conta_desc, valor, origem, tipo_doc, doc_ref, historico, carga_id, uf)
+		VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`)
 	if err != nil {
 		return Resultado{}, err
 	}
 	defer stmt.Close()
 	for _, l := range lancs {
 		if _, err := stmt.ExecContext(ctx, empresaID, l.Competencia, l.Filial, l.CentroCusto, l.Canal, l.Conta, l.ContaDesc,
-			l.Valor, origem, l.TipoDoc, l.DocRef, l.Historico, cargaID); err != nil {
+			l.Valor, origem, l.TipoDoc, l.DocRef, l.Historico, cargaID, l.UF); err != nil {
 			return Resultado{}, &ErroLinhas{Problemas: []Problema{{Linha: l.Linha, Msg: err.Error()}}}
 		}
 	}

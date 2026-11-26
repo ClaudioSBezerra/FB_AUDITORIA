@@ -57,6 +57,11 @@ func TestCamadasDoDre(t *testing.T) {
 			continue
 		}
 		switch {
+		case strings.HasPrefix(p, "dre/fontes/oracle/"):
+			// Lê o banco do cliente (só leitura); nunca o nosso Postgres.
+			if strings.Contains(src, `"github.com/lib/pq"`) {
+				t.Errorf("%s importa o driver do nosso banco", p)
+			}
 		case strings.HasPrefix(p, "dre/fontes/"):
 			if strings.Contains(src, `"database/sql"`) {
 				t.Errorf("%s importa database/sql; fontes não acessam o banco", p)

@@ -1,6 +1,6 @@
 {
-  "gerado_em": "2026-10-29",
-  "versao": "61da1ab",
+  "gerado_em": "2026-11-26",
+  "versao": "1ce4233",
   "historias": [
     {
       "id": "1.1",
@@ -175,7 +175,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como Controller, quero que cada conta tenha uma única fonte dona, para que a mesma conta vinda do Oracle e do arquivo nunca seja somada em dobro.",
       "criterios": [
@@ -211,7 +211,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero trazer o realizado consolidado do banco do cliente para dentro do sistema, para que faturamento, devoluções, CMV de devolução, ST e desconto de custo venham do ERP sem digitação.",
       "criterios": [
@@ -232,7 +232,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero que cada importação fique registrada e que as contas do Oracle tenham dona, para que eu saiba o que foi importado e nada seja somado em dobro.",
       "criterios": [
@@ -250,7 +250,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero um botão \"Importar agora\" e ver o resultado, para que eu acompanhe cada importação.",
       "criterios": [
@@ -562,6 +562,23 @@
         "Dado linha vazia ou inválida, filial do ERP em duas filiais gerenciais no mesmo arquivo, código igual ao de outra coisa ou a palavra GRUPO\nEntão nada é gravado e a resposta lista até 20 erros de linha mais o total",
         "Dado códigos de filial com zeros à esquerda (\"01\")\nEntão valem como \"1\", como na ingestão",
         "Dado a carga dá certo\nEntão a trilha (filial_gerencial ou agrupamento_filiais, ação carga) é gravada na mesma transação, e as telas têm o bloco de carga com \"Baixar modelo CSV\""
+      ]
+    },
+    {
+      "id": "2.22",
+      "titulo": "Ler o realizado por conta do Oracle",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero trazer o realizado por conta gerencial do banco do cliente, para que verbas, despesas, receitas, folha e impostos entrem no sistema sem arquivo.",
+      "criterios": [
+        "Dado uma competência\nQuando importa\nEntão lê o objeto filtrando pela coluna de data do mês, somado por filial, conta e dia, e grava com origem oracle.realizado, a conta e o sinal como vieram e a data no histórico",
+        "Dado JC_ORACLE_REALIZ_OBJETO ou JC_ORACLE_REALIZ_DATA que não é um identificador Oracle\nEntão a conexão fica desligada e o motivo vai ao log",
+        "Dado uma conta sem Mapa do DRE\nEntão ela é importada e aparece como conta sem Mapa (não é filtrada no código)"
       ]
     },
     {

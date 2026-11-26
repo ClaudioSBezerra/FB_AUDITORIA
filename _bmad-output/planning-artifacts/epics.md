@@ -373,6 +373,26 @@ So that a estrutura de filiais da empresa entre de uma vez, em vez de um cadastr
 **Given** a carga dá certo
 **Then** a trilha (`filial_gerencial` ou `agrupamento_filiais`, ação `carga`) é gravada na mesma transação, e as telas têm o bloco de carga com "Baixar modelo CSV"
 
+### Story 2.22: Ler o realizado por conta do Oracle (FR-1, AD-2, AD-4, AD-16)
+
+As a analista,
+I want trazer o realizado por conta gerencial do banco do cliente,
+So that verbas, despesas, receitas, folha e impostos entrem no sistema sem arquivo.
+
+**Nota:** o cliente criou o objeto `CONTR_DRE_REALIZ` (filial, data de lançamento, grupo, conta, descrição e valor com sinal; sem fornecedor, nota ou identificador). Ele vai virar view, e o critério de data (lançamento ou pagamento) ainda pode mudar: o nome do objeto e a coluna de data são configuração. Faturamento, devoluções e CMV não estão nele. Decisões na spec `spec-2-22-realizado-por-conta-do-oracle.md`.
+
+**Acceptance Criteria:**
+
+**Given** uma competência
+**When** importa
+**Then** lê o objeto filtrando pela coluna de data do mês, somado por filial, conta e dia, e grava com origem `oracle.realizado`, a conta e o sinal como vieram e a data no histórico
+
+**Given** `JC_ORACLE_REALIZ_OBJETO` ou `JC_ORACLE_REALIZ_DATA` que não é um identificador Oracle
+**Then** a conexão fica desligada e o motivo vai ao log
+
+**Given** uma conta sem Mapa do DRE
+**Then** ela é importada e aparece como conta sem Mapa (não é filtrada no código)
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.
 **FRs covered:** FR-5, FR-6, FR-7, FR-8
@@ -914,6 +934,8 @@ So that eu valide o ambiente com os mesmos dados que o Excel usa.
 As a analista,
 I want trazer o realizado consolidado do banco do cliente para dentro do sistema,
 So that faturamento, devoluções, CMV de devolução, ST e desconto de custo venham do ERP sem digitação.
+
+**Nota de implementação (26/11/2026):** as colunas viram as contas que o Mapa do DRE já conhece, por configuração (`backend/dre/fontes/oracle/contas_consolidado.json`), e não contas `ERP.*`. As duas colunas de CMV de devolução não são importadas: a view não traz o CMV bruto e o arquivo mensal mistura os dois na conta de CMV. Decisões na spec `spec-2-3-ler-o-consolidado-do-oracle.md`.
 
 **Acceptance Criteria:**
 

@@ -148,8 +148,9 @@ func TestImportarSimular_AvisosDeFilialEOutraOrigem(t *testing.T) {
 	db := testdb.Open(t)
 	f := testdb.NovaEmpresa(t, db)
 	outra := testdb.NovaEmpresa(t, db)
-	// Filial 11 já existe em lançamentos de outra origem (csv) em 2026-05.
-	if w, _ := importarModo(t, f, "a.csv", "competencia;filial;conta;valor\n2026-05;11;3.1;1,00\n", false); w.Code != 200 {
+	// Filial 11 já existe em lançamentos de outra origem (csv) em 2026-05. A conta é
+	// outra: a mesma conta em duas origens é recusada (2.1).
+	if w, _ := importarModo(t, f, "a.csv", "competencia;filial;conta;valor\n2026-05;11;4.1;1,00\n", false); w.Code != 200 {
 		t.Fatal(w.Body.String())
 	}
 	plan := "CONTA;VL. Realizado;Mês;Loja\n3.1;10,00;202605;11\n3.1;5,00;202605;99\n"

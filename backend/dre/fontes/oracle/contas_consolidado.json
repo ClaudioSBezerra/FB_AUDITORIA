@@ -1,0 +1,12 @@
+{
+  "observacao": "Coluna da VW_DRE_CONSOLIDADO -> conta do Mapa do DRE. Conta vazia = coluna não importada. O CMV (conta 3) não é importado: a view não traz o CMV bruto e o arquivo mensal o mistura com o CMV de devolução na mesma conta (uma conta, uma fonte).",
+  "colunas": {
+    "VLFATBRUTO": { "conta": "1", "descricao": "Faturamento bruto" },
+    "VLTOTAL_DEV": { "conta": "2", "descricao": "Devoluções de clientes" },
+    "VLTOTAL_DEVAVUSLO": { "conta": "2", "descricao": "Devoluções avulsas" },
+    "VLCMVDEVOL": { "conta": "", "descricao": "CMV de devolução" },
+    "VLDEVCMVAVULSAI": { "conta": "", "descricao": "CMV de devolução avulsa" },
+    "ST": { "conta": "ST", "descricao": "Ajuste ST de vendas" },
+    "VLDESCCUSTO": { "conta": "DESC CUSTO", "descricao": "Desconto / acréscimo do custo" }
+  }
+}

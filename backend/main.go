@@ -255,6 +255,9 @@ func onDBConnected() {
 			}
 		}
 	}
+
+	// Depois das migrations: a importação do ERP usa as tabelas da 018.
+	configurarERP(database, os.Getenv)
 }
 
 func main() {
@@ -465,6 +468,8 @@ func main() {
 	http.HandleFunc("/api/aud/dre/mapa/sem-mapa", gz(withAud(handlers.DREMapaSemMapaHandler, est, handlers.CapLer)))
 	http.HandleFunc("/api/aud/dre/orcado", withAud(handlers.DREOrcadoHandler, est, handlers.CapCarregar))
 	http.HandleFunc("/api/aud/dados/atualizar", withAud(handlers.DadosAtualizarHandler, est, handlers.CapCarregar))
+	// 2.5: importação do banco do cliente (histórias 2.3, 2.4 e 2.22).
+	http.HandleFunc("/api/aud/importacao-erp", withAud(handlers.ImportacaoERPHandler, est, handlers.CapCarregar))
 	http.HandleFunc("/api/aud/dre/lancamentos/importar", withAud(handlers.DREImportarHandler, est, handlers.CapCarregar))
 	// 2.12: conferência entre origens de lançamentos; leitura irrestrita (o gestor recebe 403).
 	http.HandleFunc("/api/aud/conferencia", gz(withAud(handlers.ConferenciaHandler, est, handlers.CapLer)))

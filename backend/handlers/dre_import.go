@@ -51,10 +51,11 @@ func DREImportarHandler(db *sql.DB) http.HandlerFunc {
 			var ee *dre.ErroEntrada
 			var el *dre.ErroLinhas
 			var pf *dre.ErrPeriodoFechado
+			var dona *dre.ErrContaDeOutraFonte
 			switch {
 			case errors.As(err, &pf):
 				http.Error(w, err.Error(), http.StatusConflict)
-			case errors.As(err, &ee), errors.As(err, &el):
+			case errors.As(err, &ee), errors.As(err, &el), errors.As(err, &dona):
 				http.Error(w, err.Error(), http.StatusBadRequest)
 			default:
 				log.Printf("dre import: %v", err)

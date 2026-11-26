@@ -29,6 +29,7 @@ type Lancamento struct {
 	TipoDoc     string
 	DocRef      string
 	Historico   string
+	UF          string // UF de destino, quando a fonte a traz (AD-3)
 }
 
 // Fonte é a porta de entrada de lançamentos. Nome() é gravado em
@@ -38,6 +39,24 @@ type Fonte interface {
 	Nome() string
 	Ler(ctx context.Context, e Escopo) ([]Lancamento, error)
 }
+
+// PrefixoOrigemERP marca as origens lidas do banco do cliente.
+const PrefixoOrigemERP = "oracle."
+
+// FonteERP marca a fonte que lê a competência inteira do ERP. Para ela o
+// Ingestor substitui a competência toda daquela origem (uma filial que sumiu no
+// reprocessamento não fica para trás) e recusa conviver com lançamentos de outra
+// origem nas mesmas contas e competência.
+type FonteERP interface {
+	Fonte
+	CompetenciaInteira()
+}
+
+// ErroFonte é falha ao ler a fonte (rede, credencial, objeto). Msg é segura para
+// o usuário: nunca leva credencial nem endereço.
+type ErroFonte struct{ Msg string }
+
+func (e *ErroFonte) Error() string { return e.Msg }
 
 // ErroEntrada é uma entrada recusada por ser inválida como um todo
 // (cabeçalho, arquivo vazio). O handler a mapeia para 400.

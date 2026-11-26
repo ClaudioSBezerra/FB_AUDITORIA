@@ -48,7 +48,7 @@ type Registro struct {
 }
 
 // RegistroPadrao é o registro do processo. Nenhuma fonte entra por padrão: a do
-// Oracle (histórias 2.1 e 2.3 a 2.6) se registra aqui quando existir.
+// Oracle se registra aqui no boot, quando as variáveis JC_ORACLE_* existem.
 var RegistroPadrao = &Registro{}
 
 // Registrar acrescenta uma fonte; nome vazio ou repetido é recusado.
@@ -166,6 +166,9 @@ func rodar(ctx context.Context, f Atualizavel, e EscopoAtualizacao) ResultadoFon
 	var fechado *ErrPeriodoFechado
 	var entrada *ErroEntrada
 	var linhas *ErroLinhas
+	var dona *ErrContaDeOutraFonte
+	var outra *ErrDadosDeOutraOrigem
+	var falha *ErroFonte
 	switch {
 	case errors.As(err, &fechado):
 		out.Status = AtualizacaoRecusada
@@ -173,7 +176,7 @@ func rodar(ctx context.Context, f Atualizavel, e EscopoAtualizacao) ResultadoFon
 		for _, s := range fechado.Escopos {
 			out.Fechadas = append(out.Fechadas, s.Competencia)
 		}
-	case errors.As(err, &entrada), errors.As(err, &linhas):
+	case errors.As(err, &entrada), errors.As(err, &linhas), errors.As(err, &dona), errors.As(err, &outra), errors.As(err, &falha):
 		out.Status = AtualizacaoErro
 		out.Mensagem = err.Error()
 	default:
