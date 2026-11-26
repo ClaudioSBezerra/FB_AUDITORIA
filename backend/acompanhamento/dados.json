@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-11-26",
-  "versao": "4b2b48c",
+  "versao": "fdaa6ed",
   "historias": [
     {
       "id": "1.1",
@@ -212,7 +212,8 @@
       },
       "release": "A1",
       "status": "Em revisão",
-      "bloqueada_cliente": false,
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "aguarda resposta do cliente: incluir o CMV das vendas na view consolidada.",
       "resumo": "Como analista, quero trazer o realizado consolidado do banco do cliente para dentro do sistema, para que faturamento, devoluções, CMV de devolução, ST e desconto de custo venham do ERP sem digitação.",
       "criterios": [
         "Dado a migration\nEntão lancamentos ganha a coluna uf",
@@ -324,7 +325,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Em revisão",
+      "status": "Feito",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero cadastrar os departamentos e o grupo de cada um, para que contas e gerentes tenham a quem se ligar.",
       "criterios": [
@@ -341,7 +342,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Em revisão",
+      "status": "Feito",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero carregar o dicionário (conta, descrição, grupo, departamento) por arquivo, para que o sistema saiba de qual departamento é cada conta.",
       "criterios": [
@@ -360,7 +361,8 @@
       },
       "release": "A1",
       "status": "Backlog",
-      "bloqueada_cliente": false,
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "aguarda resposta do cliente: como classificar as contas sem grupo e sem departamento.",
       "resumo": "Como dono do produto, quero gerar o arquivo do dicionário a partir da planilha do cliente e validá-lo com a área de negócio, para que os gerentes tenham departamento desde o primeiro dia.",
       "criterios": [
         "Dado a aba de gerentes da planilha (contas por departamento)\nQuando o arquivo é gerado\nEntão traz conta, descrição, grupo e departamento\nE as contas sem departamento vêm listadas à parte",
@@ -399,7 +401,8 @@
       },
       "release": "A1",
       "status": "Em revisão",
-      "bloqueada_cliente": false,
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "aguarda decisão do cliente sobre a frequência da atualização (mensal, semanal ou diária) antes de ligar.",
       "resumo": "Como analista, quero que a importação rode sozinha todo dia, para que eu não precise lembrar.",
       "criterios": [
         "Dado a hora em config_empresa (padrão 06:30, America/Sao_Paulo; a tabela é criada aqui se ainda não existir)\nQuando chega a hora\nEntão dispara as importações 2.3 e 2.6",
@@ -416,7 +419,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Em revisão",
+      "status": "Feito",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero cadastrar quais filiais do ERP compõem cada filial gerencial, para que o realizado, o orçado e o rateio sejam lidos por filial gerencial.",
       "criterios": [
@@ -436,7 +439,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Em revisão",
+      "status": "Feito",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero agrupar filiais gerenciais em visões nomeadas (por exemplo, Balcões e Distribuição), para que o DRE possa mostrar a soma do agrupamento, como a planilha atual.",
       "criterios": [
@@ -472,7 +475,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Em revisão",
+      "status": "Feito",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero carregar o arquivo de carga mensal do Marcos (a aba Entrada_Dados) sem reformatar, para que o realizado por conta da rotina 124 entre no sistema com a mesma planilha que o cliente já usa.",
       "criterios": [
@@ -493,7 +496,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Em revisão",
+      "status": "Feito",
       "bloqueada_cliente": false,
       "resumo": "Como controladoria, quero enviar a planilha de análise do Marcos e ver, linha a linha, onde ela e o sistema não batem, para que eu confie no fechamento antes de virar para Produção e ache a conta ou a linha que diverge.",
       "criterios": [
@@ -514,7 +517,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Em revisão",
+      "status": "Feito",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero ver, antes de gravar, de qual competência e filial o arquivo realmente é, para que um arquivo com a célula de mês ou de filial desatualizada não seja gravado no período errado sem ninguém notar.",
       "criterios": [
@@ -532,7 +535,7 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Em revisão",
+      "status": "Feito",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero carregar os departamentos por um arquivo CSV ou XLSX, para que eu cadastre a lista inteira de uma vez, em vez de um por um.",
       "criterios": [
@@ -574,7 +577,8 @@
       },
       "release": "A1",
       "status": "Em revisão",
-      "bloqueada_cliente": false,
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "aguarda resposta do cliente: view com a data de pagamento e destino das contas de movimentação de mercadoria.",
       "resumo": "Como analista, quero trazer o realizado por conta gerencial do banco do cliente, para que verbas, despesas, receitas, folha e impostos entrem no sistema sem arquivo.",
       "criterios": [
         "Dado uma competência\nQuando importa\nEntão lê o objeto filtrando pela coluna de data do mês, somado por filial, conta e dia, e grava com origem oracle.realizado, a conta e o sinal como vieram e a data no histórico",
@@ -626,7 +630,7 @@
         "nome": "DRE por departamento, com orçado e ano anterior"
       },
       "release": "A1",
-      "status": "Em revisão",
+      "status": "Feito",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero carregar a estrutura e o Mapa de contas por arquivo, para que eu não digite centenas de contas uma a uma.",
       "criterios": [
@@ -645,7 +649,8 @@
       },
       "release": "A1",
       "status": "Em revisão",
-      "bloqueada_cliente": false,
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "aguarda resposta do cliente: Outros Faturamentos e as linhas apresentadas depois do resultado.",
       "resumo": "Como dono do produto, quero gerar a estrutura e o Mapa iniciais a partir do DRE da planilha e validá-los com a área de negócio, para que o primeiro fechamento não trave em centenas de contas sem mapeamento.",
       "criterios": [
         "Dado as abas de DRE da planilha\nQuando o arquivo de estrutura é gerado\nEntão reproduz as linhas: Faturamento Líquido; CMV, Deduções e Verbas; Margem Composta; Impostos sobre Faturamento Líquido; Margem de Contribuição; os departamentos Comercial, Logística e Administrativo e o Total de Despesas; Margem Líquida; Outras Receitas e Despesas; Resultado antes da tributação; IRPJ",
@@ -720,7 +725,8 @@
       },
       "release": "A1",
       "status": "Backlog",
-      "bloqueada_cliente": false,
+      "bloqueada_cliente": true,
+      "motivo_bloqueio": "aguarda resposta do cliente: planilha de análise salva na visão da matriz e confirmação do critério de data.",
       "resumo": "Como dono do produto, quero comparar o DRE do sistema com o da planilha para um mês de referência, para que eu saiba que os números batem antes de mostrar ao cliente.",
       "criterios": [
         "Dado um mês de referência com Oracle consolidado, CSV de contas e orçado carregados em Teste, e um arquivo com os valores da planilha por linha do DRE e filial (fora do repositório)\nQuando peço a paridade\nEntão lista por linha e filial o valor do sistema, o da planilha, a diferença e se passou da tolerância (0,01)",

@@ -375,6 +375,8 @@ So that a estrutura de filiais da empresa entre de uma vez, em vez de um cadastr
 
 ### Story 2.22: Ler o realizado por conta do Oracle (FR-1, AD-2, AD-4, AD-16)
 
+**Nota:** aguarda resposta do cliente: view com a data de pagamento e destino das contas de movimentação de mercadoria.
+
 As a analista,
 I want trazer o realizado por conta gerencial do banco do cliente,
 So that verbas, despesas, receitas, folha e impostos entrem no sistema sem arquivo.
@@ -931,6 +933,8 @@ So that eu valide o ambiente com os mesmos dados que o Excel usa.
 
 ### Story 2.3: Ler o realizado consolidado do Oracle (FR-1, AD-2, AD-4)
 
+**Nota:** aguarda resposta do cliente: incluir o CMV das vendas na view consolidada.
+
 As a analista,
 I want trazer o realizado consolidado do banco do cliente para dentro do sistema,
 So that faturamento, devoluções, CMV de devolução, ST e desconto de custo venham do ERP sem digitação.
@@ -1150,6 +1154,8 @@ So that o sistema saiba de qual departamento é cada conta.
 
 ### Story 2.11: Dicionário inicial validado com o cliente (tarefa de dados)
 
+**Nota:** aguarda resposta do cliente: como classificar as contas sem grupo e sem departamento.
+
 As a dono do produto,
 I want gerar o arquivo do dicionário a partir da planilha do cliente e validá-lo com a área de negócio,
 So that os gerentes tenham departamento desde o primeiro dia.
@@ -1209,6 +1215,8 @@ So that eu confie na conexão e na planilha antes de virar para Produção.
 **Then** tem competência, duas origens, filial, tolerância, resumo, tabela de diferenças, só-em-um-lado, resumo por linha do DRE e o botão de exportar CSV
 
 ### Story 2.13: Importação automática diária (opcional, AD-15)
+
+**Nota:** aguarda decisão do cliente sobre a frequência da atualização (mensal, semanal ou diária) antes de ligar.
 
 As a analista,
 I want que a importação rode sozinha todo dia,
@@ -1315,6 +1323,8 @@ So that eu não digite centenas de contas uma a uma.
 **And** a trilha registra a carga com a quantidade de linhas
 
 ### Story 3.3: Estrutura e Mapa iniciais derivados da planilha (tarefa de dados)
+
+**Nota:** aguarda resposta do cliente: Outros Faturamentos e as linhas apresentadas depois do resultado.
 
 As a dono do produto,
 I want gerar a estrutura e o Mapa iniciais a partir do DRE da planilha e validá-los com a área de negócio,
@@ -1424,6 +1434,8 @@ So that eu entenda de onde vem cada variação.
 **Then** aparece vazio, não zero
 
 ### Story 3.7: Paridade do DRE com a planilha
+
+**Nota:** aguarda resposta do cliente: planilha de análise salva na visão da matriz e confirmação do critério de data.
 
 As a dono do produto,
 I want comparar o DRE do sistema com o da planilha para um mês de referência,
