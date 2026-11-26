@@ -74,6 +74,7 @@ export default function ImportarERP() {
               <Database className="h-4 w-4 mr-1.5" />{andando ? 'Importando…' : 'Importar agora'}
             </Button>
           </div>
+          <Agendamento />
         </>}
       {erro && <pre className="whitespace-pre-wrap rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-700">{erro}</pre>}
       {estado.execucoes.length > 0 && (
@@ -83,7 +84,7 @@ export default function ImportarERP() {
             <details key={e.id} open={i === 0} className="rounded border p-2 text-xs">
               <summary className="cursor-pointer">
                 <span className={`font-semibold ${COR[e.status] ?? ''}`}>{ROTULO[e.status] ?? e.status}</span>
-                {' · '}{e.de === e.ate ? e.de : `${e.de} a ${e.ate}`} · início {quando(e.inicio)}{e.fim ? ` · fim ${quando(e.fim)}` : ''}
+                {e.gatilho === 'agendador' ? ' · automática' : ''}{' · '}{e.de === e.ate ? e.de : `${e.de} a ${e.ate}`} · início {quando(e.inicio)}{e.fim ? ` · fim ${quando(e.fim)}` : ''}
               </summary>
               {e.mensagem && <p className="mt-1">{e.mensagem}</p>}
               <ul className="mt-1 space-y-1">
@@ -99,6 +100,63 @@ export default function ImportarERP() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+interface Agenda { ativo: boolean; frequencia: string; dia: number; hora: string; ultimo?: string; proxima?: string }
+const SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
+
+// Importação automática (história 2.13). Nasce desligada; a hora é a de Brasília.
+function Agendamento() {
+  const [salvo, setSalvo] = useState<Agenda | null>(null)
+  const [form, setForm] = useState<Agenda | null>(null)
+  const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState('')
+
+  useEffect(() => {
+    api<Agenda>('/api/aud/importacao-erp/agendamento').then(a => { setSalvo(a); setForm(a) }).catch(e => setErro(e.message))
+  }, [])
+
+  async function salvar() {
+    setSalvando(true); setErro('')
+    try {
+      const a = await api<Agenda>('/api/aud/importacao-erp/agendamento', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ativo: form!.ativo, frequencia: form!.frequencia, dia: form!.dia, hora: form!.hora }),
+      })
+      setSalvo(a); setForm(a)
+      toast.success(a.ativo ? 'Importação automática ligada' : 'Importação automática desligada')
+    } catch (e: any) { setErro(e.message) } finally { setSalvando(false) }
+  }
+
+  if (!form || !salvo) return erro ? <p className="text-xs text-red-700">{erro}</p> : null
+  const campo = 'rounded border px-2 py-1 text-sm'
+  return (
+    <div className="rounded border p-3 space-y-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="font-semibold uppercase tracking-wide">Importação automática</h3>
+        <span className={salvo.ativo ? 'font-semibold text-green-700' : 'text-muted-foreground'}>{salvo.ativo ? 'Ligada' : 'Desligada'}</span>
+        {salvo.proxima && <span className="text-muted-foreground">· próxima em {quando(salvo.proxima)}</span>}
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex items-center gap-1.5 pb-1.5 text-sm"><input type="checkbox" checked={form.ativo} onChange={e => setForm({ ...form, ativo: e.target.checked })} />Ligar</label>
+        <label className="flex flex-col">Frequência
+          <select className={campo} value={form.frequencia} onChange={e => setForm({ ...form, frequencia: e.target.value, dia: 5 })}>
+            <option value="mensal">Mensal</option><option value="semanal">Semanal</option><option value="diaria">Diária</option>
+          </select>
+        </label>
+        {form.frequencia === 'mensal' && <label className="flex flex-col">Dia do mês
+          <input type="number" min={1} max={28} className={`${campo} w-20`} value={form.dia} onChange={e => setForm({ ...form, dia: Number(e.target.value) })} /></label>}
+        {form.frequencia === 'semanal' && <label className="flex flex-col">Dia da semana
+          <select className={campo} value={form.dia} onChange={e => setForm({ ...form, dia: Number(e.target.value) })}>
+            {SEMANA.map((d, i) => <option key={d} value={i}>{d}</option>)}
+          </select></label>}
+        <label className="flex flex-col">Hora (Brasília)<input type="time" className={campo} value={form.hora} onChange={e => setForm({ ...form, hora: e.target.value })} /></label>
+        <Button size="sm" variant="outline" disabled={salvando} onClick={salvar}>Salvar</Button>
+      </div>
+      <p className="text-muted-foreground">{form.frequencia === 'mensal' ? 'Relê o mês anterior.' : 'Relê o mês anterior e o corrente.'} Mês fechado é pulado. Faça antes uma importação manual e confira o resultado.</p>
+      {erro && <p className="text-red-700">{erro}</p>}
     </div>
   )
 }

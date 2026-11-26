@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-11-26",
-  "versao": "1ce4233",
+  "versao": "63b4d43",
   "historias": [
     {
       "id": "1.1",
@@ -398,13 +398,14 @@
         "nome": "Os dados do cliente entram sozinhos"
       },
       "release": "A1",
-      "status": "Backlog",
+      "status": "Em revisão",
       "bloqueada_cliente": false,
       "resumo": "Como analista, quero que a importação rode sozinha todo dia, para que eu não precise lembrar.",
       "criterios": [
         "Dado a hora em config_empresa (padrão 06:30, America/Sao_Paulo; a tabela é criada aqui se ainda não existir)\nQuando chega a hora\nEntão dispara as importações 2.3 e 2.6",
         "Dado pg_try_advisory_lock em conexão dedicada, com o unlock na mesma conexão (descartada se o unlock falhar)\nQuando outra execução está em andamento\nEntão a segunda não roda e registra",
-        "Dado uma execução agendada\nQuando termina\nEntão a trilha usa user_id nulo e origem agendador\nE a falha fica visível em execucoes"
+        "Dado uma execução agendada\nQuando termina\nEntão a trilha usa user_id nulo e origem agendador\nE a falha fica visível em execucoes",
+        "Ajuste (26/11/2026, a pedido do dono do produto): a frequência é escolhida na tela (diária, semanal ou mensal, padrão dia 05 às 06:30), porque a controladoria ainda não decidiu; o agendamento nasce desligado e é ligado depois da primeira importação manual. A configuração fica em auditoria.agendamento_erp. O orçado (2.6) entra no agendamento quando existir."
       ]
     },
     {

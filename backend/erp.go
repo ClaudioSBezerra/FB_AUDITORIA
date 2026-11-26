@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"strings"
@@ -38,6 +39,8 @@ func configurarERP(db *sql.DB, getenv func(string) string) {
 		Observacoes: observacoesERP(cfg, contas),
 	}
 	handlers.ERPPadrao.Store(erp)
+	// 2.13: a configuração nasce desligada; o laço só verifica o relógio.
+	go erp.RodarAgendador(context.Background(), time.Minute)
 	if err := dre.RegistroPadrao.Registrar(erp); err != nil {
 		log.Printf("[config] banco do cliente: %v", err)
 	}

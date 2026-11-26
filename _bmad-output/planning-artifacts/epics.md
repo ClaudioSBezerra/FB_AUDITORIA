@@ -1229,6 +1229,8 @@ So that eu não precise lembrar.
 **Then** a trilha usa `user_id` nulo e origem agendador
 **And** a falha fica visível em `execucoes`
 
+**Ajuste (26/11/2026, a pedido do dono do produto):** a frequência é escolhida na tela (diária, semanal ou mensal, padrão dia 05 às 06:30), porque a controladoria ainda não decidiu; o agendamento nasce desligado e é ligado depois da primeira importação manual. A configuração fica em `auditoria.agendamento_erp`. O orçado (2.6) entra no agendamento quando existir.
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.

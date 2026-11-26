@@ -470,6 +470,8 @@ func main() {
 	http.HandleFunc("/api/aud/dados/atualizar", withAud(handlers.DadosAtualizarHandler, est, handlers.CapCarregar))
 	// 2.5: importação do banco do cliente (histórias 2.3, 2.4 e 2.22).
 	http.HandleFunc("/api/aud/importacao-erp", withAud(handlers.ImportacaoERPHandler, est, handlers.CapCarregar))
+	// 2.13: ligar, desligar e configurar a importação automática.
+	http.HandleFunc("/api/aud/importacao-erp/agendamento", withAud(handlers.AgendamentoERPHandler, est, handlers.CapCarregar))
 	http.HandleFunc("/api/aud/dre/lancamentos/importar", withAud(handlers.DREImportarHandler, est, handlers.CapCarregar))
 	// 2.12: conferência entre origens de lançamentos; leitura irrestrita (o gestor recebe 403).
 	http.HandleFunc("/api/aud/conferencia", gz(withAud(handlers.ConferenciaHandler, est, handlers.CapLer)))
