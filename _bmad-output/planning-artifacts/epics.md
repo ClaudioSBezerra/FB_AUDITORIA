@@ -377,7 +377,7 @@ So that a estrutura de filiais da empresa entre de uma vez, em vez de um cadastr
 
 **Nota:** aguarda resposta do cliente: view com a data de pagamento.
 
-**Decisão do cliente:** o DRE é por data de pagamento (sem pagamento fica fora); as contas de movimentação de mercadoria não entram no DRE, que usa apenas Faturamento e CMV (falta implementar a exclusão por configuração).
+**Decisão do cliente:** o DRE é por data de pagamento (sem pagamento fica fora); as contas de movimentação de mercadoria não entram no DRE, que usa apenas Faturamento e CMV (a exclusão é feita por configuração do servidor).
 
 As a analista,
 I want trazer o realizado por conta gerencial do banco do cliente,
@@ -1218,7 +1218,7 @@ So that eu confie na conexão e na planilha antes de virar para Produção.
 
 ### Story 2.13: Importação automática diária (opcional, AD-15)
 
-**Decisão do cliente:** atualizar toda sexta-feira e também no primeiro dia útil do mês, com envio das parciais aos gestores das áreas (falta combinar as duas frequências no agendamento).
+**Decisão do cliente:** atualizar toda sexta-feira e também no primeiro dia útil do mês, com envio das parciais aos gestores das áreas (o agendamento aceita sexta mais o primeiro dia útil; o envio por e-mail é do Épico 5).
 
 As a analista,
 I want que a importação rode sozinha todo dia,

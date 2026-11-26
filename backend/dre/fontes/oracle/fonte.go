@@ -158,12 +158,20 @@ func (f *fonteConsolidado) Ler(ctx context.Context, _ dre.Escopo) ([]dre.Lancame
 }
 
 type fonteRealizado struct {
-	l    Leitor
-	comp time.Time
+	l         Leitor
+	comp      time.Time
+	excluidas map[string]bool
 }
 
 // NovaRealizado é a fonte do realizado por conta gerencial para uma competência.
-func NovaRealizado(l Leitor, comp time.Time) dre.FonteERP { return &fonteRealizado{l, comp} }
+// As contas excluídas (configuração) não entram no DRE.
+func NovaRealizado(l Leitor, comp time.Time, excluidas ...string) dre.FonteERP {
+	f := &fonteRealizado{l: l, comp: comp, excluidas: map[string]bool{}}
+	for _, c := range excluidas {
+		f.excluidas[c] = true
+	}
+	return f
+}
 
 func (f *fonteRealizado) Nome() string        { return OrigemRealizado }
 func (f *fonteRealizado) CompetenciaInteira() {}
@@ -176,6 +184,9 @@ func (f *fonteRealizado) Ler(ctx context.Context, _ dre.Escopo) ([]dre.Lancament
 	}
 	out := make([]dre.Lancamento, 0, len(linhas))
 	for i, l := range linhas {
+		if f.excluidas[strings.TrimSpace(l.Conta)] {
+			continue
+		}
 		hist := ""
 		if !l.Data.IsZero() {
 			hist = "data " + l.Data.Format("02/01/2006")

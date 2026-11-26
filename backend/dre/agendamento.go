@@ -35,6 +35,9 @@ type Agendamento struct {
 	Frequencia string `json:"frequencia"`
 	Dia        int    `json:"dia"`  // mensal: 1 a 28; semanal: 0 (domingo) a 6
 	Hora       string `json:"hora"` // HH:MM
+	// PrimeiroUtil roda também no primeiro dia útil do mês (segunda a sexta;
+	// feriados não são considerados).
+	PrimeiroUtil bool `json:"primeiro_util"`
 
 	Desde  time.Time  `json:"-"`
 	Ultimo *time.Time `json:"ultimo,omitempty"`
@@ -69,8 +72,8 @@ func (a Agendamento) Validar() (int, int, error) {
 	return h.Hour(), h.Minute(), nil
 }
 
-// horarioAte devolve o último horário previsto que não passa de agora.
-func (a Agendamento) horarioAte(agora time.Time, loc *time.Location) (time.Time, error) {
+// horarioDaFrequencia devolve o último horário da frequência que não passa de agora.
+func (a Agendamento) horarioDaFrequencia(agora time.Time, loc *time.Location) (time.Time, error) {
 	h, m, err := a.Validar()
 	if err != nil {
 		return time.Time{}, err
@@ -92,9 +95,9 @@ func (a Agendamento) horarioAte(agora time.Time, loc *time.Location) (time.Time,
 	}
 }
 
-// proximoApos devolve o primeiro horário previsto depois de agora.
-func (a Agendamento) proximoApos(agora time.Time, loc *time.Location) (time.Time, error) {
-	s, err := a.horarioAte(agora, loc)
+// proximoDaFrequencia devolve o primeiro horário da frequência depois de agora.
+func (a Agendamento) proximoDaFrequencia(agora time.Time, loc *time.Location) (time.Time, error) {
+	s, err := a.horarioDaFrequencia(agora, loc)
 	if err != nil {
 		return s, err
 	}
@@ -107,11 +110,65 @@ func (a Agendamento) proximoApos(agora time.Time, loc *time.Location) (time.Time
 	return s.AddDate(0, 0, 1), nil
 }
 
-// MesesDoAgendamento diz o que reler: no mensal, o mês anterior (fechado); no
-// diário e no semanal, o anterior e o corrente.
-func MesesDoAgendamento(frequencia string, horario time.Time) []time.Time {
+// primeiroUtil é o primeiro dia útil do mês (segunda a sexta), na hora dada.
+func primeiroUtil(ano int, mes time.Month, h, m int, loc *time.Location) time.Time {
+	d := time.Date(ano, mes, 1, h, m, 0, 0, loc)
+	for d.Weekday() == time.Saturday || d.Weekday() == time.Sunday {
+		d = d.AddDate(0, 0, 1)
+	}
+	return d
+}
+
+// horarioAte devolve o último horário previsto que não passa de agora, e se ele
+// vem só do primeiro dia útil.
+func (a Agendamento) horarioAte(agora time.Time, loc *time.Location) (time.Time, bool, error) {
+	s, err := a.horarioDaFrequencia(agora, loc)
+	if err != nil || !a.PrimeiroUtil {
+		return s, false, err
+	}
+	h, m, err := a.Validar()
+	if err != nil {
+		return s, false, err
+	}
+	l := agora.In(loc)
+	u := primeiroUtil(l.Year(), l.Month(), h, m, loc)
+	if u.After(l) {
+		ant := time.Date(l.Year(), l.Month()-1, 1, 0, 0, 0, 0, loc)
+		u = primeiroUtil(ant.Year(), ant.Month(), h, m, loc)
+	}
+	if !u.Before(s) {
+		return u, true, nil
+	}
+	return s, false, nil
+}
+
+// proximoApos devolve o primeiro horário previsto depois de agora.
+func (a Agendamento) proximoApos(agora time.Time, loc *time.Location) (time.Time, error) {
+	s, err := a.proximoDaFrequencia(agora, loc)
+	if err != nil || !a.PrimeiroUtil {
+		return s, err
+	}
+	h, m, err := a.Validar()
+	if err != nil {
+		return s, err
+	}
+	l := agora.In(loc)
+	u := primeiroUtil(l.Year(), l.Month(), h, m, loc)
+	if !u.After(l) {
+		prox := time.Date(l.Year(), l.Month()+1, 1, 0, 0, 0, 0, loc)
+		u = primeiroUtil(prox.Year(), prox.Month(), h, m, loc)
+	}
+	if u.Before(s) {
+		return u, nil
+	}
+	return s, nil
+}
+
+// MesesDoAgendamento diz o que reler: no mensal e no primeiro dia útil, o mês
+// anterior (fechado); no diário e no semanal, o anterior e o corrente.
+func MesesDoAgendamento(frequencia string, primeiroUtil bool, horario time.Time) []time.Time {
 	atual := time.Date(horario.Year(), horario.Month(), 1, 0, 0, 0, 0, time.UTC)
-	if frequencia == FrequenciaMensal {
+	if frequencia == FrequenciaMensal || primeiroUtil {
 		return []time.Time{atual.AddDate(0, -1, 0)}
 	}
 	return []time.Time{atual.AddDate(0, -1, 0), atual}
@@ -121,9 +178,9 @@ func MesesDoAgendamento(frequencia string, horario time.Time) []time.Time {
 func LerAgendamento(ctx context.Context, db *sql.DB, empresaID string, agora time.Time) (Agendamento, error) {
 	a := AgendamentoPadrao()
 	var ultimo sql.NullTime
-	err := db.QueryRowContext(ctx, `SELECT ativo, frequencia, dia, hora, desde, ultimo_horario
+	err := db.QueryRowContext(ctx, `SELECT ativo, frequencia, dia, hora, primeiro_util, desde, ultimo_horario
 		FROM auditoria.agendamento_erp WHERE empresa_id=$1::uuid`, empresaID).
-		Scan(&a.Ativo, &a.Frequencia, &a.Dia, &a.Hora, &a.Desde, &ultimo)
+		Scan(&a.Ativo, &a.Frequencia, &a.Dia, &a.Hora, &a.PrimeiroUtil, &a.Desde, &ultimo)
 	if errors.Is(err, sql.ErrNoRows) {
 		return a, nil
 	}
@@ -162,15 +219,15 @@ func SalvarAgendamento(ctx context.Context, db *sql.DB, empresaID, userID string
 	}
 	defer tx.Rollback()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO auditoria.agendamento_erp
-			(empresa_id, ativo, frequencia, dia, hora, desde, atualizado_por, atualizado_em)
-		VALUES ($1::uuid,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,$6)
+			(empresa_id, ativo, frequencia, dia, hora, desde, atualizado_por, atualizado_em, primeiro_util)
+		VALUES ($1::uuid,$2,$3,$4,$5,$6,NULLIF($7,'')::uuid,$6,$8)
 		ON CONFLICT (empresa_id) DO UPDATE SET ativo=$2, frequencia=$3, dia=$4, hora=$5, desde=$6,
-			atualizado_por=NULLIF($7,'')::uuid, atualizado_em=$6`,
-		empresaID, a.Ativo, a.Frequencia, a.Dia, a.Hora, agora, userID); err != nil {
+			atualizado_por=NULLIF($7,'')::uuid, atualizado_em=$6, primeiro_util=$8`,
+		empresaID, a.Ativo, a.Frequencia, a.Dia, a.Hora, agora, userID, a.PrimeiroUtil); err != nil {
 		return err
 	}
 	if err := trilha.Gravar(tx, empresaID, userID, "agendamento_erp", empresaID, "salvar",
-		map[string]any{"ativo": a.Ativo, "frequencia": a.Frequencia, "dia": a.Dia, "hora": a.Hora}); err != nil {
+		map[string]any{"ativo": a.Ativo, "frequencia": a.Frequencia, "dia": a.Dia, "hora": a.Hora, "primeiro_util": a.PrimeiroUtil}); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -188,7 +245,7 @@ func (i *ImportacaoERP) Agendar(ctx context.Context, agora time.Time) (*Execucao
 	if err != nil {
 		return nil, err
 	}
-	slot, err := a.horarioAte(agora, loc)
+	slot, util, err := a.horarioAte(agora, loc)
 	if err != nil {
 		return nil, err
 	}
@@ -204,7 +261,7 @@ func (i *ImportacaoERP) Agendar(ctx context.Context, agora time.Time) (*Execucao
 	if n, err := r.RowsAffected(); err != nil || n == 0 {
 		return nil, err
 	}
-	p, err := i.Iniciar(ctx, EscopoAtualizacao{EmpresaID: i.EmpresaID}, GatilhoAgendador, MesesDoAgendamento(a.Frequencia, slot))
+	p, err := i.Iniciar(ctx, EscopoAtualizacao{EmpresaID: i.EmpresaID}, GatilhoAgendador, MesesDoAgendamento(a.Frequencia, util, slot))
 	if err != nil {
 		if _, e := i.DB.ExecContext(ctx, `UPDATE auditoria.agendamento_erp SET ultimo_horario=$2 WHERE empresa_id=$1::uuid`,
 			i.EmpresaID, a.Ultimo); e != nil {

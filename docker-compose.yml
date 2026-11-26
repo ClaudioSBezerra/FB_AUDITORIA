@@ -30,6 +30,8 @@ services:
       - JC_EMPRESA_ID=${JC_EMPRESA_ID:-}
       - JC_ORACLE_REALIZ_OBJETO=${JC_ORACLE_REALIZ_OBJETO:-CONTR_DRE_REALIZ}
       - JC_ORACLE_REALIZ_DATA=${JC_ORACLE_REALIZ_DATA:-DTLANC}
+      # contas do realizado que não entram no DRE, separadas por vírgula
+      - JC_ORACLE_CONTAS_EXCLUIDAS=${JC_ORACLE_CONTAS_EXCLUIDAS:-}
       - CARGA_MAX_MB=${CARGA_MAX_MB:-1024}
       - JC_ORACLE_DRE_VIEWS=${JC_ORACLE_DRE_VIEWS:?JC_ORACLE_DRE_VIEWS é obrigatória}
     depends_on:

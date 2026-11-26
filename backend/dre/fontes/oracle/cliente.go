@@ -21,10 +21,11 @@ import (
 type Config struct {
 	Host, Servico, Usuario, Senha string
 	Porta                         int
-	ObjetoConsolidado             string // padrão VW_DRE_CONSOLIDADO
-	ObjetoRealizado               string // padrão CONTR_DRE_REALIZ
-	ColunaData                    string // padrão DTLANC
-	ArquivoContas                 string // vazio = o que acompanha o sistema
+	ObjetoConsolidado             string   // padrão VW_DRE_CONSOLIDADO
+	ObjetoRealizado               string   // padrão CONTR_DRE_REALIZ
+	ColunaData                    string   // padrão DTLANC
+	ArquivoContas                 string   // vazio = o que acompanha o sistema
+	ContasExcluidas               []string // contas do realizado que não entram no DRE
 }
 
 // ident é um identificador Oracle simples, com schema opcional. Nada além disso
@@ -49,6 +50,9 @@ func ConfigDoAmbiente(getenv func(string) string) (Config, bool, error) {
 		ObjetoRealizado:   v("JC_ORACLE_REALIZ_OBJETO", "CONTR_DRE_REALIZ"),
 		ColunaData:        v("JC_ORACLE_REALIZ_DATA", "DTLANC"),
 		ArquivoContas:     v("JC_ORACLE_CONTAS_ARQUIVO", ""),
+		ContasExcluidas: strings.FieldsFunc(v("JC_ORACLE_CONTAS_EXCLUIDAS", ""), func(r rune) bool {
+			return r == ',' || r == ';' || r == ' '
+		}),
 	}
 	if c.Host == "" || c.Servico == "" || c.Usuario == "" || c.Senha == "" {
 		return c, false, nil

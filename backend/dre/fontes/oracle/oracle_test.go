@@ -106,3 +106,16 @@ func TestCausaNaoLevaDadosDaConexao(t *testing.T) {
 		}
 	}
 }
+
+type leitorExclusao struct{ Leitor }
+
+func (leitorExclusao) Realizado(context.Context, time.Time) ([]LinhaRealizado, error) {
+	return []LinhaRealizado{{Filial: "1", Conta: "100", Valor: -1}, {Filial: "1", Conta: "900", Valor: -2}}, nil
+}
+
+func TestRealizadoIgnoraContasExcluidas(t *testing.T) {
+	l, err := NovaRealizado(leitorExclusao{}, time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC), "900").Ler(context.Background(), dre.Escopo{})
+	if err != nil || len(l) != 1 || l[0].Conta != "100" {
+		t.Fatalf("%+v %v", l, err)
+	}
+}

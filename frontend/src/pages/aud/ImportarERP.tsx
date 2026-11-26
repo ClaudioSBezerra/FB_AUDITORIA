@@ -104,7 +104,7 @@ export default function ImportarERP() {
   )
 }
 
-interface Agenda { ativo: boolean; frequencia: string; dia: number; hora: string; ultimo?: string; proxima?: string }
+interface Agenda { ativo: boolean; frequencia: string; dia: number; hora: string; primeiro_util: boolean; ultimo?: string; proxima?: string }
 const SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado']
 
 // Importação automática (história 2.13). Nasce desligada; a hora é a de Brasília.
@@ -123,7 +123,7 @@ function Agendamento() {
     try {
       const a = await api<Agenda>('/api/aud/importacao-erp/agendamento', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ativo: form!.ativo, frequencia: form!.frequencia, dia: form!.dia, hora: form!.hora }),
+        body: JSON.stringify({ ativo: form!.ativo, frequencia: form!.frequencia, dia: form!.dia, hora: form!.hora, primeiro_util: form!.primeiro_util }),
       })
       setSalvo(a); setForm(a)
       toast.success(a.ativo ? 'Importação automática ligada' : 'Importação automática desligada')
@@ -153,9 +153,10 @@ function Agendamento() {
             {SEMANA.map((d, i) => <option key={d} value={i}>{d}</option>)}
           </select></label>}
         <label className="flex flex-col">Hora (Brasília)<input type="time" className={campo} value={form.hora} onChange={e => setForm({ ...form, hora: e.target.value })} /></label>
+        <label className="flex items-center gap-1.5 pb-1.5 text-sm"><input type="checkbox" checked={form.primeiro_util} onChange={e => setForm({ ...form, primeiro_util: e.target.checked })} />Também no 1º dia útil do mês</label>
         <Button size="sm" variant="outline" disabled={salvando} onClick={salvar}>Salvar</Button>
       </div>
-      <p className="text-muted-foreground">{form.frequencia === 'mensal' ? 'Relê o mês anterior.' : 'Relê o mês anterior e o corrente.'} Mês fechado é pulado. Faça antes uma importação manual e confira o resultado.</p>
+      <p className="text-muted-foreground">{form.frequencia === 'mensal' ? 'Relê o mês anterior.' : 'Relê o mês anterior e o corrente.'}{form.primeiro_util ? ' No 1º dia útil (segunda a sexta, sem considerar feriados) relê o mês anterior.' : ''} Mês fechado é pulado. Faça antes uma importação manual e confira o resultado.</p>
       {erro && <p className="text-red-700">{erro}</p>}
     </div>
   )

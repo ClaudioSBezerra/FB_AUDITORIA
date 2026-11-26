@@ -24,3 +24,7 @@ O dono do produto quer rodar a importação manualmente quando a base do cliente
 ## Atenção
 
 - A limpeza de dados de teste não desliga o agendamento.
+
+## Ajuste (pedido do cliente)
+
+- Opção "também no primeiro dia útil do mês" (migração 020): segunda a sexta, sem feriados; nesse disparo relê só o mês anterior.
