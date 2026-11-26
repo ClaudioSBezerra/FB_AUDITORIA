@@ -472,6 +472,8 @@ func main() {
 	http.HandleFunc("/api/aud/importacao-erp", withAud(handlers.ImportacaoERPHandler, est, handlers.CapCarregar))
 	// 2.13: ligar, desligar e configurar a importação automática.
 	http.HandleFunc("/api/aud/importacao-erp/agendamento", withAud(handlers.AgendamentoERPHandler, est, handlers.CapCarregar))
+	// 2.23: retirar a movimentação carregada.
+	http.HandleFunc("/api/aud/movimentacao/retirada", withAud(handlers.RetiradaHandler, est, handlers.CapCarregar))
 	http.HandleFunc("/api/aud/dre/lancamentos/importar", withAud(handlers.DREImportarHandler, est, handlers.CapCarregar))
 	// 2.12: conferência entre origens de lançamentos; leitura irrestrita (o gestor recebe 403).
 	http.HandleFunc("/api/aud/conferencia", gz(withAud(handlers.ConferenciaHandler, est, handlers.CapLer)))

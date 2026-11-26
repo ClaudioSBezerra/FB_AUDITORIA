@@ -1231,6 +1231,23 @@ So that eu não precise lembrar.
 
 **Ajuste (26/11/2026, a pedido do dono do produto):** a frequência é escolhida na tela (diária, semanal ou mensal, padrão dia 05 às 06:30), porque a controladoria ainda não decidiu; o agendamento nasce desligado e é ligado depois da primeira importação manual. A configuração fica em `auditoria.agendamento_erp`. O orçado (2.6) entra no agendamento quando existir.
 
+### Story 2.23: Retirar a movimentação carregada
+
+As a analista,
+I want retirar os lançamentos de um mês, ou todos em ambiente de teste,
+So that eu receba uma carga nova sem somar em dobro e sem recarregar os cadastros.
+
+**Acceptance Criteria:**
+
+**Given** um mês (ou tudo)
+**When** peço a prévia
+**Then** vejo o que será apagado por competência e origem, sem gravar nada
+
+**Given** a confirmação digitada
+**When** retiro
+**Then** apaga só os lançamentos, libera a posse das contas sem lançamento daquela origem (AD-16) e grava a trilha
+**And** mês fechado recusa tudo; "tudo" só em ambiente de teste
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.

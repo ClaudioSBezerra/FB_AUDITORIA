@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-11-26",
-  "versao": "63b4d43",
+  "versao": "4b2b48c",
   "historias": [
     {
       "id": "1.1",
@@ -580,6 +580,22 @@
         "Dado uma competência\nQuando importa\nEntão lê o objeto filtrando pela coluna de data do mês, somado por filial, conta e dia, e grava com origem oracle.realizado, a conta e o sinal como vieram e a data no histórico",
         "Dado JC_ORACLE_REALIZ_OBJETO ou JC_ORACLE_REALIZ_DATA que não é um identificador Oracle\nEntão a conexão fica desligada e o motivo vai ao log",
         "Dado uma conta sem Mapa do DRE\nEntão ela é importada e aparece como conta sem Mapa (não é filtrada no código)"
+      ]
+    },
+    {
+      "id": "2.23",
+      "titulo": "Retirar a movimentação carregada",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como analista, quero retirar os lançamentos de um mês, ou todos em ambiente de teste, para que eu receba uma carga nova sem somar em dobro e sem recarregar os cadastros.",
+      "criterios": [
+        "Dado um mês (ou tudo)\nQuando peço a prévia\nEntão vejo o que será apagado por competência e origem, sem gravar nada",
+        "Dado a confirmação digitada\nQuando retiro\nEntão apaga só os lançamentos, libera a posse das contas sem lançamento daquela origem (AD-16) e grava a trilha\nE mês fechado recusa tudo; \"tudo\" só em ambiente de teste"
       ]
     },
     {
