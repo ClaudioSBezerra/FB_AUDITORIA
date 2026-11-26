@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -200,6 +201,13 @@ func DREContaLancamentosHandler(db *sql.DB) http.HandlerFunc {
 		if len(det.SemSnapshot) > 0 {
 			avisos = append(avisos, "Fechamento anterior ao detalhe por conta: sem valor congelado da conta em "+strings.Join(det.SemSnapshot, ", ")+".")
 		}
+		// 2.24: quem lê só no escopo (gestor) vê o nome apenas dos tipos liberados.
+		if !esc.Irrestrito {
+			visiveis := tiposParceiroDoGestor()
+			for i := range det.Lancamentos {
+				det.Lancamentos[i].RestringirParceiro(visiveis)
+			}
+		}
 		writeAuditLog(db, c.EmpresaID, c.UserID, "dre_lancamentos", conta, "visualizar", rec.comVisao(visao))
 		writeJSON(w, map[string]any{
 			"conta": det.Conta, "descricao": desc.De(det.Conta), "linha": det.Linha,
@@ -347,4 +355,20 @@ func DRETrimestresHandler(db *sql.DB) http.HandlerFunc {
 			"ano": ano, "colunas": colunas, "linhas": res, "nao_mapeado": naoMapeado, "aviso_faturamento": avisoFat,
 		})
 	}
+}
+
+// tiposParceiroDoGestor são os tipos de parceiro cujo nome o gestor pode ver
+// (DRE_GESTOR_TIPOS_PARCEIRO; padrão F, fornecedor).
+func tiposParceiroDoGestor() map[string]bool {
+	v := strings.TrimSpace(os.Getenv("DRE_GESTOR_TIPOS_PARCEIRO"))
+	if v == "" {
+		v = "F"
+	}
+	out := map[string]bool{}
+	for _, t := range strings.Split(v, ",") {
+		if t = strings.TrimSpace(t); t != "" {
+			out[t] = true
+		}
+	}
+	return out
 }

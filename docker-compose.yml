@@ -32,6 +32,11 @@ services:
       - JC_ORACLE_REALIZ_DATA=${JC_ORACLE_REALIZ_DATA:-DTLANC}
       # contas do realizado que não entram no DRE, separadas por vírgula
       - JC_ORACLE_CONTAS_EXCLUIDAS=${JC_ORACLE_CONTAS_EXCLUIDAS:-}
+      # true quando o objeto traz um lançamento por linha (parceiro, nota, RECNUM)
+      - JC_ORACLE_REALIZ_DETALHE=${JC_ORACLE_REALIZ_DETALHE:-false}
+      - JC_ORACLE_REALIZ_HISTORICO=${JC_ORACLE_REALIZ_HISTORICO:-}
+      # tipos de parceiro cujo nome o gestor vê no detalhe
+      - DRE_GESTOR_TIPOS_PARCEIRO=${DRE_GESTOR_TIPOS_PARCEIRO:-F}
       - CARGA_MAX_MB=${CARGA_MAX_MB:-1024}
       - JC_ORACLE_DRE_VIEWS=${JC_ORACLE_DRE_VIEWS:?JC_ORACLE_DRE_VIEWS é obrigatória}
     depends_on:

@@ -14,6 +14,7 @@ interface ContaItem { conta: string; descricao: string; linha: string; valor: nu
 interface Lancamento {
   id: number; competencia: string; filial: string; centro_custo: string; canal: string
   origem: string; tipo_doc: string; doc_ref: string; historico: string; valor: number
+  data?: string; data_lancamento?: string; parceiro?: string; parceiro_cod?: string; erp_id?: string; restrito?: boolean
 }
 interface LancResp {
   conta: string; descricao: string; total: number; soma_lancamentos: number; meses_fechados: string[]
@@ -66,8 +67,13 @@ function Lancamentos({ q, conta, onVoltar }: { q: string; conta: string; onVolta
           <tbody>
             {(d?.lancamentos ?? []).map(l => (
               <tr key={l.id} className="border-b last:border-0">
-                <td className="p-2 whitespace-nowrap">{l.competencia}</td>
-                <td className="p-2">{l.historico}</td>
+                <td className="p-2 whitespace-nowrap" title={l.data_lancamento ? `lançado em ${l.data_lancamento}` : undefined}>{l.data || l.competencia}</td>
+                <td className="p-2">
+                  {l.restrito ? <span className="text-muted-foreground">nome restrito</span> : <>
+                    {l.parceiro || (l.parceiro_cod ? `parceiro ${l.parceiro_cod}` : '')}
+                    {l.historico && <span className={l.parceiro ? 'block text-muted-foreground' : ''}>{l.historico}</span>}
+                  </>}
+                </td>
                 <td className="p-2 whitespace-nowrap">{[l.tipo_doc, l.doc_ref].filter(Boolean).join(' ')}</td>
                 <td className="p-2">{l.filial}</td>
                 <td className="p-2 text-right tabular-nums">{brl(l.valor)}</td>

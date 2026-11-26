@@ -119,3 +119,14 @@ func TestRealizadoIgnoraContasExcluidas(t *testing.T) {
 		t.Fatalf("%+v %v", l, err)
 	}
 }
+
+func TestSQLRealizadoDetalhado(t *testing.T) {
+	c := Config{ObjetoRealizado: "VW_X", ColunaData: "DTPAGTO"}
+	if s := c.SQLRealizado(); !strings.Contains(s, "GROUP BY") || strings.Contains(s, "FORNECEDOR") {
+		t.Errorf("modo somado: %s", s)
+	}
+	c.Detalhado = true
+	if s := c.SQLRealizado(); strings.Contains(s, "GROUP BY") || !strings.Contains(s, "FORNECEDOR") || !strings.Contains(s, "RECNUM") || !strings.Contains(s, "DTPAGTO >=") {
+		t.Errorf("modo detalhado: %s", s)
+	}
+}

@@ -26,6 +26,8 @@ type Config struct {
 	ColunaData                    string   // padrão DTLANC
 	ArquivoContas                 string   // vazio = o que acompanha o sistema
 	ContasExcluidas               []string // contas do realizado que não entram no DRE
+	Detalhado                     bool     // uma linha por lançamento, com parceiro e nota
+	ColunaHistorico               string   // opcional, só no modo detalhado
 }
 
 // ident é um identificador Oracle simples, com schema opcional. Nada além disso
@@ -53,6 +55,8 @@ func ConfigDoAmbiente(getenv func(string) string) (Config, bool, error) {
 		ContasExcluidas: strings.FieldsFunc(v("JC_ORACLE_CONTAS_EXCLUIDAS", ""), func(r rune) bool {
 			return r == ',' || r == ';' || r == ' '
 		}),
+		Detalhado:       strings.EqualFold(v("JC_ORACLE_REALIZ_DETALHE", ""), "true"),
+		ColunaHistorico: v("JC_ORACLE_REALIZ_HISTORICO", ""),
 	}
 	if c.Host == "" || c.Servico == "" || c.Usuario == "" || c.Senha == "" {
 		return c, false, nil
@@ -71,6 +75,9 @@ func ConfigDoAmbiente(getenv func(string) string) (Config, bool, error) {
 	if !coluna.MatchString(c.ColunaData) {
 		return c, false, errors.New("JC_ORACLE_REALIZ_DATA não é um nome de coluna Oracle")
 	}
+	if c.ColunaHistorico != "" && !coluna.MatchString(c.ColunaHistorico) {
+		return c, false, errors.New("JC_ORACLE_REALIZ_HISTORICO não é um nome de coluna Oracle")
+	}
 	return c, true, nil
 }
 
@@ -82,6 +89,16 @@ func (c Config) SQLConsolidado() string {
 
 func (c Config) SQLRealizado() string {
 	d := c.ColunaData
+	filtro := " WHERE " + d + " >= TO_DATE(:1,'YYYY-MM-DD') AND " + d + " < ADD_MONTHS(TO_DATE(:2,'YYYY-MM-DD'),1)"
+	if c.Detalhado {
+		hist := "CAST(NULL AS VARCHAR2(1))"
+		if c.ColunaHistorico != "" {
+			hist = c.ColunaHistorico
+		}
+		return "SELECT CODFILIAL, TO_CHAR(CODCONTA), CONTA, TRUNC(" + d + "), VALOR, TRUNC(DTLANC), TIPOPARCEIRO," +
+			" TO_CHAR(CODFORNEC), FORNECEDOR, TO_CHAR(RECNUM), TO_CHAR(NUMNOTA), " + hist +
+			" FROM " + c.ObjetoRealizado + filtro
+	}
 	return "SELECT CODFILIAL, TO_CHAR(CODCONTA), MAX(CONTA), TRUNC(" + d + "), SUM(VALOR) FROM " + c.ObjetoRealizado +
 		" WHERE " + d + " >= TO_DATE(:1,'YYYY-MM-DD') AND " + d + " < ADD_MONTHS(TO_DATE(:2,'YYYY-MM-DD'),1)" +
 		" GROUP BY CODFILIAL, CODCONTA, TRUNC(" + d + ")"
@@ -192,15 +209,22 @@ func (c *Cliente) Realizado(ctx context.Context, comp time.Time) ([]LinhaRealiza
 	var out []LinhaRealizado
 	err := c.consultar(ctx, c.cfg.SQLRealizado(), []any{ini, ini}, func(r *sql.Rows) error {
 		var filial, conta, desc sql.NullString
-		var data sql.NullTime
+		var data, dtLanc sql.NullTime
 		var valor sql.NullFloat64
-		if err := r.Scan(&filial, &conta, &desc, &data, &valor); err != nil {
+		var tipo, cod, parceiro, recnum, nota, hist sql.NullString
+		dest := []any{&filial, &conta, &desc, &data, &valor}
+		if c.cfg.Detalhado {
+			dest = append(dest, &dtLanc, &tipo, &cod, &parceiro, &recnum, &nota, &hist)
+		}
+		if err := r.Scan(dest...); err != nil {
 			return fmt.Errorf("ler linha: %w", err)
 		}
 		if !valor.Valid {
 			return nil // valor nulo não é gravado
 		}
-		out = append(out, LinhaRealizado{Filial: filial.String, Conta: conta.String, Descricao: desc.String, Data: data.Time, Valor: valor.Float64})
+		out = append(out, LinhaRealizado{Filial: filial.String, Conta: conta.String, Descricao: desc.String, Data: data.Time, Valor: valor.Float64,
+			DataLancamento: dtLanc.Time, ParceiroTipo: tipo.String, ParceiroCod: cod.String, Parceiro: parceiro.String,
+			ERPID: recnum.String, Nota: nota.String, Historico: hist.String})
 		return nil
 	})
 	return out, err

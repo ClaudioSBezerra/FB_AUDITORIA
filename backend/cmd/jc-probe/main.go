@@ -27,12 +27,15 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	go_ora "github.com/sijms/go-ora/v2"
 )
+
+var identificador = regexp.MustCompile(`^[A-Z][A-Z0-9_$#.]{0,127}$`)
 
 func env(k, def string) string {
 	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
@@ -310,15 +313,19 @@ func tabela(db *sql.DB, titulo, q string, args ...any) {
 // realizado responde o que a integração precisa saber da tabela de realizado por
 // conta. Sem mês, sai só estrutura e contagens; com mês, os totais por conta.
 func realizado(db *sql.DB, mes time.Time, filial string) {
-	for _, n := range []string{"CONTR_DRE_REALIZ", "VW_DRE_CONTAS", "VW_DRE_FILIAL"} {
+	nome, data := strings.ToUpper(env("JC_ORACLE_REALIZ_OBJETO", "CONTR_DRE_REALIZ")), strings.ToUpper(env("JC_ORACLE_REALIZ_DATA", "DTLANC"))
+	if !identificador.MatchString(nome) || !identificador.MatchString(data) {
+		fail("JC_ORACLE_REALIZ_OBJETO/DATA inválidos")
+	}
+	for _, n := range []string{nome, "VW_DRE_CONTAS", "VW_DRE_FILIAL"} {
 		sonda(db, n, false)
 	}
-	real := alvo(db, "CONTR_DRE_REALIZ")
+	real := alvo(db, nome)
 
 	if !mes.IsZero() {
 		ini := mes.Format("2006-01-02")
-		onde := " FROM " + real + ` WHERE DTLANC >= TO_DATE(:1,'YYYY-MM-DD')
-			AND DTLANC < ADD_MONTHS(TO_DATE(:2,'YYYY-MM-DD'),1)
+		onde := " FROM " + real + " WHERE " + data + ` >= TO_DATE(:1,'YYYY-MM-DD')
+			AND ` + data + ` < ADD_MONTHS(TO_DATE(:2,'YYYY-MM-DD'),1)
 			AND LTRIM(TRIM(CODFILIAL),'0') = LTRIM(:3,'0')`
 		tabela(db, "total por conta, "+mes.Format("2006-01")+", filial "+filial+" (VALORES)",
 			`SELECT CODCONTA, COUNT(*) LINHAS,
@@ -328,9 +335,9 @@ func realizado(db *sql.DB, mes time.Time, filial string) {
 		return
 	}
 
-	tabela(db, "linhas por mês de DTLANC",
-		"SELECT TO_CHAR(DTLANC,'YYYY-MM') MES, COUNT(*) LINHAS, COUNT(DISTINCT TRUNC(DTLANC)) DIAS FROM "+
-			real+" GROUP BY TO_CHAR(DTLANC,'YYYY-MM') ORDER BY 1")
+	tabela(db, "linhas por mês de "+data,
+		"SELECT TO_CHAR("+data+",'YYYY-MM') MES, COUNT(*) LINHAS, COUNT(DISTINCT TRUNC("+data+")) DIAS FROM "+
+			real+" GROUP BY TO_CHAR("+data+",'YYYY-MM') ORDER BY 1")
 	tabela(db, "linhas e sinal por filial",
 		`SELECT CODFILIAL, COUNT(*) LINHAS, SUM(CASE WHEN VALOR > 0 THEN 1 ELSE 0 END) POSITIVAS,
 			SUM(CASE WHEN VALOR < 0 THEN 1 ELSE 0 END) NEGATIVAS FROM `+real+` GROUP BY CODFILIAL ORDER BY 1`)

@@ -38,6 +38,10 @@ type LinhaRealizado struct {
 	Filial, Conta, Descricao string
 	Data                     time.Time
 	Valor                    float64
+	// Só no modo detalhado (uma linha por lançamento).
+	DataLancamento                      time.Time
+	ParceiroTipo, ParceiroCod, Parceiro string
+	ERPID, Nota, Historico              string
 }
 
 // Leitor lê o banco do cliente; a implementação real é Cliente. Os erros
@@ -191,8 +195,21 @@ func (f *fonteRealizado) Ler(ctx context.Context, _ dre.Escopo) ([]dre.Lancament
 		if !l.Data.IsZero() {
 			hist = "data " + l.Data.Format("02/01/2006")
 		}
-		out = append(out, dre.Lancamento{Linha: i + 1, Competencia: f.comp, Filial: dre.NormFilialConferencia(l.Filial),
-			Conta: strings.TrimSpace(l.Conta), ContaDesc: strings.TrimSpace(l.Descricao), Valor: l.Valor, Historico: hist})
+		x := dre.Lancamento{Linha: i + 1, Competencia: f.comp, Filial: dre.NormFilialConferencia(l.Filial),
+			Conta: strings.TrimSpace(l.Conta), ContaDesc: strings.TrimSpace(l.Descricao), Valor: l.Valor, Historico: hist,
+			DataReferencia: l.Data}
+		if l.ERPID != "" { // modo detalhado
+			x.ERPID, x.DataLancamento = strings.TrimSpace(l.ERPID), l.DataLancamento
+			x.ParceiroTipo, x.Parceiro = strings.TrimSpace(l.ParceiroTipo), strings.TrimSpace(l.Parceiro)
+			if cod := strings.TrimSpace(l.ParceiroCod); cod != "0" {
+				x.ParceiroCod = cod
+			}
+			x.Historico = strings.TrimSpace(l.Historico)
+			if nota := strings.TrimSpace(l.Nota); nota != "" && nota != "0" {
+				x.TipoDoc, x.DocRef = "NF", nota
+			}
+		}
+		out = append(out, x)
 	}
 	return out, nil
 }

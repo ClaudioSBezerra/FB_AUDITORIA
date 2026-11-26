@@ -71,6 +71,7 @@ development_status:
   2-21-carga-do-mapa-de-filiais-e-dos-agrupamentos-por-arquivo: done
   2-22-ler-o-realizado-por-conta-do-oracle-fr-1-ad-2-ad-4-ad-16: review
   2-23-retirar-a-movimentação-carregada: review
+  2-24-detalhe-por-lançamento-do-banco-do-cliente: review
   epic-2-retrospective: optional
 
   epic-3: backlog

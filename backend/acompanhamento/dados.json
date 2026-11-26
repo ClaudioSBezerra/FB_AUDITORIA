@@ -1,6 +1,6 @@
 {
   "gerado_em": "2026-11-26",
-  "versao": "8b933fc",
+  "versao": "71da238",
   "historias": [
     {
       "id": "1.1",
@@ -599,6 +599,22 @@
       "criterios": [
         "Dado um mês (ou tudo)\nQuando peço a prévia\nEntão vejo o que será apagado por competência e origem, sem gravar nada",
         "Dado a confirmação digitada\nQuando retiro\nEntão apaga só os lançamentos, libera a posse das contas sem lançamento daquela origem (AD-16) e grava a trilha\nE mês fechado recusa tudo; \"tudo\" só em ambiente de teste"
+      ]
+    },
+    {
+      "id": "2.24",
+      "titulo": "Detalhe por lançamento do banco do cliente",
+      "epico": {
+        "numero": 2,
+        "nome": "Os dados do cliente entram sozinhos"
+      },
+      "release": "A1",
+      "status": "Em revisão",
+      "bloqueada_cliente": false,
+      "resumo": "Como gestor, quero ver cada lançamento com data, parceiro, nota, valor e filial, para que eu confira se a despesa está de acordo sem abrir o sistema de origem.",
+      "criterios": [
+        "Dado o modo detalhado ligado por configuração\nQuando importa\nEntão grava um lançamento por linha, com parceiro, nota, identificador e datas",
+        "Dado o detalhe de uma conta\nQuando quem lê é o gestor\nEntão o nome só aparece para os tipos de parceiro liberados por configuração (padrão: fornecedor)"
       ]
     },
     {

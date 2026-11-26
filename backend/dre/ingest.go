@@ -225,15 +225,17 @@ func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte
 		subst = append(subst, substituido{esc.Competencia[:7], esc.Filial, n})
 	}
 	stmt, err := tx.PrepareContext(ctx, `INSERT INTO auditoria.lancamentos
-		(empresa_id, competencia, filial, centro_custo, canal, conta, conta_desc, valor, origem, tipo_doc, doc_ref, historico, carga_id, uf)
-		VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`)
+		(empresa_id, competencia, filial, centro_custo, canal, conta, conta_desc, valor, origem, tipo_doc, doc_ref, historico, carga_id, uf,
+			data_lancamento, data_referencia, parceiro_tipo, parceiro_cod, parceiro_nome, erp_id)
+		VALUES ($1::uuid,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)`)
 	if err != nil {
 		return Resultado{}, err
 	}
 	defer stmt.Close()
 	for _, l := range lancs {
 		if _, err := stmt.ExecContext(ctx, empresaID, l.Competencia, l.Filial, l.CentroCusto, l.Canal, l.Conta, l.ContaDesc,
-			l.Valor, origem, l.TipoDoc, l.DocRef, l.Historico, cargaID, l.UF); err != nil {
+			l.Valor, origem, l.TipoDoc, l.DocRef, l.Historico, cargaID, l.UF,
+			dataOuNulo(l.DataLancamento), dataOuNulo(l.DataReferencia), l.ParceiroTipo, l.ParceiroCod, l.Parceiro, l.ERPID); err != nil {
 			return Resultado{}, &ErroLinhas{Problemas: []Problema{{Linha: l.Linha, Msg: err.Error()}}}
 		}
 	}
@@ -248,4 +250,12 @@ func (g *Ingestor) Importar(ctx context.Context, empresaID, userID string, fonte
 		return Resultado{}, err
 	}
 	return Resultado{CargaID: cargaID, Linhas: len(lancs), Resumo: resumo}, nil
+}
+
+// dataOuNulo grava NULL quando a fonte não traz a data.
+func dataOuNulo(t time.Time) any {
+	if t.IsZero() {
+		return nil
+	}
+	return t
 }

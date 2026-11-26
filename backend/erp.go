@@ -50,7 +50,7 @@ func configurarERP(db *sql.DB, getenv func(string) string) {
 func observacoesERP(cfg oracle.Config, contas map[string]oracle.ContaColuna) []string {
 	obs := []string{
 		"O CMV não vem do banco do cliente: a view consolidada não traz o CMV bruto.",
-		"Realizado por conta: " + cfg.ObjetoRealizado + ", pela data " + cfg.ColunaData + ". Sem fornecedor nem número de nota.",
+		"Realizado por conta: " + cfg.ObjetoRealizado + ", pela data " + cfg.ColunaData + "." + detalheDo(cfg),
 	}
 	if len(cfg.ContasExcluidas) > 0 {
 		obs = append(obs, "Contas fora do DRE (não importadas): "+strings.Join(cfg.ContasExcluidas, ", ")+".")
@@ -65,4 +65,11 @@ func observacoesERP(cfg oracle.Config, contas map[string]oracle.ContaColuna) []s
 		obs = append(obs, "Colunas da view consolidada que não são importadas: "+strings.Join(fora, ", ")+".")
 	}
 	return obs
+}
+
+func detalheDo(cfg oracle.Config) string {
+	if cfg.Detalhado {
+		return " Um lançamento por linha, com parceiro e nota."
+	}
+	return " Somado por filial, conta e dia, sem fornecedor nem número de nota."
 }

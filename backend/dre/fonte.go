@@ -30,6 +30,10 @@ type Lancamento struct {
 	DocRef      string
 	Historico   string
 	UF          string // UF de destino, quando a fonte a traz (AD-3)
+	// Detalhe do lançamento, quando a fonte o traz (história 2.24).
+	DataLancamento, DataReferencia      time.Time
+	ParceiroTipo, ParceiroCod, Parceiro string
+	ERPID                               string
 }
 
 // Fonte é a porta de entrada de lançamentos. Nome() é gravado em

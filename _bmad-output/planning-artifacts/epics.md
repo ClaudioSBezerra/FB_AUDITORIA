@@ -1258,6 +1258,22 @@ So that eu receba uma carga nova sem somar em dobro e sem recarregar os cadastro
 **Then** apaga só os lançamentos, libera a posse das contas sem lançamento daquela origem (AD-16) e grava a trilha
 **And** mês fechado recusa tudo; "tudo" só em ambiente de teste
 
+### Story 2.24: Detalhe por lançamento do banco do cliente
+
+As a gestor,
+I want ver cada lançamento com data, parceiro, nota, valor e filial,
+So that eu confira se a despesa está de acordo sem abrir o sistema de origem.
+
+**Acceptance Criteria:**
+
+**Given** o modo detalhado ligado por configuração
+**When** importa
+**Then** grava um lançamento por linha, com parceiro, nota, identificador e datas
+
+**Given** o detalhe de uma conta
+**When** quem lê é o gestor
+**Then** o nome só aparece para os tipos de parceiro liberados por configuração (padrão: fornecedor)
+
 ## Epic 3: DRE por departamento, com orçado e ano anterior
 
 Qualquer usuário autorizado lê o DRE do grupo, por filial e por departamento, mensal e acumulado, comparando Realizado, Orçado e Ano anterior.

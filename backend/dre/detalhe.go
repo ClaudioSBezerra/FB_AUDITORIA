@@ -65,6 +65,23 @@ type LancamentoConta struct {
 	DocRef      string  `json:"doc_ref"`
 	Historico   string  `json:"historico"`
 	Valor       float64 `json:"valor"`
+	// Detalhe do banco do cliente (história 2.24); vazios nas demais origens.
+	Data           string `json:"data,omitempty"` // a que definiu a competência
+	DataLancamento string `json:"data_lancamento,omitempty"`
+	ParceiroTipo   string `json:"parceiro_tipo,omitempty"`
+	ParceiroCod    string `json:"parceiro_cod,omitempty"`
+	Parceiro       string `json:"parceiro,omitempty"`
+	ERPID          string `json:"erp_id,omitempty"`
+	Restrito       bool   `json:"restrito,omitempty"` // nome omitido para o perfil
+}
+
+// RestringirParceiro omite nome, código e histórico quando o parceiro não é de um
+// tipo visível ao perfil (dado pessoal; história 2.24).
+func (l *LancamentoConta) RestringirParceiro(visiveis map[string]bool) {
+	if (l.ParceiroTipo == "" && l.Parceiro == "" && l.ParceiroCod == "") || visiveis[l.ParceiroTipo] {
+		return
+	}
+	l.Parceiro, l.ParceiroCod, l.Historico, l.Restrito = "", "", "", true
 }
 
 // Divergencia é um mês fechado em que a soma dos lançamentos ao vivo difere do
@@ -174,10 +191,12 @@ func (l Leitor) DetalheConta(ctx context.Context, empresaID string, filiais []st
 		return DetalheConta{}, err
 	}
 	out.SomaLancamentos = arredondaCentavos(out.SomaLancamentos * sinal)
-	rows, err = l.Q.QueryContext(ctx, `SELECT id, competencia, filial, centro_custo, canal, origem, tipo_doc, doc_ref, historico, valor
+	rows, err = l.Q.QueryContext(ctx, `SELECT id, competencia, filial, centro_custo, canal, origem, tipo_doc, doc_ref, historico, valor,
+			COALESCE(to_char(data_referencia,'DD/MM/YYYY'),''), COALESCE(to_char(data_lancamento,'DD/MM/YYYY'),''),
+			parceiro_tipo, parceiro_cod, parceiro_nome, erp_id
 		FROM auditoria.lancamentos
 		WHERE empresa_id = $1::uuid AND conta = $2 AND competencia BETWEEN $3 AND $4 AND ($5 OR filial = ANY($6))
-		ORDER BY competencia, id LIMIT $7 OFFSET $8`, empresaID, conta, p.Ini, p.Fim, todas, filtro, limite, offset)
+		ORDER BY competencia, data_referencia, id LIMIT $7 OFFSET $8`, empresaID, conta, p.Ini, p.Fim, todas, filtro, limite, offset)
 	if err != nil {
 		return DetalheConta{}, err
 	}
@@ -185,7 +204,8 @@ func (l Leitor) DetalheConta(ctx context.Context, empresaID string, filiais []st
 	for rows.Next() {
 		var x LancamentoConta
 		var comp time.Time
-		if err := rows.Scan(&x.ID, &comp, &x.Filial, &x.CentroCusto, &x.Canal, &x.Origem, &x.TipoDoc, &x.DocRef, &x.Historico, &x.Valor); err != nil {
+		if err := rows.Scan(&x.ID, &comp, &x.Filial, &x.CentroCusto, &x.Canal, &x.Origem, &x.TipoDoc, &x.DocRef, &x.Historico, &x.Valor,
+			&x.Data, &x.DataLancamento, &x.ParceiroTipo, &x.ParceiroCod, &x.Parceiro, &x.ERPID); err != nil {
 			return DetalheConta{}, err
 		}
 		x.Competencia = chaveMes(comp)
